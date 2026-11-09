@@ -1,0 +1,155 @@
+{
+ "T4": {
+  "device": "Tesla T4",
+  "torch": "2.15.0+cu132",
+  "rows": [
+   {
+    "shape": [
+     4608,
+     6144,
+     6144
+    ],
+    "fp16_linear_ms": 16.845279693603516,
+    "bf16_linear_ms": 151.73897552490234,
+    "fp16_linear_transposed_weight_ms": 19.660032272338867,
+    "fp16_mm_ms": 17.316831588745117,
+    "int8_dequant_per_call_then_fp16_ms": 18.868191719055176,
+    "int8_int_mm_ms": 9.936959743499756,
+    "fp8_scaled_mm_ms": "unsupported: RuntimeError",
+    "fp16_tflops": 20.65221577223806
+   },
+   {
+    "shape": [
+     4608,
+     6144,
+     16384
+    ],
+    "fp16_linear_ms": 46.8382568359375,
+    "bf16_linear_ms": 428.95269775390625,
+    "fp16_linear_transposed_weight_ms": 54.083600997924805,
+    "fp16_mm_ms": 51.021488189697266,
+    "int8_dequant_per_call_then_fp16_ms": 57.11948776245117,
+    "int8_int_mm_ms": 29.787264823913574,
+    "fp8_scaled_mm_ms": "unsupported: RuntimeError",
+    "fp16_tflops": 19.806734891640875
+   },
+   {
+    "shape": [
+     4608,
+     16384,
+     6144
+    ],
+    "fp16_linear_ms": 52.62131309509277,
+    "bf16_linear_ms": 497.3954772949219,
+    "fp16_linear_transposed_weight_ms": 80.66961669921875,
+    "fp16_mm_ms": 53.90758514404297,
+    "int8_dequant_per_call_then_fp16_ms": 60.528560638427734,
+    "int8_int_mm_ms": 30.56441593170166,
+    "fp8_scaled_mm_ms": "unsupported: RuntimeError",
+    "fp16_tflops": 17.62998453230378
+   }
+  ]
+ },
+ "A10G": {
+  "device": "NVIDIA A10G",
+  "torch": "2.15.0+cu132",
+  "rows": [
+   {
+    "shape": [
+     4608,
+     6144,
+     6144
+    ],
+    "fp16_linear_ms": 5.276671886444092,
+    "bf16_linear_ms": 5.179391860961914,
+    "fp16_linear_transposed_weight_ms": 5.346303939819336,
+    "fp16_mm_ms": 5.3242878913879395,
+    "int8_dequant_per_call_then_fp16_ms": 5.851136207580566,
+    "int8_int_mm_ms": 2.74889600276947,
+    "fp8_scaled_mm_ms": "unsupported: RuntimeError",
+    "fp16_tflops": 65.93026029716658
+   },
+   {
+    "shape": [
+     4608,
+     6144,
+     16384
+    ],
+    "fp16_linear_ms": 13.818367958068848,
+    "bf16_linear_ms": 13.58028793334961,
+    "fp16_linear_transposed_weight_ms": 13.552127838134766,
+    "fp16_mm_ms": 13.819904327392578,
+    "int8_dequant_per_call_then_fp16_ms": 15.337984085083008,
+    "int8_int_mm_ms": 7.033856153488159,
+    "fp8_scaled_mm_ms": "unsupported: RuntimeError",
+    "fp16_tflops": 67.13621599534032
+   },
+   {
+    "shape": [
+     4608,
+     16384,
+     6144
+    ],
+    "fp16_linear_ms": 13.710847854614258,
+    "bf16_linear_ms": 13.616640090942383,
+    "fp16_linear_transposed_weight_ms": 15.42246389389038,
+    "fp16_mm_ms": 13.831200122833252,
+    "int8_dequant_per_call_then_fp16_ms": 15.231488227844238,
+    "int8_int_mm_ms": 6.960127830505371,
+    "fp8_scaled_mm_ms": "unsupported: RuntimeError",
+    "fp16_tflops": 67.66269641186244
+   }
+  ]
+ },
+ "A100": {
+  "device": "NVIDIA A100-SXM4-80GB",
+  "torch": "2.15.0+cu132",
+  "rows": [
+   {
+    "shape": [
+     4608,
+     6144,
+     6144
+    ],
+    "fp16_linear_ms": 1.511423945426941,
+    "bf16_linear_ms": 1.5160319805145264,
+    "fp16_linear_transposed_weight_ms": 1.4827519655227661,
+    "fp16_mm_ms": 1.5104000568389893,
+    "int8_dequant_per_call_then_fp16_ms": 1.5738879442214966,
+    "int8_int_mm_ms": 0.8407040238380432,
+    "fp8_scaled_mm_ms": "unsupported: RuntimeError",
+    "fp16_tflops": 230.17522782314313
+   },
+   {
+    "shape": [
+     4608,
+     6144,
+     16384
+    ],
+    "fp16_linear_ms": 3.732480049133301,
+    "bf16_linear_ms": 3.652095913887024,
+    "fp16_linear_transposed_weight_ms": 3.615744113922119,
+    "fp16_mm_ms": 3.7043200731277466,
+    "int8_dequant_per_call_then_fp16_ms": 4.47487998008728,
+    "int8_int_mm_ms": 2.2507519721984863,
+    "fp8_scaled_mm_ms": "unsupported: RuntimeError",
+    "fp16_tflops": 248.55134487628922
+   },
+   {
+    "shape": [
+     4608,
+     16384,
+     6144
+    ],
+    "fp16_linear_ms": 3.5496960878372192,
+    "bf16_linear_ms": 3.610624074935913,
+    "fp16_linear_transposed_weight_ms": 3.5942400693893433,
+    "fp16_mm_ms": 3.59116792678833,
+    "int8_dequant_per_call_then_fp16_ms": 4.278271913528442,
+    "int8_int_mm_ms": 2.5338879823684692,
+    "fp8_scaled_mm_ms": "unsupported: RuntimeError",
+    "fp16_tflops": 261.3499615121256
+   }
+  ]
+ }
+}

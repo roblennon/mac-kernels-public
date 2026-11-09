@@ -1,5 +1,7 @@
 # comfy-kitchen PR: mps backend
 
+> Correction, 2026-11-09: the "4 to 9%" decode overhead below predates the October 3 hardening. The current measurement is about 3 to 5% (findings.md, hardened backend table), and the "about 2x faster than a dense fp16 F.linear" on the wide shape holds only against F.linear's transposed-weight path; against a bare fp16 GEMM the kernel is about 4% slower there. The text below is kept as posted.
+
 Head: `roblennon/comfy-kitchen` branch `mps-backend` (`650dd6d`, eight commits rebased onto main `13d3468`, October 13, 2026). Base: `Comfy-Org/comfy-kitchen` `main`. Every commit carries a DCO sign-off. Training, additional block formats and GGUF stay as separate follow-up branches.
 
 ## Title

@@ -51,7 +51,9 @@ The folder is flat, so this index sorts it. Roughly a third of the files are use
 
 ## Microbenchmarks
 
-Kernel-level timing and accuracy, mostly against fp16 or a CPU reference: `bench_int8_linear.py`, `bench_ck01_int8.py`, `bench_w4a8_linear.py`, `bench_block_formats.py`, `bench_gguf_linear.py`, `bench_int8_backward.py`, `bench_attn_backward.py`, `bench_lora_sidepath_kernel.py`, `bench_lora_fused_rank.py`, `bench_lora_types_sidepath.py`, `sdpa_mps.py`, `sdpa_mps_upcast.py`, `attn_study.py`, `capture_attn.py`, `conv3d_mps.py`, `patch_embed_mps.py`, `rmsnorm_mps.py`, `unipc_coeffs.py`, `vae_dtype_parity.py`, `te_encode.py`.
+Kernel-level timing and accuracy, mostly against fp16 or a CPU reference: `bench_ck01_int8.py`, `bench_int8_linear.py`, `bench_w4a8_linear.py`, `bench_block_formats.py`, `bench_gguf_linear.py`, `bench_int8_backward.py`, `bench_attn_backward.py`, `bench_lora_sidepath_kernel.py`, `bench_lora_fused_rank.py`, `bench_lora_types_sidepath.py`, `sdpa_mps.py`, `sdpa_mps_upcast.py`, `attn_study.py`, `capture_attn.py`, `conv3d_mps.py`, `patch_embed_mps.py`, `rmsnorm_mps.py`, `unipc_coeffs.py`, `vae_dtype_parity.py`, `te_encode.py`.
+
+`bench_ck01_int8.py` supersedes `bench_int8_linear.py`. The older script carries its own draft Metal decode shader and backs the October 2 table in findings; the CK-01 script times the shipped comfy-kitchen mps backend against the same dense and dequantize-per-call paths and backs the October 9 table in [the kitchen PR note](../docs/upstream/comfy-kitchen-mps-backend.md).
 
 `repro_mps_wide_linear.py` is the standalone repro for PyTorch issue #200782.
 
@@ -60,7 +62,7 @@ Kernel-level timing and accuracy, mostly against fp16 or a CPU reference: `bench
 One-off experiments, each tied to a dated entry in findings:
 
 - **Loading and memory:** `probe_model_load.py`, `probe_text_encoder_load.py`, `probe_server_session.py`, `probe_krea_server.py`, `probe_krea_server_lora.py`, `load_probe.py`, `review_load_path.py`, `review_layer_load.py`, `review_chunk_budget.py`.
-- **Kernels and formats:** `probe_small_m.py` with `small_m_int8.metal`, `review_kernel_cost.py`, `review_generation_contracts.py`, and the EXL3 prototype: `exl3_probe.py`, `exl3_probe.metal`, `exl3_reference.py` (MIT, vendored), `gguf_op_probe.cpp` and `gguf_op_probe.md`.
+- **Kernels and formats:** `probe_small_m.py` with `small_m_int8.metal`, `review_kernel_cost.py`, `review_generation_contracts.py`, and the EXL3 prototype: `exl3_probe.py`, `exl3_probe.metal`, `exl3_reference.py` (vendored under MIT; license text in `exl3_reference.LICENSE`), `gguf_op_probe.cpp` and `gguf_op_probe.md`.
 - **Training:** `probe_ai_toolkit.py`, `probe_ai_toolkit_gradient.py`, `probe_packed_training.py`, `probe_qwen_adapter_types.py`.
 - **Video decode and comparisons:** `decode_wan.py`, `decode_h3.py`, `profile_wan_vae.py`, `wan_vae_chunks.py`, `qwen_accel_compare.py`, `img_similarity.py`.
 - **LoRA audit:** `lora_audit.py`, `lora_audit_wrap.py`, `attn_fp16_wrap.py`.

@@ -2,6 +2,22 @@
 
 **October 13, 2026:** six items were finalized in [ready/](ready/README.md), pushed to the public forks and posted: ComfyUI #16996, #16997 and #16998, a comment on ComfyUI PR #16574, comfy-kitchen #249 and PyTorch issue #200782.
 
+## Status as of 2026-11-09
+
+Every state below was read with `gh` on November 9, 2026 (read-only). Nothing was posted or changed on GitHub.
+
+| Item | State (verified 2026-11-09) | Action |
+|---|---|---|
+| comfy-kitchen [#249](https://github.com/Comfy-Org/comfy-kitchen/pull/249) (mps backend) | Open, **conflicting** with `main`. Head `43fe176` (October 13) is 26 behind and 9 ahead of `main` `7d6a22ae`. CLA Assistant passed; the Build Wheels workflow is waiting for maintainer approval (`action_required`). comfyanonymous is the requested reviewer; no human review. Last comment is LXD-8's coordination question, October 22, unanswered. | Rebase. Expect conflicts in `__init__.py`, constraints.py, w4a8_int8.py and the README matrix. Reply to LXD-8. |
+| comfy-kitchen [#270](https://github.com/Comfy-Org/comfy-kitchen/pull/270) / [#297](https://github.com/Comfy-Org/comfy-kitchen/pull/297) / [#275](https://github.com/Comfy-Org/comfy-kitchen/pull/275) (LXD-8) | Open, mergeable, stacked behind [#298](https://github.com/Comfy-Org/comfy-kitchen/pull/298) (also open and mergeable). #270 adds its own mps backend and AdaLN kernels, with the same registration block as #249. Reviews are CodeRabbit and the author only; no maintainer review. Last activity November 8 to 9. | Coordinate. These are complementary modules. |
+| comfy-kitchen [#317](https://github.com/Comfy-Org/comfy-kitchen/pull/317) (TheApeMachine) | Draft, open, mergeable, last updated November 7. A separate `metal` backend: W8A8 via `_int_mm` with a W8A16 fallback, NVFP4/SVDQuant/AWQ. No reviews. Unmeasured. | Comment: pre-M5 should route weight-only and M5+ to MPP. Ask what hardware it was tested on. |
+| ComfyUI [#16996](https://github.com/Comfy-Org/ComfyUI/pull/16996) / [#16997](https://github.com/Comfy-Org/ComfyUI/pull/16997) / [#16998](https://github.com/Comfy-Org/ComfyUI/pull/16998) | Open, mergeable, 171 commits behind `master`. Review decision is "review required"; the only approvals are CodeRabbit's. CLA Assistant passed; every other workflow (unit tests, linting, execution tests) is waiting for maintainer approval (`action_required`). Last activity October 13. Master has not absorbed any of them. | One polite ping or rebase. |
+| PyTorch [#200782](https://github.com/pytorch/pytorch/issues/200782) | Open, labels `triaged`, `module: mps`, `module: performance`. One comment, kinetrix (M5), October 20, offering to profile; no reply yet. | Answer kinetrix. Post 2.15.0 numbers plus a K=32769 row. |
+| ComfyUI [#16574](https://github.com/Comfy-Org/ComfyUI/pull/16574) (UniPC) | Open, mergeable. Our evidence comment and the PR author's reply (chelsealong, asking for a separate test PR) are both October 13; no activity since. Our test branch `fec872c0` exists ([ready/](ready/README.md)); no PR opened. | Open the separate test PR the PR author asked for. This is the cheapest upstream win available. |
+| Overlaps to log | ComfyUI [#16451](https://github.com/Comfy-Org/ComfyUI/pull/16451) (INT8 compute on MPS for torch >= 2.15, open), [#17596](https://github.com/Comfy-Org/ComfyUI/pull/17596) (draft, MPS quant gates for comfy-kitchen metal), [#15902](https://github.com/Comfy-Org/ComfyUI/pull/15902) (H3 VAE temporal pad, open, conflicting), [#17446](https://github.com/Comfy-Org/ComfyUI/pull/17446) (draft, rotate the input for small ConvRot inputs), [#16890](https://github.com/Comfy-Org/ComfyUI/pull/16890) (H3 VAE `full_precision_mm`, open, conflicting), issue [#16433](https://github.com/Comfy-Org/ComfyUI/issues/16433) (Qwen VAE encode broken on MPS, open; likely the same pad root cause). city96/ComfyUI-GGUF has had no commit since 2026-01-12 (`6ea2651`). | Logged in the [October 8 review](contribution-review-2026-10-08.md#upstream-overlap-rechecked-november-9-2026). Comment on #16433. Re-decide the GGUF destination. |
+
+Summary: posted October 13, 2026. As of November 9, none of the five has had a human maintainer review. comfy-kitchen #249 needs a rebase and now shares the mps lane with #270 and the draft #317. ComfyUI #16996 to #16998 are bot-approved only, with CI awaiting maintainer approval.
+
 **Current organization:** [October 8 contribution review](contribution-review-2026-10-08.md) covers all 29 evidenced candidates, later fixes, live overlap and five new ComfyUI branch conflicts. The inventory below remains a historical snapshot.
 
 **October 8 disposition:** This remains the October 4 private submission-preparation snapshot. Later root/runtime fixes and Workbenches are not automatically present in these separated branches, so a future submission needs a fresh audit/rebase/review. Local short WAN14/H3 acceptance now passes; that does not qualify generic mapped-offload or refresh the submission series. Public submissions/CLA remain deferred.
@@ -38,7 +54,7 @@ Heads below are the 2026-10-04 UTC refresh. “Base” names the preceding revie
 | ComfyUI | `upstream/mps-cache-ownership` | `274356f1` | `65787d66` | [Encoder cache ownership](comfyui-mps-followups.md#encoder-cache-ownership) |
 | ComfyUI | `upstream/mps-mapped-offload` | `b0d3ac5b` | lora-types + direct-load | [Mapped offload candidate](comfyui-mps-followups.md#mapped-offload-candidate) |
 
-The [PyTorch wide-linear issue](pytorch-mps-wide-linear-issue.md) is a separate artifact; no issue is filed by this work.
+The [PyTorch wide-linear issue](pytorch-mps-wide-linear-issue.md) is a separate artifact. At the time of this October 4 snapshot no issue was filed; it was filed on October 13, 2026 as [pytorch/pytorch#200782](https://github.com/pytorch/pytorch/issues/200782), open as of November 9.
 
 ## Dependencies and submission order
 

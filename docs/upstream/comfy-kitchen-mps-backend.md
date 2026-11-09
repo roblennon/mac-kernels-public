@@ -36,7 +36,7 @@ A new `mps` backend for Apple GPUs that implements:
 
 ### Why
 
-Today these formats have no fast path on a Mac. MPS does not implement `torch._int_mm`, so ComfyUI disables the INT8 formats on Apple GPUs and dequantizes the weights in full on every call. W4A8/W6A8 cannot run there at all. On a 32 GB Mac that means:
+Today these formats have no fast path on a Mac. On torch 2.14 and earlier MPS does not implement `torch._int_mm`, so ComfyUI disables the INT8 formats on Apple GPUs and dequantizes the weights in full on every call. PyTorch 2.15.0 (released 2026-10-28) adds a native MPS `_int_mm` ([pytorch#193153](https://github.com/pytorch/pytorch/pull/193153)); on M1 to M4 it is a generic tiled kernel, not a matrix-unit path, and this PR has not measured it. ComfyUI [#16451](https://github.com/Comfy-Org/ComfyUI/pull/16451) would re-enable INT8 compute on MPS for torch >= 2.15, which changes the stock baseline this PR argues against. W4A8/W6A8 cannot run there at all. On a 32 GB Mac that means:
 - MiniMax H3 INT8 swaps (38 to 74 s per step).
 - The 6-bit H3 file does not load.
 - Krea 2 / Qwen-Image 2.1 INT8 pay for a full bf16 dequantization per layer per call.
@@ -67,7 +67,7 @@ Mac Studio M1 Max 32 GB, macOS 15.7.9, PyTorch 2.14.1, October 9, 2026. One run 
 | W4A8 codebook 4608, 16384, 6144 | | | 285.7, fp32 scales only | 110.4 |
 | W6A8 4608, 16384, 6144 | | | 299.4, fp32 scales only | 110.8 |
 
-The backend runs 1.9–2.3× faster than dequantizing per call, at fp16-dense speed and accuracy. On the wide-input shape it is also about 2× faster than a dense fp16 `F.linear`, because dense `F.linear` hits a slow MPS path for transposed weights at large K (reported separately to PyTorch), which the transposed decode avoids. Eager's W4A8/W6A8 dequantize cannot run on MPS with e4m3 scales (no fp8 arithmetic), so for those files there is no path today.
+The backend runs 1.9–2.3× faster than dequantizing per call, at fp16-dense speed and accuracy. On the wide-input shape it is also about 2× faster than a dense fp16 `F.linear`, because dense `F.linear` hits a slow MPS path for transposed weights at large K (reported separately to PyTorch), which the transposed decode avoids. That ratio holds only against `F.linear`'s transposed path. Against a bare fp16 GEMM with a contiguous weight the kernel is about 4% slower at that shape (107 against 103 ms, October 3 hardening table in findings.md). Eager's W4A8/W6A8 dequantize cannot run on MPS with e4m3 scales (no fp8 arithmetic), so for those files there is no path today.
 
 Unmerged LoRA, rank 64, fused overhead per call: +2.0 ms on 4608×6144×6144 (base 38.8 ms) and +3.2 ms on 4608×16384×6144 (base 105.5 ms).
 
@@ -107,7 +107,7 @@ An October 9 independent re-review found a LoRA epilogue fast path that could fl
 
 ### Limitations
 
-- Weight-only: memory is saved and integer weights are decoded at about 4 to 9% over a resident fp16 GEMM, but the matmul itself is fp16. There is no speedup beyond fp16 dense.
+- Weight-only: memory is saved and integer weights are decoded at about 3 to 5% over a resident fp16 GEMM (39.5 against 37.8, 104.7 against 101.4 and 107 against 103 ms after the October 3 hardening; the 4 to 9% figure in earlier drafts predates it), but the matmul itself is fp16. There is no speedup beyond fp16 dense; the 2× on the wide shape above is against `F.linear`'s transposed path, not against a bare GEMM.
 - `quantize_w4a8_int8_weight` runs eager on the CPU (MPS has no fp8 arithmetic). Merging a LoRA into 4/6-bit weights is therefore slow (about 6.5 minutes for MiniMax H3) and lossy. The unmerged LoRA arguments exist so hosts can avoid that merge.
 - Layers with K > 65504 compute in fp32 (slower, exact range).
 - NVFP4, MXFP8, ConvRot W4A4 and GGUF are separate follow-up series, not part of this initial backend PR.
@@ -123,9 +123,9 @@ Mac Studio M1 Max (32-core GPU), 32 GB, macOS 15.7, PyTorch 2.14.1.
 ## Reviewer-facing notes
 
 **Why weight-only.**
-- Apple GPUs before M5 have no fast integer matrix path, and MPS has no `torch._int_mm`.
+- Apple GPUs before M5 have no fast integer matrix path, and on torch 2.14 and earlier MPS has no `torch._int_mm`. Torch 2.15.0 adds one, as a generic tiled kernel on M1 to M4; it is unmeasured here (as of November 9, 2026).
 - Quantizing activations to INT8 and multiplying in emulated integer arithmetic would be slower than the fp16 GEMM, and less accurate.
-- Decoding the integer weight once per call costs 4 to 9% over a resident fp16 weight, at half (INT8) or under a third (W4A8) of the memory.
+- Decoding the integer weight once per call costs about 3 to 5% over a resident fp16 weight (October 3 hardening table; 4 to 9% before hardening), at half (INT8) or under a third (W4A8) of the memory.
 
 **Why fp16, not bf16.**
 - On the M1 Max the bf16 GEMM is about 1.75x slower than fp16 (70.0 against 37.8 ms at 4608x6144x6144), because bf16 is emulated.

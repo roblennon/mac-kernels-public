@@ -23,7 +23,7 @@ import numpy as np
 
 ORACLE_SHA256 = "072b5233f0e1ec39615a70416a865ca3fbf3043669aa7dc9c5597cd132e8d45d"
 ORACLE_REVISION = "cdc785db89e263e65e5849cb53e1ada156411414"
-LOCK = Path("/tmp/mac-kernels-gpu.lock")
+LOCK = Path(os.environ.get("MK_GPU_LOCK", "/tmp/mac-kernels-gpu.lock"))
 DTYPES = {"int16": np.dtype("<i2"), "float16": np.dtype("<f2")}
 
 

@@ -4,7 +4,7 @@
 
 **Question.** Can the published GGUF quantizations of Wan 2.2, Qwen-Image 2.1, Krea 2 and MiniMax H3 run on Apple GPUs with the same weight-only technique as the INT formats: packed weights resident, one Metal pass decoding them to normalized fp16, the stock fp16 GEMM?
 
-**Answer.** Yes. The decode is bit-exact with the `gguf` package's reference for all ten block types these files use, except the IQ family. The ComfyUI change is a small patch to ComfyUI-GGUF. Measurements: see "Measured" below.
+**Answer.** Yes. The decode is bit-exact with the `gguf` package's reference for all twelve block types the kernel supports, including IQ4_NL and IQ4_XS (added after the first write-up; their 24 bit-exact tests passed on 2026-11-09). The codebook types IQ1, IQ2 and IQ3 are not covered. The ComfyUI change is a small patch to ComfyUI-GGUF. Measurements: see "Measured" below.
 
 Code:
 - Kernel: comfy-kitchen branch `mps-gguf` (`comfy_kitchen/backends/mps/gguf.py`, `tests/test_mps_gguf.py`).
@@ -53,14 +53,14 @@ The details that are easy to get wrong:
 | abenzerps Qwen-Image-2.1-UC Q4_K_M | llama-quantize (`qwen_image21`) | Q4_K 165, Q6_K 64 (v, mlp.out). Its keys (`img_mlp.gate_layer/proj`) differ from ComfyUI's `gate_up` |
 | vantagewithai Krea-2-Turbo Q4_K_M / Q4_K_S | llama-quantize (`qwen_image`, a mislabel) | Q4_K 201, Q5_K 63 (3 blocks and text fusion) |
 | realrebelai Krea-2-Turbo Q4_K_M | llama-quantize (`krea2`) | Q4_K only (262) |
-| gguf-org krea2_turbo iq4_xs | gguf-org (`pig`) | IQ4_XS: **not covered** |
+| gguf-org krea2_turbo iq4_xs | gguf-org (`pig`) | IQ4_XS: decode covered since 2026-11-09 (kernel and bit-exact tests); this file has not been run end to end |
 | unsloth / leejet MiniMax-H3 pruned Q4_K(_M) | stable-diffusion.cpp (no arch) | Q4_K 208 (qkv, out, fc1, fc2); F16 adaln, BF16 small tensors |
 | unsloth H3 UD-Q2_K_XL / Q5_0 | same | Q2_K 169 + Q5_K 40 / Q5_0 210 |
 | Abiray H3 pruned Q4_K_M | llama-quantize (`wan`, a mislabel) | Q4_K 208; 57 `orig_shape` entries, all F32 |
 
 What this means:
 - **Q4_K_M, as published, mixes types.** Q4_K carries most of each model. llama-quantize with ComfyUI-GGUF's patch bumps attention V and FFN-down to Q6_K under Q4_K_M and Q5_K_M (`lcpp.patch`, lines 155-225). unsloth's dynamic files vary the type per layer. stable-diffusion.cpp has no K_M recipe: one target type plus optional regex rules (`src/convert.cpp:32-53`).
-- **Every type the target files use is covered** (Q2_K, Q3_K, Q4_0, Q4_1, Q5_0, Q5_K, Q6_K, Q8_0), except gguf-org's IQ files.
+- **Every type the target files use is covered** (Q2_K, Q3_K, Q4_0, Q4_1, Q5_0, Q5_K, Q6_K, Q8_0, and since 2026-11-09 IQ4_XS). An IQ2/IQ3 file would not be, but none of the surveyed files uses those types.
 - **Two producers disagree on metadata.** stable-diffusion.cpp writes no `general.architecture`. Stock ComfyUI-GGUF then tries its own key-based detection, which knows neither Qwen-Image nor H3, and raises "This model is not currently supported". It also rejects arch strings it does not list (`krea2`, `qwen_image21`). Its loader would refuse unsloth's and leejet's Qwen-Image 2.1 and H3 files, and realrebelai's Krea 2 file. The fork lets ComfyUI's own detection decide instead, and it recognizes the unsloth Qwen file (QwenImage21) and the QuantStack Wan file (WAN22).
 
 ## 3. How the two loaders dequantize
@@ -96,34 +96,48 @@ What this means:
 - bias joins the fp32 sum before the one rounding, matching `F.linear` over the dequantized weight (ComfyUI-GGUF's semantics; pinned by an exact-GEMM test);
 - the unmerged LoRA rides in the epilogue.
 
-**Tests.** comfy-kitchen `tests/test_mps_gguf.py` has 153 tests against `gguf.quants` on CPU:
-- `dequantize_gguf` is bit-exact for all ten types, including fp16 scales of 0, ±65504 and subnormals.
+**Tests.** comfy-kitchen `tests/test_mps_gguf.py` has 177 tests against `gguf.quants` on CPU (153 when this was first written; the IQ4_NL and IQ4_XS cases added 24):
+- `dequantize_gguf` is bit-exact for all twelve types. Q8_0, Q4_K and Q6_K are also checked with fp16 scales of 0, ±65504 and subnormals.
 - The normalized decode equals ldexp(reference, −e) rounded to fp16 or fp32, bit for bit. That covers block-aligned rows, rows smaller than a block, rows starting mid-block, K % 4 ≠ 0, and transposed decode into a strided buffer.
 - The linear matches a float64 oracle across x dtypes, with chunked and transposed decode, H3-scale activations (|x| ≈ 3e4) against near-max scales, and LoRA.
 
-The main repo's `tests/test_gguf_node.py` (17 tests) runs the fork's Linear with the kernel on and off:
+The main repo's `tests/test_gguf_node.py` (25 tests as of 2026-11-09, 17 at first writing) runs the fork's Linear with the kernel on and off:
 - the two outputs agree;
 - the kernel is actually called;
 - whole-layer LoRAs pass fused (bf16, rank ≤ 128) or beside the layer;
 - row-slice LoRAs run beside the slice;
+- a LoRA whose fp16 factors would overflow but whose merged delta is finite matches stock exactly, whole-layer and sliced, in fp16 and bf16, and leaves the patch tensors untouched;
 - DoRA falls back to the stock merge;
-- cached factors follow patch changes.
+- factors follow patch changes, because they are rebuilt on each call;
+- unquantized (F16) weights take the stock path.
 
 ## 5. ComfyUI integration: why a patch to ComfyUI-GGUF
 
 The choice was between a new minimal node package (`comfy_nodes/mps_gguf/`) and a patch to ComfyUI-GGUF. The patch is smaller and serves the people who already use these files:
 - **Weights are already packed and resident.** ComfyUI-GGUF's `GGMLTensor` already keeps the raw blocks on the GPU with their type and logical shape. The kernel needs exactly that, so the swap is one hook in `GGMLOps.Linear.forward_ggml_cast_weights`: call `mps.linear`, and if it returns None take the old path.
-- **LoRAs are already unmerged.** Its patcher already keeps LoRAs as `patches` on the tensor instead of merging. `mps.py` turns plain LoRAs into low-rank factors once (cached per layer and keyed on the patch objects), so the side path comes almost free. Anything else keeps the stock per-call merge, so nothing is dropped.
+- **LoRAs are already unmerged.** Its patcher already keeps LoRAs as `patches` on the tensor instead of merging. `mps.py` turns plain LoRAs into low-rank factors in fp32 on each call and drops them when the call returns. An earlier version cached the factors per layer; that was removed because GGUF's patcher accounts only for its packed parameters and source patches, so cached GPU factors would have outlived a partial offload or an unpatch. The factors are fp32 because casting them, or the down projection, to fp16 can overflow even when the merged low-rank delta is finite. Anything that is not a plain LoRA keeps the stock per-call merge, so nothing is dropped.
+- **Explicit precision settings keep the stock arithmetic.** When the loader sets `dequant_dtype`, or sets `patch_dtype` on a layer that has patches, `mps.linear` returns None and the stock path runs. The normalized kernel and its fp32 factors cannot promise the rounding those settings ask for.
 - **A new package would duplicate a lot.** It would need its own GGUF reader, arch detection, sd.cpp key handling, mmap release and patcher, all of which ComfyUI-GGUF has and maintains.
 
-The cost: the repo is dormant (247 open issues, last push 2026-01-12), so an upstream PR may sit. The fork works as a drop-in replacement in `custom_nodes`. The patch is 3 files: `mps.py` (new, about 150 lines), 4 lines in `ops.py` and 7 in `loader.py`. Its tests live in this repo. Non-Linear quantized tensors (rare in these files: the survey found none in block layers) keep the stock path.
+The cost: the repo is dormant (247 open issues, last push 2026-01-12), so an upstream PR may sit. The fork works as a drop-in replacement in `custom_nodes`. The patch is 3 files: `mps.py` (new, 148 lines), 4 lines in `ops.py` and 7 in `loader.py`. Its tests live in this repo. Non-Linear quantized tensors (rare in these files: the survey found none in block layers) keep the stock path.
 
 ## 6. Measured
 
-(Filled in from the runs below; see docs/findings.md for the dated record.)
+Both runs are from October 4, 2026 on the M1 Max, through the GGUF loader node in the fork, kernel on ("Metal") against kernel off ("stock", the per-call dequantize). Same captured conditioning and seed in both modes. One run each, one process each, so these are single measurements with no variance estimate. The dated record is in `docs/findings.md`.
+
+| Model | File | Recipe | Sampling, Metal | Sampling, stock | Ratio | Output agreement |
+|---|---|---|---|---|---|---|
+| Qwen-Image 2.1 | Q4_K_M, with the Viggle LoRA (195 adapter-bearing layers) | 512², 6 steps | 39.56 s | 66.43 s | 1.68x | RGB PSNR 27.24 dB, luma SSIM 0.9499, mean abs. channel error 5.896/255 |
+| Wan 2.2 5B | Q4_K_M | 704×416×33, 20 steps, CFG 5, Euler/simple | 145.93 s | 200.71 s | 1.38x | four-frame strips 24.10 dB PSNR / 0.9253 luma SSIM; final latents rel. L2 0.105 |
+
+Both pairs produced coherent outputs, and both processes exited with flat swap. Qwen's driver allocation after sampling was 4.99 GiB Metal against 5.99 GiB stock (snapshots, not peaks). Wan made 6,000 kernel calls against 6,000 stock calls.
+
+The Metal and stock images are close but not the same. I do not attribute the gap to any one cause. Three things differ between the two runs: the stock path computes the block scales in fp16 and then casts the whole dequantized weight to the activation dtype (section 3 measured that cast at about 4e-3 relative on Qwen tensors, larger than the fp16-scale error), the kernel path instead rounds the exactly computed, normalized weight to fp16 once (section 4), and the LoRA is applied differently (stock merges it into the dequantized weight on every call; the kernel path adds the low-rank factors in the epilogue or beside the layer). No run separates these. The agreement numbers above say the two paths produce close pictures, not that one is closer to the reference.
+
+Not measured: text encoding, a full server graph, per-step timings over more than one process, and anything on another Apple chip.
 
 ## 7. Gaps and next steps
 
-- **IQ types** (IQ4_XS, IQ2/IQ3, IQ1) use codebooks (grid tables) and only appear in gguf-org's Krea files here. IQ4_NL and IQ4_XS are cheap to add (a 16-entry table); the IQ2/IQ3 grids are larger.
+- **IQ types.** IQ4_NL and IQ4_XS (a 16-entry table) are in the kernel and the fork now. On 2026-11-09 I ran their 24 tests in `test_mps_gguf.py` under the GPU lock: bit-exact decode, row and straddling-block decode in both compute dtypes, and the linear against the float reference in three activation dtypes. All 24 passed. No IQ4 file has been run end to end; the only one surveyed is gguf-org's Krea 2 Turbo. IQ2/IQ3 and IQ1 use larger codebooks and are still not covered; no surveyed file needs them.
 - **M4 K-quant failure (#395)**: not reproducible without an M4. The kernel path does not use the torch ops involved, so it may sidestep the failure. Unverified.
 - **Text encoders in GGUF** (e.g. unsloth's Qwen3-VL GGUFs) go through ComfyUI-GGUF's CLIP loader. The same Linear hook covers them, but this was not tested.

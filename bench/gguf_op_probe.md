@@ -96,4 +96,6 @@ Earlier `attn_gate` cases passed both with and without the eviction treatment:
 
 These are separate short runs, not repeated interleaved experiments or full-model speed results. A smaller weight encoding did not consistently produce a faster operator, so use the actual measured per-format baselines when evaluating EXL3. The models' decoded weights differ; numerical correctness is checked against each model's own CPU decode.
 
-Private evidence: `.local/exl3-run/gguf-ffn-receipt.json` contains all durations, source/payload/library identities and guard summaries; individual logs follow `gguf-{nano,orca}-ffn_{up,gate,down}-m{1,4}-e128.log`. Earlier projection logs end in `-v2.log`. FFN trial source SHA-256: `9b9988d250e3ab3b0a0999bc7f873e8145b107e5aa49f6f87f37433a3af2fc09`; executable SHA-256: `fa19adfabf4a69f3b3ca8625c18bb7dbce2965681b6ec7dba84c6861319e5fe2`.
+The EXL3 side of this comparison, with the ratio re-derived from the committed JSON, is in [docs/research/2026-10-25-exl3-prototype.md](../docs/research/2026-10-25-exl3-prototype.md). The optimized EXL3 kernel is 2.4 to 4.4 times slower than the Nano medians above on the same geometry.
+
+The full receipt (all durations, source/payload/library identities and guard summaries) and the per-trial logs are kept outside this repository; the committed JSON beside the EXL3 note carries the medians. FFN trial source SHA-256: `9b9988d250e3ab3b0a0999bc7f873e8145b107e5aa49f6f87f37433a3af2fc09`; executable SHA-256: `fa19adfabf4a69f3b3ca8625c18bb7dbce2965681b6ec7dba84c6861319e5fe2`.

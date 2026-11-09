@@ -21,7 +21,7 @@ The generation audit records twelve findings, dated research, bounded experiment
 - bf16 GEMM is about 1.75x slower than fp16 on this GPU. ComfyUI computes in bf16 on Apple GPUs.
 - One-pass Metal decode of INT8 weights plus online activation rotation costs 4 to 9 percent over resident fp16 weights, at half the memory.
 - fp16 compute is more accurate here than bf16 (relative error 0.0004 against 0.0029) and more accurate than true int8 activations.
-- `torch._int_mm` is not implemented on MPS in torch 2.14.1.
+- `torch._int_mm` is not implemented on MPS in torch 2.14.1 or earlier. PyTorch 2.15.0 (released 2026-10-28) added a generic tiled MPS `_int_mm` (PR #193153). That changes the baseline the weight-only kernel is compared against; see the 2026-11-09 entry.
 - The wide-input case (K=16384) is anomalously slow in stock MPS matmul for both dtypes. Open question worth a kernel.
 - fp16 GEMM runs near 9 TFLOPS at these shapes, close to the hardware limit. Beyond the dtype win, speed must come from fewer steps, caching, or attention.
 
@@ -55,7 +55,7 @@ Open risk: fp16 overflow inside real DiT activations. Unverified until end-to-en
 
 - 480x288, 22 frames, 4 steps, with audio: correct clip. Steps 6.7 to 8.3 s each. GPU memory after sampling 21.6 GB.
 - Text encoding 168 s (one time, cached to disk by prompt). Sampling wall time 105 to 270 s including model load. Video decode 55 to 85 s.
-- First attempt produced all-NaN latents. Cause: H3 text conditioning reaches about 16,000 in magnitude and overflowed fp16 inside the weight-only kernel. Fix: divide each activation row by a power of two before the fp16 GEMM and multiply back in the output dtype. Exact, costs about 10 percent on bf16 inputs. Krea 2 never triggered it.
+- First attempt produced all-NaN latents. Cause: H3 text conditioning reaches about 16,000 in magnitude and overflowed fp16 inside the weight-only kernel. Fix: divide each activation row by a power of two before the fp16 GEMM and multiply back in the output dtype. Exact scaling; the fp16 cast after it keeps full precision down to about rowmax*2^-14. Costs about 10 percent on bf16 inputs. Krea 2 never triggered it.
 - Not yet run: stock ComfyUI baseline for H3, the 6-bit W6A8 file, larger sizes.
 
 ## 2026-10-02: H3 on 6-bit weights, LoRA merge, outside review
@@ -97,7 +97,7 @@ INT8 ConvRot DiT (7.3 GB) with the INT8 ConvRot text encoder (9.4 GB), Metal bac
 | Wan 2.2 TI2V-5B Turbo INT8, 704x416, 33 frames, 4 steps, Metal | 3.3 | 6.1 GB |
 
 - Wan 5B frames are clean with euler. No sign of the frame corruption reported with uni_pc on Apple GPUs.
-- VAE decode dominated both: Wan decode 972 s, Qwen 1024 decode 75 s. Cause: ComfyUI picks bf16 for these VAEs and Apple GPUs emulate bf16 convolutions. Measured conv3d at one Wan decoder shape: fp16 44 ms, fp32 235 ms, bf16 588 ms.
+- VAE decode dominated both: Wan decode 972 s, Qwen 1024 decode 75 s. Cause: ComfyUI picks bf16 for these VAEs and on this M1 Max bf16 convolutions run far slower than fp16 (not verified on other Apple GPUs). Measured conv3d at one Wan decoder shape: fp16 44 ms, fp32 235 ms, bf16 588 ms.
 - With `--fp16-vae`: Wan decode 74 s (13x), Qwen decode 7.8 s (10x), identical frame statistics, no NaN. The ComfyUI branch now prefers fp16 for VAEs on Apple GPUs whenever the VAE lists fp16 as a working dtype.
 - Whole Wan 5B clip (33 frames at 704x416) now takes about 2 minutes end to end on this machine.
 
@@ -156,7 +156,7 @@ Both clips clean. At 1280x704x81 the Wan 2.2 VAE decode is 78% of wall time and 
 
 | Tiles | Decode | Peak | PSNR vs full |
 |---|---|---|---|
-| full | 542 s | 21.5 GB | — |
+| full | 542 s | 21.5 GB | n/a |
 | 512, 64 frames | 723 s | 8.2 GB | 41.5 dB |
 | 768, 64 frames | 624 s | 13.5 GB | 41.7 dB |
 | 512, 32 frames | 813 s | 8.2 GB | 36.8 dB |
@@ -207,7 +207,7 @@ ComfyUI f656f4d makes the stacked conv2d the MPS path of `CausalConv3d`, one out
 | Decode | Before | After | PSNR vs before | Peak |
 |---|---|---|---|---|
 | 5B 704x416x33 (Wan 2.2 VAE) | 72.8 s | 21.1 s | 66.5 dB | 7.2 -> 6.2 GB |
-| 5B 1280x704x81 | 542 s | 155 s | — | 21.5 -> 18.5-19.5 GB |
+| 5B 1280x704x81 | 542 s | 155 s | n/a | 21.5 -> 18.5-19.5 GB |
 | 5B 1280x704x81, tiled 768 | 624 s | 173 s | 41.6 dB vs full | 12.3 GB |
 | 5B 1280x704x81, tiled 512 | 723 s | 204 s | 41.3 dB vs full | 7.1 GB |
 | 14B 832x480x81 (Wan 2.1 VAE) | 139 s | 43.8 s | 67.6 dB | 6.5 -> 7.5 GB |
@@ -219,7 +219,7 @@ The 1280 clip end to end is now about 5.5 minutes (2.5 sampling, 2.6 decode) ins
 | Tiny decode | 704x416x33 | 1280x704x81 | PSNR vs full VAE |
 |---|---|---|---|
 | lighttaew2_2 | 0.9 s, 1.1 GB | 2.2 s, 1.1 GB | 25.0 dB at 704, 28.6 dB at 1280 |
-| taew2_2 | 0.8 s, 1.1 GB | — | 19.5 dB at 704 |
+| taew2_2 | 0.8 s, 1.1 GB | n/a | 19.5 dB at 704 |
 
 lighttaew2_2 keeps color and composition; it is softer and smears fine detail in later frames. Good for previews and drafts. taew2_2 is visibly blotchy.
 
@@ -310,7 +310,7 @@ All on M1 Max 32 GB, ComfyUI fork 7a67766 (LoRA side path, SDPA default, conv3d 
 
 | Setup | Steps | s/step | Sampling, cold | Total, cold | GPU memory | vs 25-step: PSNR / SSIM |
 |---|---|---|---|---|---|---|
-| Base | 25 | 8.78 | 257 s | 306 s | 9.1 GB | — |
+| Base | 25 | 8.78 | 257 s | 306 s | 9.1 GB | n/a |
 | Fun-Acc 4-step (eastmoe ComfyUI conversion), PDD sigmas | 4 | 9.11 | 75 s | 118 s | 9.2 GB | 15.0 dB / 0.743 |
 | Viggle v0.3 6-step LoRA r128, Viggle sigmas | 6 | 9.41 | 101 s | 147 s | 9.4 GB | 25.8 dB / 0.903 |
 | **Qwen-Image-2.1-Turbo** (official 8-step checkpoint, our INT8 ConvRot conversion), saved sigmas | 8 | 8.80 | 104 s | 156 s | 9.1 GB | 14.2 dB / 0.702 (different checkpoint; not a fidelity measure). INT8 vs its own bf16: 41.3 dB / 0.997. |
@@ -328,7 +328,7 @@ Fun-Acc caveats:
 
 | Setup | Steps | s/step | Sampling, cold | Total, cold | GPU memory | vs 8-step: PSNR / SSIM |
 |---|---|---|---|---|---|---|
-| Base | 8 | 14.91 | 216 s | 256 s | 15.0 GB | — |
+| Base | 8 | 14.91 | 216 s | 256 s | 15.0 GB | n/a |
 | lvladikov Krea2-Turbo-Distill 4-step r64 (`krea2_turbo_4step_rank_64_lora_comfyui.safetensors`) | 4 | 15.29 | 155 s | 197 s | 15.1 GB | 14.9 dB / 0.758 |
 
 Sharp and well lit, with a different pose; one small malformed hand behind the leg. The side path costs 2.6% per step.
@@ -496,23 +496,23 @@ Pruned FL2VA with the 4-step Turbo LoRA kept beside the quantized layers (208 la
 Prefer W4A8 to W6A8 on this machine: same speed, 3-4 GB less memory, much faster load. The largest clean clip is the native 1344x768x124: it completes in 2 h 2 min with 30 GB on the GPU. The largest clip that runs without heavy swapping is 1344x768x56 in about 16 minutes cold.
 
 
-## October 3 evening — reviewed generation and recovery implementation
+## 2026-10-03: reviewed generation and recovery implementation (evening)
 
 GPU ownership, attention broadcasting, LoRA accounting and tensor lifetimes are repaired. Explicit MPS pread now passes real Wan construction/offload/reload and exact generated-output parity; default loaders remain unchanged. Isolated registered-model loading measured 6.52s direct versus 12.29s CPU staging, but real load-plus-sampling was 6.93s versus 7.23s, so the transfer ratio is not an end-to-end claim. The known-good 704×416×33 Wan recipe still produces a recognizable musician at 3.3s/step; 512×288×17 is unsuitable as a visual-quality gate.
 
 The initial persistent server stopped under memory pressure while copying UMT5 weights. The opt-in CPU ownership-transfer experiment loaded the model without that copy and encoded the canonical prompt in a 62.61s process, with exact cached-conditioning parity and no swap growth.
 
-Training recovery now writes atomic periodic optimizer/RNG state and rejects corrupt caches/non-finite updates. The real Qwen1024 seed1 save/resume pilot completed steps0–4 and4–8 in separate processes at ~35s/step, 11.48GiB driver peak, flat swap, and validation0.20313→0.18720→0.18595. State and both adapter exports are finite and reloadable. At that stage a reviewed four-hour guarded continuation was prepared. The later padding diagnosis below changes the input targets: preserve this old pilot and use distinct corrected runs instead.
+Training recovery now writes atomic periodic optimizer/RNG state and rejects corrupt caches/non-finite updates. The real Qwen1024 seed1 save/resume pilot completed steps 0–4 and 4–8 in separate processes at ~35s/step, 11.48GiB driver peak, flat swap, and validation 0.20313→0.18720→0.18595. State and both adapter exports are finite and reloadable. At that stage a reviewed four-hour guarded continuation was prepared. The later padding diagnosis below changes the input targets: preserve this old pilot and use distinct corrected runs instead.
 
 
-## October 4 — exclusive MPS wide-linear reproduction
+## 2026-10-04: exclusive MPS wide-linear reproduction
 
 The pending issue's clean run completed under the monitored GPU lock in 176.03 seconds, with normal system pressure and no swap growth. PyTorch 2.14.1 on M1 Max/macOS 15.7.9; M=4608, N=6144; K=4096/8192/16384/32768; fp16 and fp32; two interleaved rounds of three timed iterations after warm-up. All eight implementation/layout variants matched exactly at every shape (max absolute difference zero).
 
 At K=32768, fp16 F.linear took 697.9 ms against 198.2 ms for a contiguous pre-transposed weight (3.52x); fp32 took 2117.6 ms against 239.7 ms (8.83x). A transposed left operand with contiguous right operand stayed near the fast path. This supports the existing wide-weight decode layout decision, not a new end-to-end speed claim. The [issue draft](upstream/pytorch-mps-wide-linear-issue.md) now contains the clean table. No issue filed and no nightly build tested. Raw evidence: `logs/repro-mps-wide-linear.log`.
 
 
-## October 4 — Training milestone 2: completed experiments and remaining evaluation
+## 2026-10-04: Training milestone 2: completed experiments and remaining evaluation
 
 Qwen seed-0 1024px training is already complete at 300 steps with query-chunked attention: approximately 36 s/step, 11.49 GiB driver peak, final validation loss 0.17037. The 512px comparison also completed all three 300-step arms:
 
@@ -526,7 +526,7 @@ INT8 used 6.11 GiB less driver memory and 32% less update time than the matched 
 
 Remaining T1 acceptance is the 1024-trained adapter's held-out trigger/no-trigger evaluation on plain and Viggle INT8 inference, plus bf16 inference-base portability. The reviewed single-column runner prepares twelve individually bounded images without repeating training. T2 initially targeted continuation from the finite step-8 seed-1 pilot. The later confirmed padding defect below requires distinct corrected cache/run identities instead; the old pilot remains historical save/resume evidence, not the starting point for corrected training. Matched final visual comparison remains required.
 
-## October 4 — Usable trainer features and packed-weight proof
+## 2026-10-04: Usable trainer features and packed-weight proof
 
 The trainer now has JSON configuration with CLI overrides, deterministic aspect-ratio buckets and distinct cache identity, atomic recovery with immutable configuration/content fingerprints, and opt-in scheduled previews. A real three-image run used 384×512, 512×320 and 448×448 buckets over four updates in two processes. Identity-validated resume completed; validation loss changed 0.21995→0.21594→0.21410, updates took 4.84–6.06 s, driver peak was 9.44 GiB, and both supervisor exits were normal without swap growth. The resumed run produced a coherent inspected blue-fox preview through real Qwen and CPU VAE. This closes T3/T4/T6 at the measured pilot scope, not at arbitrary preview resolutions.
 
@@ -534,26 +534,26 @@ Packed W4 and W6 input backward passed 43 MPS tests and separate two-update real
 
 The real ai-toolkit `ConvRotInt8Quantizer`/`OstrisLinear` trial passed output/input-gradient, checkpoint recomputation, resident-buffer and two-step optimizer checks. Loss scaling resolved the wide fp16 subnormal-output floor without relaxing tolerances. The candidate removes activation fake quantization, so it is an explicit weight-only mode, not a transparent replacement for toolkit W8A8 training. T7 is complete as an integration trial; the standalone trainer remains the supported end-to-end path.
 
-## October 4 — Generation acceptance and memory limits
+## 2026-10-04: Generation acceptance and memory limits
 
 The initial October 4 reconciliation found G1–G3 and F1–F3 still open. Later evidence now closes the bounded Wan three-request server gate and representative LoRA/LoHa/LoKr application. Krea and bounded Wan 5B API templates were accepted at that stage. The later Qwen API request below now also passes; Wan 14B and H3 remain pending. Current Qwen and Krea attempts can stop on system pressure before a completed step. CPU encoder weakrefs and mappings release; private footprint after encoding is close to baseline while system file-backed residency remains elevated. Ordinary dense LoRA backups can preserve a native whole-file mapping even with mapped offload disabled, but that mechanism is not yet a demonstrated pressure cause. The fresh-conditioning/direct-loading controls are diagnostic and do not establish default UI behavior.
 
 
-## October 4 — Actual H3 NVFP4 layers and Qwen GGUF outputs
+## 2026-10-04: Actual H3 NVFP4 layers and Qwen GGUF outputs
 
 Two real layers from H3's 32B NVFP4 text-encoder checkpoint pass native MPS execution: plain `k_proj` (1024×5120) and AWQ `o_proj` (5120×8192). Each completed eight BF16/FP32 forwards across initial load and CPU offload/reload, against the existing independent Float64 oracle. Reload outputs were exact; packed/scaling bytes and the original full-precision configuration survived; no activation quantization occurred. Only 2.81/22.52 MiB of selected payload were read. Active GPU allocation returned to 1,024 bytes after offload, and both runs completed with flat swap. Krea NVFP4 with temporary direct loading subsequently reached one unsynchronized forward return before a pressure stop at 79.47 s, without a finished image or swap growth. A later isolated CPU-conditioning capture and fresh-process replay completed the real Krea NVFP4 soccer image: 39.875 s capture, 44.878 s replay including 29.45 s sampling, 2,048 native NVFP4 calls, normal pressure and flat swap. This explicit direct-load route passes bounded model proof; F1's full-encoder, other formats and ordinary default/server boundaries remain open.
 
 Qwen's actual Q4_K_M checkpoint completed six-step 512² generation through the GGUF loader node in Metal and stock modes with the same captured conditioning, seed and Viggle adapter. Metal's sampling phase took 39.56 s versus 66.43 s, with 4.99 versus 5.99 GiB driver allocation after sampling (snapshots, not peaks). Both portraits are coherent and compositionally close, but not exact: RGB PSNR 27.24 dB, luma SSIM 0.9499 and mean absolute channel error 5.896/255. All 195 adapter-bearing layers were reached. Both processes exited normally with flat swap. This proves the bounded Qwen generation comparison; it excludes text encoding, a submitted server graph, explicit full-model offload/reload and Wan acceptance. F2 was open at that stage; the subsequent Wan and Qwen lifecycle evidence below closes its representative node/model scope.
 
-## October 4 — Qwen1024 training-input quality hold
+## 2026-10-04: Qwen1024 training-input quality hold
 
 The first matched seed-0 1024 adapter evaluation loses cyanoprint colors; the plain-recipe adapter image also has the beige etched appearance. A fresh FP16 MPS encoding of dataset image 00 exactly reproduces a finite cached latent whose reconstruction is only 7.98 dB. Fresh 512 encoding was visually plausible (26.55 dB), but the later CPU reference below reveals a smaller defect there too. FP32 MPS encoding and contiguous strip inputs do not repair the 1024 example; CPU FP32 encoding through the same ordinary MPS FP16 decoder restores the blue source at 38.38 dB. This initially localized the demonstrated failure to MPS encoding; the operation and repair are now established below. It does not establish all 24 inputs are affected or bind the historical seed-0 run to current cache bytes. T1/T2 remain open; hold long training for repaired, inspected inputs and distinct corrected cache/run identities.
 
-## October 4 — Wan small-recipe constraint
+## 2026-10-04: Wan small-recipe constraint
 
 Completing the missing corners did not recover the tiny Wan quality gate. At 512×288×33 the guitarist/guitar become recognizable but distorted; at 704×416×17 the scene remains heavily corrupted. Both runs were finite with normal pressure and flat swap (56.866 / 29.419 s). Together with abstract 512×288×17 outputs and the coherent 704×416×33 control, this supports retaining exactly the latter bounded recipe. Earlier direct/CPU loader outputs were exact, and UniPC/shift5 did not repair tiny output. G3 closes through its explicit recipe-restriction acceptance route, while the operation-level cause remains unresolved; no pure temporal cause or universal minimum is established.
 
-### October 4: F2 representative GGUF acceptance and Qwen API template
+## 2026-10-04: F2 representative GGUF acceptance and Qwen API template
 
 Actual Qwen/Wan Q4_K_M loader-node runs now pass useful-output comparison against stock. Qwen also passed two identical-input sampler passes separated by explicit full-model offload: all 199 packed parameters retained equal bytes/metadata, active MPS allocation returned to zero, and repeated sampled latents were bit-exact. Driver caches remained nonzero, and this is not an OS mapping-release claim.
 
@@ -561,105 +561,107 @@ Wan's matched 704×416×33, twenty-step CFG-5 Euler/simple pair produced coheren
 
 Separately, Qwen's actual API template passed a fresh native-server request: 512×512 latent, native direct INT8 loader enabled, ordinary fresh CPU encoding, 25 Euler/simple steps, CFG 1, no LoRA, full FP16 VAE, enhancer off. The Qwen prefix-cache node remained auto/default and encoder resolution remained 1024. Client time was 103.524 s; the complete monitored process used 9.608 GiB peak group RSS, normal pressure and flat swap. The saved lime/gray fashion portrait is coherent. G2 remains open for Wan 14B/H3; repeated Qwen requests and its larger defaults remain unproved.
 
-### October 4: VAE temporal-padding root cause repaired
+## 2026-10-04: VAE temporal-padding root cause repaired
 
 Exact-input differential probes isolate rank-five `F.pad` in the MPS `AvgDown3D` shortcut: padding a 1×96×1×512×512 tensor by one temporal frame returns all zeros. The grouped mean itself is bit-exact on correctly prepared input. A scoped zero-prefix concatenation repair leaves CPU/zero-pad paths unchanged and passes eighteen regressions; both large FP16/FP32 MPS tests failed before it. The integrated ComfyUI change is `9d9b4232`, independently reviewed. [Upstream preparation](upstream/comfyui-mps-vae-temporal-padding.md).
 
 Unhooked native FP16 encoding now restores image 00 at 1024 to 38.3733 dB versus CPU FP32's 38.3755 dB, normal pressure and flat swap. At 512, native/CPU reconstructions agree at 28.6220/28.6212 dB; old cached output was 26.55 dB. Same-dtype native 512 FP32 latent relative L2 is 1.88e-6 versus CPU, while FP16 comparison is 0.002389 with maximum absolute difference 0.69979. Earlier 512 A/B results remain observations under shared historical inputs, not proof on unaffected targets. The existing PyTorch rank-five padding fix landed August 31 but is absent from the installed build's source. No duplicate issue or upgrade was made. The subsequent all-24 corrected-cache validation below passes; corrected training and final adapter evaluation remain open.
 
-### October 4: All corrected Qwen1024 inputs validated
+## 2026-10-04: All corrected Qwen1024 inputs validated
 
 All 24 native FP16 MPS encodes pass full finite RGBA reconstruction through the ordinary FP16 MPS decoder. RGB PSNR is 32.846–42.719 dB (mean 39.918), and both independently inspected source/reconstruction sheets preserve coherent cyan/blue subjects and paper texture. Successful build/decode take 24.168/76.545 seconds with 2.397/2.462 GiB sampled peak group RSS, normal pressure and flat swap. Old conditioning remains bit-exact; every latent changes. New cache SHA256 starts `2ab5bad8`; the full identity, preserved RGBA/RGB outputs and distinct prepared seed-0/seed-1 configurations are retained. Two helper API/shape mistakes were corrected before acceptance. Bounded save/resume, corrected training and final visual evaluation remain required.
 
 
-### October 4: Corrected Qwen seed-0 save/resume and cache preservation
+## 2026-10-04: Corrected Qwen seed-0 save/resume and cache preservation
 
 Corrected seed 0 passes four fresh and four identity-checked resumed updates in separate bounded processes (290.097/222.100 s). Both exit normally with unchanged swap, 1.098/1.177 GiB sampled peak group RSS and 11.48 GiB driver peak. Validation loss declines 0.230067→0.224644→0.223674; this is not visual adapter acceptance. Independent CPU inspection finds all 1,537 step-8 recovery tensors finite, verifies the exact corrected input identity, and matches every step-8 exported tensor to the existing trainer's saved-state export mapping. Both step-4/8 exports have 672 finite tensors. Full corrected training and evaluation remain open.
 
 Both old default caches are retained under `.pre-avgdown-fix.pt` names with verified hashes. The default 1024 path now contains an independent corrected copy; default 512 is absent for fresh rebuilding. Explicit corrected run configurations remain bound to their original validated cache. Unfingerprinted legacy Qwen resumes are refused before model loading (`b888630`), preventing a filename match from silently accepting changed targets. Historical checkpoint preservation is not independently established by these cache hash checks.
 
 
-### October 4: Krea NVFP4 matched stock reference passes
+## 2026-10-04: Krea NVFP4 matched stock reference passes
 
 The actual stock BF16 dense route completes the same captured-conditioning, direct-load Krea NVFP4 recipe in 70.417 s total and 50.86 s sampling, versus native 44.878/29.45 s: a 1.727× sampling ratio for this single pair. Stock executes 2,048 native NVFP4 dequantizations and ordinary dense linears, with zero native NVFP4 matrix multiplies; all 256 layers remain packed and decoded Python references release. Its initial helper-only dtype assertion failure remains recorded; requested `FP16=1` does not override actual BF16 quantized compute.
 
 Both soccer images independently pass useful-output inspection and compare at 32.1203 dB RGB PSNR, mean absolute channel error 1.6485/255, maximum 186/255. Stock peaks at 7.812 GiB sampled group RSS; normal pressure and swap growth of approximately 123 KiB stay within the unchanged guards. This accepts the diagnostic NVFP4 model comparison; other formats, complete quantized encoders and default/server paths remain distinct.
 
 
-### October 4: Partial-residency limits remain incomplete-model boundaries
+## 2026-10-04: Partial-residency limits remain incomplete-model boundaries
 
 Compatible MXFP8 and mixed W4A4/INT8 Krea payloads are local and their complete hashes match pinned publisher values. Four tiny synthetic MPS loader/residency cases pass; separate MXFP8 CPU conditioning capture also passes. The full MXFP8 replay then stops for system pressure during model admission at 56.564 s, before any forward. Its CPU construction retains 12,498,501,632 bytes of mapped packed weights and 390,578,176 bytes of owned scales; these logical sizes are not physical residency measurements.
 
 Wan14's 4 GiB limiter succeeds, but the API run stops at the first high-noise sampler after 107.620 s. The Qwen bf16 mapped-assignment retry similarly stops at its first sampler after 176.079 s; neither completes a step. Wan14 has four times Wan5's transformer-token count at the same output size, so the accepted Wan5 recipe does not establish matching working-memory needs. Encoder ownership, transfer/source-page residency and first-forward scratch remain competing hypotheses; MXFP8's earlier admission stop cannot be attributed to attention. H3 and complete W4A4 proof stay pending. These failures leave the accepted NVFP4 comparison and corrected step-8 training recovery intact.
 
 
-### Corrected seed-0 step-50 continuation gate
+## 2026-10-04: Corrected seed-0 step-50 continuation gate
 
 The identity-checked step-8-to-50 segment completed in 1,558.269 seconds, at 11.48 GiB driver peak and 1.229 GiB sampled group RSS, with flat swap and no pressure stop. Validation loss declined to 0.22025 from 0.230067 initially. Independent CPU verification reproduces all 672 exported tensors from the actual trainer mapping; the staged export is byte-identical. A temporary staging-reader suffix mismatch was repaired from down/up to A/B without changing training or exported weights.
 
 The 1024px, seed-7, six-step Viggle-stacked INT8 held-out horse image completed in 127.264 seconds with flat swap and 10.258 GiB sampled group RSS. Independent inspection finds coherent blue horse/beach imagery and stronger grain than the preserved base, with no beige collapse. The base was already blue and both palette measurements are 1.0, so this is an early continuation gate, not proof of learned style or final T1/T2 acceptance. Corrected full training, the second seed, trigger/no-trigger comparisons and bf16 portability remain open.
 
 
-### Bounded Qwen repeated-server acceptance
+## 2026-10-04: Bounded Qwen repeated-server acceptance
 
 A fresh production-launcher server completed the exact accepted 512×512 direct-INT8 Qwen graph three times: initial seed 7, changed seed 8, then seed 8 with lime→cobalt prompt change. Each uses 25 Euler/simple steps, CFG 1, ordinary fresh CPU encoding, retained Qwen prefix cache and full VAE. Client wall times are 114.675/102.286/107.578 seconds; all graph cache lists are empty. Three decoded RGB hashes differ, and independent inspection confirms coherent fashion portraits, changed composition and visible blue background.
 
 The 332.100-second monitored session peaks at 9.620 GiB group RSS, with no pressure stop and flat 1.739863 GiB swap. Watermarks 0.5/0.4 and cache-ram 18 remain unchanged; no warm resident speedup is proved. This closes the bounded Qwen repeated-request gap while G2 Wan14/H3, larger Qwen defaults, prompt enhancer and ordinary diffusion loader remain open.
 
-## October 4 — Corrected second-seed recovery and narrower admission controls
+## 2026-10-04: Corrected second-seed recovery and narrower admission controls
+
+*The entries from here through the 2026-10-05 H3 task-VM observation entry are process receipts (per-run tool counts, pressure stops, review outcomes) kept for provenance. docs/RESULTS.md is the curated view of what the kernels measure.*
 
 Corrected seed 1 now passes four fresh updates and four identity-checked resumed updates in separate processes: 289.099 / 225.406 seconds, 1.170 / 1.032 GiB sampled group RSS, 11.48 GiB driver peak and flat swap. Validation decreases 0.23007 → 0.22448 → 0.22342. Saved CPU verification records confirm 1,537 finite state tensors and 192 LoRA pairs at both checkpoints with the corrected cache and seed-1 identity. Final training, exact seed-1 export comparison and matched image evaluation are not inferred.
 
 H3’s ordinary headless CPU encoder constructs but hits the 16 GiB RSS guard during encoding, before conditioning returns. Qwen bf16 4/1 GiB first-forward probes reach blocks 10/22 then stop on an additional psutil-available threshold. The VM-observer attempt stops inside its post-admission observation; it supplies no physical admission snapshot or failing model forward. Earlier completed CPU-phase snapshots show released encoder mappings and system file-backed growth, without proving a universal retention cause. The first native-pressure successor fails closed because Comfy changes the directory before its lazy reader import. Its repaired retry records normal native pressure at block 23, then pressure level 2 at block 29 and stops before a full forward. The 133.439-second process exits cleanly with 7.604 GiB peak group RSS and flat swap; cleanup success does not pass the model gate. These failures leave G2/F1/bf16 acceptance open and do not invalidate corrected training recovery.
 
 
-### October 4: Krea MXFP8 and mixed W4A4/INT8 matched diagnostics pass
+## 2026-10-04: Krea MXFP8 and mixed W4A4/INT8 matched diagnostics pass
 
 Both remaining Krea block-format pairs complete with separate CPU conditioning and a temporary 1 GiB persistent-residency cap after ordinary mapped CPU construction. W4A4/INT8 native/stock sampling is 75.95/122.78 s, with 34.3365 dB RGB PSNR; MXFP8 is 103.78/112.94 s, with 36.8756 dB. All four outputs were independently inspected and are coherent matching soccer scenes. W4A4/INT8 dispatch is exactly 1,024 W4A4 plus 768 INT8 native calls versus 1,792 stock dense/decode calls; MXFP8 is 2,048 native versus 2,048 stock dense/decode calls. All four supervisors exit normally with flat swap. Ratios describe individual pairs, not a general or cross-format speed ranking.
 
 Together with the earlier NVFP4 pair, this closes Krea's advertised block-format diagnostic model comparisons. The historical 4 GiB MXFP8 failure is preserved; the new result qualifies only the measured 1 GiB separate-process route and does not isolate a universal memory cause. F1 still requires complete H3 quantized-encoder acceptance, and G2 still requires Wan14/H3 templates. Ordinary default/server behavior remains distinct.
 
 
-### October 4: H3 FP32 packed-dispatch repair passes; full acceptance remains open
+## 2026-10-04: H3 FP32 packed-dispatch repair passes; full acceptance remains open
 
 CLIP's real FP32 compute override had bypassed native NVFP4 despite the weight-only text context. Reviewed fix `6ad852be` preserves packed dispatch at that narrow boundary and passes all 28 integrated CPU/MPS regressions. Its unchanged prepared counterpart `ca51eaed` passes 29 CPU checks and a separate parent-owned 16/16 MPS run, zero skips, against Kitchen block-formats `354d0f5`.
 
 One full encode executed all 350 NVFP4 layers plus the INT8 embedding and reached finite conditioning, then failed an incorrect helper assertion that required positive persistent residency. The corrected validator accepts fully offloaded execution; its final retry instead stopped for system memory pressure after 122.875 s, with 337 native returns, 3.560 GiB sampled peak group RSS and flat swap. A retained ENOSPC attempt also executed 33 native operations before supervisor disk errors; it was not merely prelaunch despite its filename. None supplies a successful final guarded full-encoder report, so F1 H3 encoder and G2 H3 template acceptance remain open.
 
 
-### October 4: Guarded full H3 encoder and BF16 demand-read first return
+## 2026-10-04: Guarded full H3 encoder and BF16 demand-read first return
 
 A quiet-host retry completes the entire H3 quantized encoder under the unchanged frozen recipe and guards: 80.073 seconds, 3.546 GiB sampled peak group RSS and flat 0.569521 GiB swap. All 350 NVFP4 layers plus the INT8 embedding execute once, yielding finite CPU conditioning `[1,388,5120]` and checked video/audio latent geometry, with zero persistent MPS weights inside the 0–1 GiB cap. Actual initial free memory is 83%. This closes F1 at bounded diagnostic scope alongside the three Krea format pairs; independent numerical reference evidence remains at selected-layer scope. No diffusion/VAE or H3 API/video acceptance follows. Earlier helper, pressure and disk failures above remain preserved.
 
 The separate Qwen BF16 demand-read diagnostic passes its tiny numerical/lifetime prerequisite and conditioning capture, then returns from the first real Python model forward under normal pressure. It covers 194 eligible parameters with 383 reads and 1,427 owner checks, closes with zero Python read-tensor references, and exits normally in 82.236 seconds at 3.178 GiB peak group RSS with flat swap. The stop is explicitly unsynchronized; no completed sampler step or image is established. T1 full BF16 inference portability remains open.
 
-### October 4: Corrected seed-1 step-50 state and actual exporter verified
+## 2026-10-04: Corrected seed-1 step-50 state and actual exporter verified
 
 Corrected seed 1 completes its guarded 8→50 segment in 1,552.587 seconds, with validation 0.21996, 34.884 seconds/update, reported 11.49 GB driver peak, 1.455 GiB sampled peak group RSS and flat swap. Its step-50 recovery state is preserved separately. CPU-only verification against the source-bound actual trainer exporter confirms 1,537 finite checkpoint tensors, 192 state layers, and exact equality for all 672 exported tensors / 224 split factor pairs. The verified adapter is staged. This supersedes the earlier pending exact-export check without claiming seed-1 image quality.
 
 Corrected seed 0's continuation toward 300 was launched and its log confirms recovery at step 50; final completion is not inferred from that launch. Both final states/exports and matched INT8/BF16 images remain required.
 
-### October 5 final corrected Qwen and BF16 hardware qualification
+## 2026-10-05: final corrected Qwen and BF16 hardware qualification
 
 Both corrected 1024 seeds finish step 300 with finite preserved checkpoints and exact actual-exporter agreement for all 672 adapter tensors. Seed 1 preserves its pressure stop at step 210 and completes the guarded resume with flat swap; validation is 0.21592 versus seed 0's 0.21524. Matched evaluation is still underway. Final triggered images retain cyan, but the base prompt already induces cyan; palette alone cannot attribute learned style. Without the trigger, both adapters change a photographic fisherman into a coherent graphite portrait. Seed 1's triggered horse face is weaker than seed 0's. The plain-schedule seed-0 horse remains coherent and cyan.
 
 The source-bound tiny stacked BF16/F32 LoRA MPS gate passes in 5.549 seconds at 0.573 GiB peak group RSS with flat swap. Twelve forwards, including six omission controls, match the independent scalar oracle and ordinary MPS output exactly; fourteen fresh demand reads preserve mapped ownership/version/bytes. Four queued groups each settle after exactly one cleanup at 8,781,824 driver bytes, below the warmed 8,798,208-byte baseline; final release is 393,216 bytes. The unchanged 16 MiB ceiling holds. This qualifies the tiny stacked/offset and queued-read boundary, not real-model image portability or its six-case matrix.
 
-### October 5: final encoder captures and an INT8 admission boundary
+## 2026-10-05: final encoder captures and an INT8 admission boundary
 
 Both exact final BF16 conditioning recipes pass encoder-only capture and independent saved-byte/source/model/recipe verification. Trigger takes 12.544 s at 6.253 GiB peak group RSS; untriggered takes 11.898 s at 6.866 GiB, both with normal native pressure and unchanged 0.4992 GiB swap. UNET and VAE loading are forbidden. Six parent gate tests and eight unchanged serializer/runtime tests pass; completed independent review has no P0/P1. This does not accept full BF16 rendering.
 
 The original source-bound plain untriggered INT8 no-adapter attempt fails before sampling: the direct loader requires 12.11 GiB and observes 11.90 GiB system headroom (21.33 GiB driver headroom). The outer monitor records normal initial pressure, 40.254 s, 7.584 GiB peak RSS and flat swap; exit 1 is preserved. No retry or weaker admission is accepted. Investigating a separate encoder process must retain the actual encoded empty negative used by the plain recipe.
 
-### October 5: H3 deferred handles reach actual encoder entry
+## 2026-10-05: H3 deferred handles reach actual encoder entry
 
 The completed independent review and 56 parent CPU checks qualify one controlled observation of the original H3 graph. Actual entry shows two distinct live video/audio VAE handles at their exact frozen paths, one handle each, zero original-factory/private-decoder calls, and no active VAE patcher or model. Both remain absent from the eager owner census. However the outer monitor stops for system pressure at 83.419 s with peak group RSS 3.521 GiB and flat swap. Only initialization, encoder loader return and encoder entry are observed; no selected native return, encoder completion, diffusion or decode is accepted. This disproves deferral alone as a sufficient remedy on this host. The attempt and cleanup failure are preserved; no quiet retry.
 
-### October 5: Wan14 casts and first attention, still below acceptance
+## 2026-10-05: Wan14 casts and first attention, still below acceptance
 
 The reviewed concrete observer uses the original graph, weights, scheduler, cast arithmetic and guards. Both fresh CPU encoder returns precede high sampling. It observes the first attention input [1, 10296, 5120] with 40 heads and unsynchronized attention return, plus paired CPU-packed INT8 ConvRot q/ffn casts returning MPS FP16. It then stops for system pressure at 139.162 s, 10.303 GiB peak group RSS, flat swap, before the first high Python forward returns. No sampler step, settled GPU or generation is claimed. An initial tqdm prefix makes the original anchored log parser omit the attention-entry row; raw bytes retain it and a separate strict CPU extraction successor now passes ten parent CPU checks and independent review. This metadata correction cannot change the authoritative failed pressure outcome or permit a retry.
 
-### October 5: final INT8 matrix complete with separate plain conditioning
+## 2026-10-05: final INT8 matrix complete with separate plain conditioning
 
 The preserved plain untriggered base refusal is resolved by a source-bound separate encoder/diffusion evaluation route. Two captures retain exact positive and encoded-empty-negative tensors; both have the same actual negative bytes. Thirteen parent CPU checks and completed independent review find no blockers. Canonical source/export/model pins, actual outer supervisor/process group, single-attempt directories, normal-monitor receipts and exited encoder identities are checked before each render. Original sampler, VAE, 224-layer adapter mapping, INT8 direct loader and 0.65 allocator fraction are preserved; no BF16 demand-read policy runs.
 
@@ -667,30 +669,30 @@ All four remaining plain20/CFG4 1024px cases complete normally: untriggered base
 
 Quality depends on recipe. Seed 0’s Viggle horse is clearer; seed 1’s Viggle face/anatomy is degraded. Both plain horses are coherent, with different composition/texture and no general winner. Both plain untriggered portraits are photographic with little cyan; the graphite change is strong under Viggle. The recipes differ in stacking, guidance and steps together, so this does not isolate a cause. Triggered base controls already generate cyan, and the different horse/fisherman subjects cannot establish trigger selectivity. Parent and independent visual inspection agree on these limits. BF16 image portability remains open, as do H3/Wan14 API/video gates.
 
-### October 5: native128 BF16 control passes
+## 2026-10-05: native128 BF16 control passes
 
 Raising only the native observation count from 64 to 128 allows the same original BF16 base control to finish: 79 observations, six forwards covering all 194 target weights each, finite synchronized latent [1,64,64,64] and RGBA [1,1024,1024,4], demand reads closed before VAE, normal 314.163-second outer completion, 3.188 GiB peak group RSS and flat 0.4836 GiB swap. Time, allocator, residency, RSS, driver, native pressure/free and freshness limits stay unchanged. Parent source/output verification and image inspection pass. The coherent cyan horse is a base control; this does not close trained-adapter portability. The six-case corrected-final successor is undergoing loader path/byte binding and independent review before dispatch.
 
-### October 5: corrected-final BF16 portability accepted
+## 2026-10-05: corrected-final BF16 portability accepted
 
 All six corrected-final BF16 comparisons now complete six forwards and finite synchronized 1024px RGBA images, with exact final-adapter/stack byte binding and parent inspection. Each has normal monitored completion (256.273–517.711 seconds, 2.567–3.269 GiB peak group RSS); one swap increase is about 0.31 MiB within the existing guard. All six INT8/BF16 matched pairs have close composition/style. Seed 1’s Viggle horse remains degraded in both routes; the BF16 result establishes operational portability, not improved quality. Scope is the frozen six-step Viggle, CFG 1, seed 7, captured-conditioning/demand-read route with 1 GiB residency; plain BF16 and ordinary server precision equivalence are untested.
 
 This closes T1/T2 at their documented final-training, held-out INT8 and matched BF16 diagnostic scope. Plain20 INT8 results remain separately qualified. Unaligned cross-precision RGB PSNR is 26.070–37.532 dB; these measure image difference, not fidelity or quality. Prior budget, RGBA and admission failures remain preserved. H3/Wan14 API/video acceptance remains G2.
 
-### October 5: separate H3 capture and WAN14 transport boundaries
+## 2026-10-05: separate H3 capture and WAN14 transport boundaries
 
 H3’s reviewed encoder-only capture stops at 75.030 seconds for native pressure 2, free 42%, unchanged 0.3235 GiB swap and 3.557 GiB peak group RSS. It records 256 NVFP4 returns and one INT8 embedding return, then enters layer 36’s gate projection without a return. The 1,029 module-related memory samples have peak driver 839,516,160 bytes and a flat final 100 driver readings; this does not establish a native allocation-growth cause or invalidate the earlier complete standalone encoder proof. No capture artifact or API replay is accepted.
 
 WAN14’s reviewed full-graph SDPA candidate exits after 60.082 seconds on client HTTP timeout, with a second timeout during cleanup. Outer guard reason is null; pressure stays 1, free 70%, swap unchanged and peak group RSS 10.309 GiB. Both encoder calls return, and 40 high-expert self-attention wrappers install at the two-head cap, but sampling enters without any recorded expert forward or SDPA call. Tiny parity and CPU review do not substitute for this missing execution proof. The actual timeout request path was not logged, so event-loop blocking is not established. Both original attempts remain consumed; new diagnostic policy and transport candidates preserve their evidence.
 
 
-### October 5: WAN14 v4 transport survives timeouts, then pressure stops the graph
+## 2026-10-05: WAN14 v4 transport survives timeouts, then pressure stops the graph
 
 Both CPU encodings return and the high-expert attention profile installs before sampling enters. Four owned history GET socket timeouts last about five seconds each; cancellation and a cleanup connection reset follow the outer system-pressure stop at 84.701 seconds. The configured 480-second client deadline does not expire. Pressure reaches 2, free memory 44%, peak group RSS 10.304 GiB and swap remains 0.323486 GiB. No expert-forward event or full-model SDPA execution is established, and no video is accepted.
 
 The guard retains a child MPS periodic sample from 22.8507 seconds earlier. Its zero current allocation and 393,216 driver bytes cannot establish allocation at the stop boundary. The native pressure sample is current to the guard query; these observations must stay separate. All 88 source and 22 evidence pins, the completed 372.553-second independent review, parent CPU evidence and actual outcome/log identities are verified. No stack capture was obtained.
 
-### October 5: H3 bounded-warning capture reaches layer 48, then swap growth stops it
+## 2026-10-05: H3 bounded-warning capture reaches layer 48, then swap growth stops it
 
 The capture records 344 module entries and 343 complete packed-cast/native/module returns: 342 NVFP4 operations plus the INT8 embedding. Its last event enters `layers.48.mlp.down_proj` at capture elapsed 112.2389 seconds. The guard stops at 118.760 seconds for measured system swap growth from 0.323486 to 1.775391 GiB, an increase of 1.451904 GiB against the 0.0625 GiB limit. Pressure is 2, free memory 35%, peak group RSS 3.563 GiB and final group RSS 0.650 GiB. Cumulative observed warning exposure is 10.3397 of 20 seconds; neither warning-budget exhaustion nor the 120-second deadline causes the stop. No encoder return, conditioning artifact, receipt or API attempt is present.
 
@@ -699,13 +701,13 @@ The last module event reports 64,938,752 MPS current bytes and 839,516,160 drive
 At this earlier boundary, all failed attempts remained consumed and admission/transfer successors were under preparation. Raising the swap limit does not remedy the measured growth. The later results below preserve the earlier standalone H3 encoder acceptance and leave G2 API/video acceptance open.
 
 
-### October 5: tiny H3 qdata-transfer prerequisite accepted
+## 2026-10-05: tiny H3 qdata-transfer prerequisite accepted
 
 The reviewed synthetic mapped/demand differential completes normally in 11.976 seconds, with 2.156 GiB peak group RSS and flat 1.812871 GiB swap. Twelve ABBA cases produce exact outputs for plain NVFP4, AWQ NVFP4 and INT8 embedding fixtures. The complete test makes 12 native NVFP4 calls and six INT8 embedding calls through eager PyTorch row gathering on MPS, and reads 4,361,420,800 packed-data bytes. Original source ownership, versions and bytes remain unchanged. The reader closes before explicit final synchronization, and driver allocation settles exactly to its 44,433,408-byte baseline.
 
 This is a transfer-ownership prerequisite on repeated rows and uniform scales. Original scale transfers may implicitly synchronize, so it does not prove all calls were concurrently pending. It does not establish a whole-encoder memory remedy, physical attribution, captured conditioning or API/video acceptance. The full H3 capture’s earlier swap-growth failure remains unchanged.
 
-### October 5: WAN admission reaches the pre-body stop, but collection fails
+## 2026-10-05: WAN admission reaches the pre-body stop, but collection fails
 
 The actual attempt returns both encodings and records 14 admission entry/return rows, ending in model-load return with 739,943,248 loaded bytes. Sequence 15 contains the intended exception before the first high expert body. The monitored run ends at 64.717 seconds with normal pressure, flat 1.812871 GiB swap and 9.703 GiB peak group RSS. Its original `observation_ok=false`, `generation_accepted=false` and consumed-attempt status remain authoritative.
 
@@ -714,13 +716,13 @@ Two independent collection assumptions cause rejection. The history error’s `c
 These earlier failures remain unchanged. The subsequently activated dedicated-journal WAN and full H3 qdata-capture attempts also fail, as recorded below.
 
 
-### October 5: H3 qdata capture finishes layer returns, then fails metadata validation
+## 2026-10-05: H3 qdata capture finishes layer returns, then fails metadata validation
 
 The full capture records 351 qdata reads totaling 12,967,608,320 bytes, with 350 native NVFP4 returns and one eager PyTorch MPS INT8 embedding return. It exits unsuccessfully after 98.232 seconds with no guard reason, pressure 1 throughout the observations, zero warning exposure, flat 1.781621 GiB swap and 3.893 GiB peak group RSS. `Archive.validate` rejects the scheduled CLIP metadata before serialization: its expected key set excludes `pooled_output`, which the actual CLIP wrapper adds. The exact returned metadata contract is under separate CPU investigation.
 
 There is no conditioning artifact or capture receipt, and the operation returns do not replace finite serialized conditioning or final source/admission validation. No full capture, memory remedy or API/video acceptance follows. The original failed outcome remains consumed; its group and workers are reaped. The earlier tiny transfer prerequisite remains accepted at its synthetic diagnostic scope.
 
-### October 5: WAN admission v2 captures a native stack, then stops for pressure
+## 2026-10-05: WAN admission v2 captures a native stack, then stops for pressure
 
 The strict dedicated journal contains ten valid rows, ending at `_load_list` return at server elapsed 47.692293 seconds. It records no model-load return or intentional pre-body stop. The pressure guard ends the attempt at 74.559 seconds: pressure 2, free memory 40%, flat 1.781621 GiB swap and 9.709 GiB peak group RSS. The retained child MPS sample is 21.662 seconds stale at that boundary and cannot describe failure-time allocation.
 
@@ -729,7 +731,7 @@ The owned native sampler completes before teardown, preserving a 139,421-byte sn
 At this earlier boundary, metadata-contract and fork-free telemetry successors were CPU investigations only. The H3 metadata successor subsequently completes the accepted standalone capture below; the preceding failed attempts retain their original outcomes.
 
 
-### October 5: H3 qdata capture produces an accepted encoder artifact
+## 2026-10-05: H3 qdata capture produces an accepted encoder artifact
 
 The v2 standalone capture completes normally in 74.721 seconds at 4.186218 GiB peak group RSS. All 38 observed pressure samples are 1, warning exposure is zero and swap stays at 1.781621 GiB. Each of 351 qdata reads executes once, totaling 12,967,608,320 bytes; all 350 native NVFP4 operations and the eager PyTorch MPS INT8 embedding return once. Source owners, versions and persistent storage remain unchanged.
 
@@ -738,7 +740,7 @@ A fresh parent CPU reload verifies finite FP32 conditioning `[1,388,5120]`, I64 
 This accepts a saved encoder artifact as a prerequisite for a separate-process workflow. No diffusion or VAE payload was loaded, no API/video result is accepted, and numerical reference parity remains unknown because there is no matching saved reference tensor. The v1 metadata failure, WAN v2 pressure failure and all earlier receipts remain unchanged. The H3 API successor is under CPU preparation, with no API activation. G2 H3/WAN14 API/video acceptance stays open.
 
 
-### October 5: WAN fork-free admission passes with a deliberate pre-body stop
+## 2026-10-05: WAN fork-free admission passes with a deliberate pre-body stop
 
 The v3 observation completes normally in 73.066 seconds at 9.933945 GiB peak group RSS, with pressure 1 and swap unchanged at 1.781621 GiB. Both encodings return. All 15 strict journal rows are present: seven admission entries, seven returns and the unconditional pre-body stop. High-model loading reaches 739,943,248 bytes within the 1 GiB budget; `_load_list` return to `load` return takes 1.356296 seconds. The exact stop propagates without calling the first high expert body. Parent admission and stack validators pass against the actual journal and reports, with no history timeout.
 
@@ -747,7 +749,7 @@ The owned sampler preserves a 127,926-byte native snapshot using one second of s
 The H3 saved encoder artifact remains accepted at its separate-process prerequisite scope. The WAN v1 collection failure, WAN v2 pressure failure and all earlier failed receipts remain unchanged. H3 API preparation has passed CPU checks and is under independent review; WAN full-graph work is CPU planning only. Neither successor is activated. G2 H3/WAN14 API/video acceptance remains open.
 
 
-### October 5: H3 API replays conditioning, then stops for pressure
+## 2026-10-05: H3 API replays conditioning, then stops for pressure
 
 The first H3 API attempt using the accepted saved artifact replays finite CPU conditioning without constructing or invoking a real encoder. Diffusion admission loads 162,660,112 bytes within the 1 GiB budget. The outer guard then stops for system pressure at 66.675 seconds, with pressure 2, 3.303421 GiB peak group RSS and swap unchanged at 1.781621 GiB; observed free memory falls from 73% to 39%. No completed forward, sampling callback, decode or video is recorded.
 
@@ -756,7 +758,7 @@ The last of eight phase events is admission at server elapsed 28.970720 seconds.
 The accepted H3 encoder capture, accepted WAN admission observation and all preceding failure receipts remain unchanged. At this earlier boundary, H3 CPU investigation had no proved remedy and WAN v5 was frozen under independent review. The subsequent WAN attempt is recorded below. G2 H3/WAN14 API/video acceptance remains open.
 
 
-### October 5: WAN14 fullgraph v5 stops for pressure and rejects console qualification
+## 2026-10-05: WAN14 fullgraph v5 stops for pressure and rejects console qualification
 
 The reviewed fork-free full-graph attempt stops for system pressure at 163.452 seconds, with 9.761597 GiB peak group RSS and swap unchanged at 1.781621 GiB. Native pressure reaches 2 and observed free memory falls from 72% to 40%. Both encodings return and high-model admission loads 739,943,248 bytes within the 1 GiB budget. The attempt remains failed and consumed, with no accepted full-graph observation or generation.
 
@@ -767,7 +769,7 @@ The guard retains a fresh child sample with a recorded age of 0.554653 seconds a
 The accepted H3 encoder capture, accepted WAN admission observation, H3 API pressure failure and all preceding failure receipts remain unchanged. At this earlier boundary, H3 phase-only CPU implementation was prepared and a new WAN CPU investigation was at the planning stage. The subsequent H3 phase attempt is recorded below. G2 H3/WAN14 API/video acceptance remains open.
 
 
-### October 5: H3 phase attempt reaches block 20, then stops for pressure
+## 2026-10-05: H3 phase attempt reaches block 20, then stops for pressure
 
 The phase-instrumented H3 API attempt stops for system pressure at 73.017 seconds, with 3.303177 GiB peak group RSS. Native pressure rises from 1 to 2 and observed free memory falls from 75% to 36%. Swap peaks at its initial 1.773809 GiB and ends lower at 1.765996 GiB. The monitor process exits 125, the server exits −15 and the client exits 1. The client reports deadline or cancellation, but the authoritative monitor reason is system memory pressure. The attempt remains failed and consumed.
 
@@ -780,7 +782,7 @@ The completed independent review reports no findings. The parent accepts its cor
 The accepted H3 encoder capture, accepted WAN admission observation, prior H3 API pressure failure, WAN v5 pressure and console failure and all preceding receipts remain unchanged. At this earlier boundary, WAN v7 CPU packaging corrections were under independent review. Its subsequent attempt is recorded below. G2 H3/WAN14 API/video acceptance remains open.
 
 
-### October 5: WAN14 v7 phase attempt reaches block 23, then stops for pressure
+## 2026-10-05: WAN14 v7 phase attempt reaches block 23, then stops for pressure
 
 The one reviewed v7 attempt stops for system memory pressure at 119.631 seconds. Native pressure rises from 1 to 2, observed free memory falls from 73% to 31%, and swap grows from 1.765996 to 2.004023 GiB, an increase of 243.74 MiB. Peak group RSS is 10.309509 GiB; the last observed group RSS is 1.038605 GiB. The attempt remains failed and consumed, with no retry authorized by its receipt.
 
@@ -795,7 +797,7 @@ The completed 681.512-second independent review has no blocking findings. The pa
 The accepted H3 encoder capture, accepted WAN admission observation, H3 phase pressure failure, WAN v5 pressure and console failure and all earlier receipts remain unchanged. At this earlier boundary, a smaller 512×288×22 H3 candidate was in CPU preparation. Its subsequent failed attempt is recorded below. G2 H3/WAN14 API/video acceptance is the only remaining project gate.
 
 
-### October 5: smaller H3 still stops for pressure; WAN v8 review is invalid
+## 2026-10-05: smaller H3 still stops for pressure; WAN v8 review is invalid
 
 The reviewed 512×288×22 H3 attempt stops for system pressure at 80.882 seconds, with 3.327911 GiB peak group RSS and swap unchanged at 1.933711 GiB. Native pressure rises from 1 to 2 and observed free memory falls from 75% to 38%. Its 134 phase rows record exactly 21 whole-block Python returns, `dit.0` through `dit.20`, then `dit.21` entry at server elapsed 79.644592 seconds. The first full diffusion forward does not return; there is no terminal journal, sampler/decode/history result or useful video. The attempt remains failed and consumed.
 
@@ -810,7 +812,7 @@ The separate WAN v8 512×288×33 candidate passes 56 parent CPU tests in 4.571 s
 At this earlier boundary, H3 pressure and job-local read-only review permissions were under CPU investigation. The subsequent separate replacement review and bounded WAN attempt are recorded below. The accepted H3 encoder capture, accepted WAN admission observation, earlier H3 phase failure, WAN v7 phase failure and all preceding receipts remain unchanged. Neither useful video is accepted; G2 is the only remaining project gate.
 
 
-### October 5: bounded WAN v8 still stops for pressure after a compliant replacement review
+## 2026-10-05: bounded WAN v8 still stops for pressure after a compliant replacement review
 
 The one 512×288×33 WAN v8 attempt stops for system pressure at 80.197 seconds, with 10.108887 GiB peak group RSS and flat 1.925898 GiB swap. Native pressure rises from 1 to 2 and observed free memory falls from 74% to 34%. Last observed group RSS is 1.543320 GiB. The outcome retains `observation_ok=false`, `generation_accepted=false` and `retry_allowed=false`. Smaller geometry does not resolve the pressure gate.
 
@@ -825,7 +827,7 @@ The separate replacement review completes in 388.396 seconds at 21:13:37 UTC wit
 At this earlier boundary, H3’s read-only comparison had found no proved remedy and a bounded footprint, compression and global-VM observer was in CPU preparation. Its subsequent attempt is recorded below. The accepted H3 encoder capture, accepted WAN admission observation, smaller H3 failure, first invalid WAN v8 review and all preceding receipts remain unchanged. Neither useful video is accepted; G2 is the only remaining project gate.
 
 
-### October 5: H3 task-VM observation stops for pressure without a completed forward
+## 2026-10-05: H3 task-VM observation stops for pressure without a completed forward
 
 The task-VM observation uses the same 512×288×22 H3 workload and unchanged guards. It stops for system pressure at 53.369 seconds, with 3.296631 GiB peak group RSS and flat 1.628906 GiB swap. Native pressure rises from 1 to 2 and observed free memory falls from 69% to 37%; last group RSS is 0.565262 GiB. All 122 phase rows retain the attempt and plan identity. Python blocks 0–14 return, followed by block 15 entry at server elapsed 51.987326 seconds. No first full forward, sampler return, decode, useful video or native qualification is established.
 
@@ -840,7 +842,7 @@ The actual independent source review completes in 509.298 seconds with no blocki
 The completed comparison meets the predeclared stop rule: stop the local H3 diagnostic work and current local G2 runtime work under these conditions. No evidence-backed local retry or causal source fix is identified. Meaningful runtime qualification needs changed execution conditions or concrete evidence of an avoidable allocation; further resize or guard cycles are unsupported. This is an evidence boundary, not a permission gate, proof that the hardware can never fit the models, or attribution to another process. The bounded WAN v8 failure, accepted prerequisites and all prior receipts remain unchanged. G2 remains the only open project gate, with neither useful video accepted.
 
 
-## October 5: range/API fixes and initial spectral contract
+## 2026-10-05: range/API fixes and initial spectral contract
 
 The improvement pass closes the reproduced GGUF factor overflow, MXFP8 mixed-scale loss, INT8 gradient bound overflow, empty contractions/dtype admission, vector masks, Conv3d temporal padding, independent-head native SDPA crash and input-axis DoRA column overflow. Each implementation has an independent review; combined native suites pass 354 Kitchen and 267 ComfyUI tests with normal pressure and flat swap.
 
@@ -849,44 +851,97 @@ MXFP8's corrected FP32 route costs 50–60% at the measured 4096-token layers, d
 The opt-in spectral adapter reuses the pinned MIT [LC123 implementation](https://github.com/lonecatone23/ComfyUI_LC123_nodes/blob/e73bdd3aca64c207c821d188ff17356f0963f205/lc_speed_boost.py), with actual Krea/CONST/Euler admission. Tiny CPU/MPS checks establish eight model calls, one resize, single outer noise scaling, independent DCT parity and unchanged global RNG. They do not establish learned-model quality or request speed. Real-image comparison remains the next evidence boundary; no spectral model acceptance or public submission is claimed.
 
 
-### October 5: source-aware Wan conditioning and bounded Krea spectral experiment
+## 2026-10-05: source-aware Wan conditioning and bounded Krea spectral experiment
 
 Wan5B/14B headless cache keys now separate positive/negative text and bind local encoder stat identity, sources, runtime and policy. Nine CPU checks exercise collision/invalidation, serialization and both actual runners' hit/miss/off branches; independent review has no actionable findings. Old prompt-only caches are not reused.
 
 The optional Krea spectral adapter passes 19 CPU/MPS checks, including actual tiny network forwards after real node preparation, but full checkpoint baselines at 1024px and changed 512px both hit the memory-pressure guard before completion. No boosted checkpoint render, speed or image-quality acceptance exists. Full-model retries are paused.
 
-### October 6: ordinary Krea Turbo generation with bounded readonly residency
+## 2026-10-06: ordinary Krea Turbo generation with bounded readonly residency
 
 Eight-step native INT8 Turbo generation now completes through the ordinary headless entry, including fresh CPU encoding and VAE decode, with the shared readonly loader and a 1 GiB resident-weight cap. Recorded 512px repeats are exact in latent and decoded float image; the current default-cap 1024px cold run completes in 294.623 seconds (254.42 sampling), at 7.272 GiB peak process RSS with flat swap and an inspected useful image. All complete ordinary renders execute eight denoiser calls and 1,792 native BF16 activation calls. Larger caps and repeated API-server behavior remain separate acceptance boundaries.
 
 Optional Krea conditioning reuse binds stronger encoder stat identity, tokenizer/source bytes and runtime/policy, and verifies exact loaded/published bytes. Completed cache controls reproduce exact images, but deadline stops and a slow 2 GiB replay prevent a reliable latency claim. Spectral's two 512px outputs repeat exactly and pass inspection with changed identity/pose details; neither earns a fresh-run speed benefit. The ordinary writable baseline pressure-stops before sampling, so four-step LoRA is deferred without bypassing readonly refusal. Final independent review finds no retained cache/residency defects.
 
 
-### October 6: internal-checkpoint 1024px repeats and completed warm spectral sequence
+## 2026-10-06: internal-checkpoint 1024px repeats and completed warm spectral sequence
 
 After the storage controls, the unchanged ordinary Krea entry completes 1024px fresh encoding/off in 189.190s and a source-bound conditioning hit in 140.040s. Sampling is 135.39s/132.43s, decode 1.19s/1.17s, peak group RSS 7.393/1.323 GiB. Both have normal pressure, flat swap, eight denoiser calls, 1,792 native calls and 771,686,304-byte resident weights. Latent and decoded float image match each other and the earlier accepted 1024px output bit-exactly; parent inspection passes with the same cropped hands/foot and blurred rear hand. These natural-file-cache acceptance runs do not prove a universal speedup.
 
 The previously unfinished headless same-process 512px baseline/baseline/spectral/spectral/baseline sequence now completes in 187.419s, peak RSS 1.357 GiB, normal pressure and flat swap. All 40 forwards and 8,960 native calls complete; three baselines and two spectral outputs each match their earlier respective tensor references exactly. Warm baseline mean sampling is 39.558s versus spectral 30.162s: 23.753% lower sampling time in this one session. Spectral preserves a coherent high kick and scene but changes face identity/beard and framing. This earns a conditional warm-session trade-off, not image equivalence, fresh-process or API-server speed. Writable four-step LoRA remains deferred after its separate pressure stop; static readonly residency refusal is preserved.
 
 
-### October 6: 1024px spectral bracket and second-subject quality
+## 2026-10-06: 1024px spectral bracket and second-subject quality
 
 Four fresh ordinary-entry processes complete baseline/spectral/spectral/baseline at 1024px, with exact latent/image repeats within each route, all 32 denoiser forwards and 7,168 native INT8 calls. Mean sampling is 170.28s baseline versus 128.685s spectral, a 24.427% reduction in this natural-cache bracket. Parent inspection passes the changed soccer composition. A seed 7 snowy-fox pair at 512px completes sixteen more forwards and 3,584 native calls with coherent anatomy/fur in both images. First fox request encodes while the second hits conditioning, so whole-request times are not compared. No runtime source changes.
 
 The separate writable baseline adds the existing generic 1 GiB cap and 0.5 allocator fraction but pressure-stops at 17.513s before completing the first forward. Euler's 0/8 progress bar indicates sampling preparation returned; admission alone is not established as the failure phase. No adapter was loaded. Private mapped-weight streaming remains a hypothesis requiring persisted cap/prediction/footprint observations; unchanged retries and readonly-refusal bypass remain unjustified.
 
-## October 6: immutable Krea four-step adapter and repeated readonly API
+## 2026-10-06: immutable Krea four-step adapter and repeated readonly API
 
-The explicitly admitted released rank64/four-step adapter now renders the512px soccer/seed42 recipe with896 native/fused-side calls, all228 patched layers each step, finite inspected decode, normal pressure and flat swap. Shared ACCESS_READ construction mitigates the earlier writable pressure boundary without closing its exact OS cause. The first immutable successor completes but fails native qualification because LowVramPatch merges offloaded quantized weights into dense temporaries. The retained bench-only successor uses Comfy's existing temporary side representation across the whole forward/direct activation entry, restoring all state in finally; no vendor kernel or sampler change. Sampling38.42s versus43.82s baseline is one scoped12.323% comparison, not2× or a general default.
+The explicitly admitted released rank64/four-step adapter now renders the 512px soccer/seed42 recipe with 896 native/fused-side calls, all 228 patched layers each step, finite inspected decode, normal pressure and flat swap. Shared ACCESS_READ construction mitigates the earlier writable pressure boundary without closing its exact OS cause. The first immutable successor completes but fails native qualification because LowVramPatch merges offloaded quantized weights into dense temporaries. The retained bench-only successor uses Comfy's existing temporary side representation across the whole forward/direct activation entry, restoring all state in finally; no vendor kernel or sampler change. Sampling 38.42s versus 43.82s baseline is one scoped 12.323% comparison, not 2× or a general default.
 
-The dedicated localhost base512px API profile passes initial/changed-seed/changed-prompt requests in50.581/37.976/73.778s,24 forwards/5,376 native calls, one retained model/load identity, expected graph-cache invalidation and finite inspected decode. Both fresh encoder calls release their objects before sampling; persistent conditioning reuse is disabled to prove this path. Aggregate167.862s, peakRSS7.431GiB, normal pressure and flat swap; owned server/group stopped. Initial saved pixels match accepted headless baseline exactly. An earlier metadata guard failure is preserved; the correct EmptyLatentImage `downscale_ratio_spacial:8` is retained and a real CPU node-boundary test prevents recurrence.
+The dedicated localhost base 512px API profile passes initial/changed-seed/changed-prompt requests in 50.581/37.976/73.778s, 24 forwards/5,376 native calls, one retained model/load identity, expected graph-cache invalidation and finite inspected decode. Both fresh encoder calls release their objects before sampling; persistent conditioning reuse is disabled to prove this path. Aggregate 167.862s, peak RSS 7.431 GiB, normal pressure and flat swap; owned server/group stopped. Initial saved pixels match accepted headless baseline exactly. An earlier metadata guard failure is preserved; the correct EmptyLatentImage `downscale_ratio_spacial:8` is retained and a real CPU node-boundary test prevents recurrence.
 
-Independent reviews resolve failed-load publication, skipped encoder proof and dead weakref accumulation, then report complete coverage/no actionable findings for final runtime/test deltas. Root422pass/3skip/14subtests and25 GGUF-node tests pass. Static readonly continues to refuse LoRA. Adapter1024/broaderquality/repeated/API acceptance, mixed/default-server behavior and exact OS pressure cause remain separate.
+Independent reviews resolve failed-load publication, skipped encoder proof and dead weakref accumulation, then report complete coverage/no actionable findings for final runtime/test deltas. Root 422 pass/3 skip/14 subtests and 25 GGUF-node tests pass. Static readonly continues to refuse LoRA. Adapter 1024/broader quality/repeated/API acceptance, mixed/default-server behavior and exact OS pressure cause remain separate.
 
-## October 6: Spectral combines with the Krea Workbench
+## 2026-10-06: Spectral combines with the Krea Workbench
 
 The 17-request GUI proof qualifies native INT8 with Spectral, three/five adapter files, Style Reference and one/two-image Identity Edit. Matched bracket sampling means are 94.46→79.06s for three LoRAs (16.3% lower), 129.99→95.68s for two-image Identity Edit (26.4% lower), and 99.27→103.45s for Style Reference (4.2% slower). Whole-request savings differ; these are conditional session observations. Exact repeats/base restoration pass; maximum observed RSS is 8.809 GiB with normal pressure/flat swap. Faces/framing and fine likeness change. Ordinary stays default; Style Spectral experimental and four-step integration parked.
 
-## October 8: project reconciliation after Workbench and memory acceptance
+## 2026-10-08: project reconciliation after Workbench and memory acceptance
 
 The project sweep closes stale current-doc claims about Krea restoration/warm export and WAN14/H3 pressure blocks at their accepted scopes. WAN14 and H3 use specific bounded loaders; original untouched official templates remain unqualified. T1–T7 are complete at their stated training/portability/pilot scopes. The old same-subject learned-style ablation and the requested Identity Edit training exploration were restored as open work. No inference, training or new benchmark was run for this audit. All dated failures and original immutable receipts remain unchanged.
+
+## 2026-11-09: pre-grant review
+
+A review of this repo for grant use is at [docs/review/2026-11-09-pre-grant-review.md](review/2026-11-09-pre-grant-review.md). It changed the headline numbers as follows.
+
+- The Krea 2 Turbo headline is now 512²: 8.7 s/step stock against 3.65 to 3.69 s/step on the hardened Metal backend (2.36 to 2.38x; the README rounds this to 3.7 s and 2.35x). The 1024 row stays caveated: the stock 35 s was one run during a download and the 16.5 s is older than the 14.91 s measured later.
+- Qwen-Image 2.1 1024² is the second headline: 15.1 to 8.8 s/step at 9.1 GB.
+- The INT8 overhead over a resident fp16 GEMM is quoted from the hardened table (3.3 to 4.5 percent here, 1.4 to 2.1 percent in the comfy-kitchen PR writeup), not the 4 to 9 percent measured before hardening.
+- Verification wording: kernel outputs are checked against a float32 or float64 reference; end-to-end runs are checked for NaNs and compared to stock by PSNR/SSIM where noted; timings are single-machine measurements.
+- The wide-linear PyTorch figure is given per dtype: 3.52x fp16 and 8.83x fp32 at K=32768 on torch 2.14.1. The `_int_mm` statement above is scoped to torch 2.14.1 and earlier, since 2.15.0 ships one on MPS.
+- The EXL3 27B ratio (2.4 to 4.4x slower than the ggml Metal kernels) now has its evidence in this repo: [docs/research/2026-10-25-exl3-prototype.md](research/2026-10-25-exl3-prototype.md) and its JSON, ported from the private checkout.
+- Memory figures labeled "after sampling" are driver snapshots, not peaks.
+
+## 2026-11-09: torch 2.15.0 `_int_mm` on MPS, measured
+
+Throwaway venv with torch 2.15.0 (repo `.venv` untouched), macOS 27.0.1, same M1 Max. Five rounds, variants interleaved, three calls per round, median over 15 samples, `torch.mps.synchronize` after each call, GPU-serialized. Raw numbers: [review/2026-11-09-experiments/int-mm-2.15.json](review/2026-11-09-experiments/int-mm-2.15.json).
+
+| Shape (M, K, N) | fp16 `F.linear` | bf16 `F.linear` | int8 dequant per call (fp16) + `F.linear` | `torch._int_mm` (int8 in, int32 out) |
+|---|---|---|---|---|
+| 4608, 6144, 6144 | 39.4 | 70.6 | 43.1 | 42.1 |
+| 4608, 6144, 16384 | 104.5 | 186.0 | 111.4 | 113.4 |
+| 4608, 16384, 6144 | 226.3 | 245.8 | 218.2 | 112.6 |
+
+- `torch._int_mm` exists on MPS in 2.15.0 and its int32 output is bit-exact against an int64 CPU reference. The 2026-10-02 statement that it is missing holds for torch 2.14.1 and earlier only.
+- It is not faster than fp16: 1.07x and 1.08x slower at the two K=6144 shapes, and within noise of this repo's weight-only kernel (39.5 and 104.7 ms, hardened table above) while still omitting the scale restore a real INT8 linear needs. On a GPU without integer matrix units, integer GEMM buys nothing over fp16, which is the premise of the weight-only design.
+- At K=16384 `_int_mm` is 2.0x faster than fp16 `F.linear`, but that is the wide-K transposed-weight anomaly in `F.linear` (next entry), not integer compute. Against the bare fp16 GEMM (103 ms) and the kernel (107 ms) it is 5 to 9 percent slower.
+- Dequantize-per-call in fp16 costs about 9 percent here. The 1.2 to 1.9x stock-ComfyUI penalty in the 2026-10-02 table is therefore mostly bf16 compute (1.8x slower than fp16 on this GPU) plus the dequantize, not the dequantize alone. The kernel removes both.
+
+## 2026-11-09: wide-K transposed-weight slowdown, rechecked
+
+`bench/repro_mps_wide_linear.py` on torch 2.14.1, GPU-serialized, host load average 14 to 22 during the run. Raw: [review/2026-11-09-experiments/wide-k-32769.json](review/2026-11-09-experiments/wide-k-32769.json).
+
+- Still reproduces: at K=32768, `F.linear` is 3.23x slower than the contiguous pre-transposed matmul in fp16 and 7.89x in fp32, identical outputs. Slightly under the October 4 ratios (3.52x, 8.83x) because the fast path measured slower under today's host load; the slow-path times are unchanged (684 against 715 ms fp16).
+- The slowdown grows smoothly with K and does not depend on K being a power of two: fp16 1.17x at 8192, 1.26x at 10240, 1.33x at 12288, 1.90x at 16384, 2.16x at 24576, 3.23x at 32768.
+- K=32769 is a different regime: every variant, including the contiguous one, jumps to about 2.3 s (10.8x cliff over K=32768). That is the K > 32768 reroute on M1/M2 the script docstring warns about, not evidence about the transposed-weight bug. A K=32769 row in the PyTorch issue should be labeled as such.
+
+## 2026-11-09: CUDA anchor for the GEMM table (Modal, NVIDIA)
+
+Same three shapes on NVIDIA T4, A10G and A100-80GB through Modal, torch 2.15.0+cu132, median of 20 calls after 5 warmups. Full table and discussion: [modal/README.md](../modal/README.md); raw: [modal/results/2026-11-09-cuda-gemm-anchor.json](../modal/results/2026-11-09-cuda-gemm-anchor.json). This is cuBLAS against cuBLAS, a cross-platform column for the stock paths, not a Metal-versus-CUDA kernel comparison.
+
+| Shape (M, K, N) | GPU | fp16 | bf16 | fp16, transposed weight | int8 dequant per call + fp16 | `_int_mm` |
+|---|---|---|---|---|---|---|
+| 4608, 6144, 6144 | T4 | 16.9 | 151.7 | 19.7 | 18.9 | 9.9 |
+| 4608, 16384, 6144 | T4 | 52.6 | 497.4 | 80.7 | 60.5 | 30.6 |
+| 4608, 6144, 6144 | A10G | 5.28 | 5.18 | 5.35 | 5.85 | 2.75 |
+| 4608, 16384, 6144 | A10G | 13.7 | 13.6 | 15.4 | 15.2 | 6.96 |
+| 4608, 6144, 6144 | A100 | 1.51 | 1.52 | 1.48 | 1.57 | 0.84 |
+| 4608, 16384, 6144 | A100 | 3.55 | 3.61 | 3.59 | 4.28 | 2.53 |
+
+- The transposed-weight penalty at K=16384 is 1.53x on T4 (Turing), 1.12x on A10G (Ampere) and absent on A100. It is a layout-dispatch problem newer cuBLAS solved; MPS has not.
+- bf16 is emulated on T4 (9x slower than fp16), the same shape of penalty as bf16 on the M1 Max (1.8x). bf16-by-default is a datacenter assumption.
+- True INT8 GEMM is 1.7 to 2.0x faster than fp16 wherever integer tensor units exist. That is the ceiling Apple M5 could bring and the M1 Max `_int_mm` above does not reach.
+- fp8 `_scaled_mm` is unsupported on all three parts (needs sm89 or newer).

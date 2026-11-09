@@ -1,0 +1,431 @@
+{
+ "torch": "2.15.0",
+ "python": "3.12.11",
+ "sw_vers": [
+  "ProductName: macOS",
+  "ProductVersion: 27.0.1",
+  "BuildVersion: 26A434"
+ ],
+ "machine": "arm64 (M1 Max, same host as docs/findings.md)",
+ "rounds": 5,
+ "per_round": 3,
+ "warmup": 2,
+ "method": "round-robin interleaved variants; median/IQR over 15 samples (5 rounds x 3); torch.mps.synchronize after each call; run under bench/with_gpu.sh",
+ "int_mm_exists": true,
+ "int_mm_raised_NotImplementedError": false,
+ "int_mm_bit_exact_vs_int64_cpu": true,
+ "int_mm_output_dtype": "int32; no scale restore included in its timing",
+ "shapes": [
+  {
+   "shape_MKN": [
+    4608,
+    6144,
+    6144
+   ],
+   "variants": {
+    "fp16 F.linear": {
+     "median_ms": 39.43,
+     "iqr_ms": 1.21,
+     "q1_ms": 38.96,
+     "q3_ms": 40.17,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.0,
+     "raw_ms": [
+      40.52,
+      39.62,
+      37.92,
+      40.49,
+      37.88,
+      39.43,
+      39.08,
+      38.15,
+      39.9,
+      39.76,
+      39.14,
+      40.43,
+      39.22,
+      38.84,
+      40.57
+     ]
+    },
+    "bf16 F.linear": {
+     "median_ms": 70.59,
+     "iqr_ms": 1.9,
+     "q1_ms": 69.65,
+     "q3_ms": 71.55,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.79,
+     "raw_ms": [
+      71.48,
+      70.05,
+      70.65,
+      70.07,
+      69.67,
+      68.48,
+      71.66,
+      68.3,
+      70.59,
+      71.29,
+      69.46,
+      71.62,
+      72.91,
+      69.63,
+      72.54
+     ]
+    },
+    "fp16 x @ w.t()": {
+     "median_ms": 40.14,
+     "iqr_ms": 2.05,
+     "q1_ms": 39.3,
+     "q3_ms": 41.35,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.018,
+     "raw_ms": [
+      38.83,
+      44.8,
+      67.42,
+      39.22,
+      42.36,
+      39.42,
+      40.39,
+      39.12,
+      40.62,
+      39.73,
+      40.14,
+      38.27,
+      39.37,
+      41.53,
+      41.17
+     ]
+    },
+    "dequant-per-call int8->fp16 + F.linear": {
+     "median_ms": 43.05,
+     "iqr_ms": 1.04,
+     "q1_ms": 42.51,
+     "q3_ms": 43.55,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.092,
+     "raw_ms": [
+      47.47,
+      42.8,
+      43.76,
+      42.46,
+      42.55,
+      43.05,
+      41.69,
+      43.07,
+      42.18,
+      42.59,
+      42.02,
+      43.13,
+      47.16,
+      46.95,
+      43.34
+     ]
+    },
+    "torch._int_mm(int8 x, int8 w.t())": {
+     "median_ms": 42.08,
+     "iqr_ms": 1.52,
+     "q1_ms": 41.3,
+     "q3_ms": 42.82,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.067,
+     "raw_ms": [
+      41.32,
+      41.29,
+      42.83,
+      42.38,
+      40.61,
+      42.81,
+      42.01,
+      40.89,
+      43.96,
+      42.2,
+      42.08,
+      41.97,
+      43.09,
+      43.44,
+      41.04
+     ]
+    }
+   }
+  },
+  {
+   "shape_MKN": [
+    4608,
+    6144,
+    16384
+   ],
+   "variants": {
+    "fp16 F.linear": {
+     "median_ms": 104.53,
+     "iqr_ms": 1.62,
+     "q1_ms": 103.46,
+     "q3_ms": 105.08,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.0,
+     "raw_ms": [
+      111.46,
+      103.81,
+      105.45,
+      104.71,
+      104.68,
+      104.59,
+      107.29,
+      102.67,
+      112.54,
+      103.34,
+      104.53,
+      103.19,
+      104.23,
+      103.24,
+      103.58
+     ]
+    },
+    "bf16 F.linear": {
+     "median_ms": 186.02,
+     "iqr_ms": 1.92,
+     "q1_ms": 184.67,
+     "q3_ms": 186.59,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.78,
+     "raw_ms": [
+      183.73,
+      185.91,
+      184.72,
+      184.34,
+      186.7,
+      186.05,
+      191.68,
+      186.52,
+      190.37,
+      183.38,
+      186.02,
+      186.65,
+      185.8,
+      184.61,
+      186.16
+     ]
+    },
+    "fp16 x @ w.t()": {
+     "median_ms": 104.32,
+     "iqr_ms": 3.49,
+     "q1_ms": 103.24,
+     "q3_ms": 106.73,
+     "n": 15,
+     "ratio_vs_fp16_linear": 0.998,
+     "raw_ms": [
+      103.33,
+      102.88,
+      103.31,
+      101.41,
+      105.48,
+      103.17,
+      107.98,
+      103.06,
+      103.43,
+      111.68,
+      104.36,
+      104.85,
+      110.71,
+      111.19,
+      104.32
+     ]
+    },
+    "dequant-per-call int8->fp16 + F.linear": {
+     "median_ms": 111.4,
+     "iqr_ms": 2.23,
+     "q1_ms": 110.9,
+     "q3_ms": 113.13,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.066,
+     "raw_ms": [
+      110.88,
+      111.4,
+      110.83,
+      120.81,
+      110.92,
+      111.79,
+      113.71,
+      134.88,
+      110.89,
+      111.61,
+      111.37,
+      112.71,
+      113.55,
+      111.05,
+      110.84
+     ]
+    },
+    "torch._int_mm(int8 x, int8 w.t())": {
+     "median_ms": 113.36,
+     "iqr_ms": 22.29,
+     "q1_ms": 111.19,
+     "q3_ms": 133.48,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.084,
+     "raw_ms": [
+      135.0,
+      110.29,
+      110.09,
+      146.1,
+      118.13,
+      114.58,
+      134.97,
+      111.4,
+      111.3,
+      131.99,
+      110.77,
+      111.19,
+      135.9,
+      113.36,
+      111.19
+     ],
+     "note": "IQR inflated by the first call after each variant switch (135, 146, 135, 132, 136 ms); the other 10 samples sit at 110-118 ms"
+    }
+   }
+  },
+  {
+   "shape_MKN": [
+    4608,
+    16384,
+    6144
+   ],
+   "variants": {
+    "fp16 F.linear": {
+     "median_ms": 226.3,
+     "iqr_ms": 4.61,
+     "q1_ms": 223.1,
+     "q3_ms": 227.71,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.0,
+     "raw_ms": [
+      223.04,
+      221.44,
+      222.42,
+      226.05,
+      222.86,
+      223.16,
+      226.37,
+      228.66,
+      226.39,
+      226.79,
+      231.47,
+      228.83,
+      225.69,
+      226.3,
+      228.64
+     ]
+    },
+    "bf16 F.linear": {
+     "median_ms": 245.83,
+     "iqr_ms": 10.9,
+     "q1_ms": 236.84,
+     "q3_ms": 247.74,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.086,
+     "raw_ms": [
+      235.92,
+      245.83,
+      237.75,
+      233.82,
+      234.69,
+      235.27,
+      248.4,
+      244.72,
+      244.59,
+      245.92,
+      247.07,
+      248.64,
+      245.84,
+      249.63,
+      250.19
+     ]
+    },
+    "fp16 x @ w.t()": {
+     "median_ms": 228.35,
+     "iqr_ms": 4.25,
+     "q1_ms": 224.8,
+     "q3_ms": 229.05,
+     "n": 15,
+     "ratio_vs_fp16_linear": 1.009,
+     "raw_ms": [
+      222.14,
+      224.8,
+      230.98,
+      221.94,
+      228.4,
+      229.27,
+      228.84,
+      229.03,
+      229.07,
+      224.8,
+      226.74,
+      228.05,
+      230.95,
+      228.35,
+      224.32
+     ]
+    },
+    "dequant-per-call int8->fp16 + F.linear": {
+     "median_ms": 218.23,
+     "iqr_ms": 2.68,
+     "q1_ms": 217.63,
+     "q3_ms": 220.31,
+     "n": 15,
+     "ratio_vs_fp16_linear": 0.964,
+     "raw_ms": [
+      215.95,
+      214.81,
+      216.28,
+      226.18,
+      225.11,
+      223.05,
+      218.23,
+      219.99,
+      217.63,
+      220.63,
+      217.63,
+      217.83,
+      218.42,
+      217.77,
+      219.96
+     ]
+    },
+    "torch._int_mm(int8 x, int8 w.t())": {
+     "median_ms": 112.56,
+     "iqr_ms": 4.75,
+     "q1_ms": 110.28,
+     "q3_ms": 115.03,
+     "n": 15,
+     "ratio_vs_fp16_linear": 0.497,
+     "raw_ms": [
+      109.77,
+      109.78,
+      110.01,
+      116.69,
+      115.71,
+      110.55,
+      113.84,
+      115.67,
+      109.64,
+      112.03,
+      115.37,
+      110.96,
+      112.56,
+      114.7,
+      113.24
+     ]
+    }
+   }
+  }
+ ],
+ "repo_anchors": {
+  "findings.md:17-19": "2026-10-02 table: fp16 dense 39.4 / 102.3 / 207.5 ms, bf16 dense 70.0 / 184.3 / 234.0 ms at the same three shapes (torch 2.14.1)",
+  "findings.md:24": "'torch._int_mm is not implemented on MPS in torch 2.14.1' (now superseded for 2.15.0)",
+  "findings.md:78-80": "post-hardening table: bare fp16 GEMM 37.8 / 101.4 / 103 ms, Metal weight-only kernel 39.5 / 104.7 / 107 ms",
+  "findings.md:25": "wide-K (K=16384) stock MPS matmul anomaly"
+ },
+ "_environment": "torch 2.15.0 (pip wheel, Python 3.12.11, throwaway uv venv at a throwaway uv venv outside the repo; repo .venv untouched). macOS 27.0.1 build 26A434, arm64 M1 Max (same host as findings.md). Run GPU-serialized via bench/with_gpu.sh; exit 0. Method: 2 warmup calls per variant, then 5 rounds x 3 timed calls per variant, variants interleaved round-robin within each round, torch.mps.synchronize after every call, median and IQR over the 15 samples; timing structure copied from bench/bench_int8_linear.py:14-19 (warmup, repeats, sync, median). _int_mm variant: int8 x [M,K] @ contiguous int8 w.t() [K,N] -> int32, no scale restore; dequant-per-call variant: (int8 w).to(fp16) * per-row fp16 scale then F.linear. Correctness check: torch._int_mm on MPS vs int64 CPU matmul at (256,1024,512) and (4608,16384,6144), max abs diff 0 at both. Caveats: single process, one host state snapshot not recorded (no pmset/powermetrics), 15 samples per cell; the review's should-fix variance protocol (3+ fresh processes, bootstrap CI) was not applied in this cheap version. No repo files were edited in this task, so there are no file:line changes to report.",
+ "_interpretation": "torch 2.15.0 does ship a working MPS torch._int_mm on this M1 Max (macOS 27.0.1): it did not raise NotImplementedError and its int32 output is bit-exact against an int64 CPU reference, so findings.md:24 (\"not implemented on MPS in torch 2.14.1\") needs the \"torch <= 2.14\" qualifier the review's M8 asks for. At the two K=6144 shapes _int_mm is not faster than fp16 F.linear: 42.1 vs 39.4 ms (1.07x slower) and 113.4 vs 104.5 ms (1.08x slower), and it lands within noise of the repo's weight-only Metal kernel at the same shapes (39.5 and 104.7 ms, findings.md:78-79) while still omitting the per-call scale restore that a real INT8 linear needs. At K=16384 _int_mm (112.6 ms) is 2.0x faster than fp16 F.linear (226.3 ms), but that is the same wide-K F.linear anomaly already logged at findings.md:25; against the bare fp16 GEMM (103 ms, findings.md:80) and the repo kernel (107 ms) it is about 5-9% slower, so the \"2x\" is a statement about F.linear's slow path, not about integer compute, matching the M4 correction the review applies to the repo's own K=16384 claim."
+}

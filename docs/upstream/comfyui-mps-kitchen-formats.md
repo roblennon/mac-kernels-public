@@ -8,7 +8,7 @@ Run INT8 and W4A8/W6A8 weights natively on Apple GPUs with comfy-kitchen's mps b
 
 ## Description
 
-`get_disabled_quant_formats` disables the INT8 formats when the device lacks `torch._int_mm`, which MPS does not implement. On Apple GPUs, INT8 (ConvRot) checkpoints are therefore dequantized in full on every call, and W4A8/W6A8 do not run. comfy-kitchen's new `mps` backend runs these formats weight-only and needs no integer matmul.
+`get_disabled_quant_formats` disables the INT8 formats when the device lacks `torch._int_mm`, which MPS does not implement on torch 2.14 and earlier. PyTorch 2.15.0 (2026-10-28) adds a native MPS `_int_mm`, a generic tiled kernel on M1 to M4, and [#16451](https://github.com/Comfy-Org/ComfyUI/pull/16451) would turn INT8 compute on for torch >= 2.15. That path is unmeasured against this one as of November 9, 2026. On Apple GPUs, INT8 (ConvRot) checkpoints are therefore dequantized in full on every call, and W4A8/W6A8 do not run. comfy-kitchen's new `mps` backend runs these formats weight-only and needs no integer matmul.
 
 `mps_quant_formats(device)` maps the backend's capabilities to formats:
 - `int8_linear` -> `int8_tensorwise`;

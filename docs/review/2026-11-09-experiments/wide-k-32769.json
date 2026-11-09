@@ -1,0 +1,313 @@
+{
+ "run_1_default": {
+  "command": "bench/with_gpu.sh .venv/bin/python bench/repro_mps_wide_linear.py",
+  "started": "2026-11-09 10:24:58 PST",
+  "finished": "2026-11-09 10:35:07 PST",
+  "columns": [
+   "dtype",
+   "K",
+   "F.linear(x, w)",
+   "x @ w.t()",
+   "torch.mm(x, w.t())",
+   "F.linear(x_nc, w)",
+   "torch.mm(w, x.t()).t()",
+   "torch.mm(xt.t(), wt) (A transposed)",
+   "x @ wt (contiguous)",
+   "torch.mm(x, wt)",
+   "F.linear / contiguous",
+   "max abs diff"
+  ],
+  "rows": [
+   [
+    "float16",
+    4096,
+    25.3,
+    25.6,
+    25.8,
+    25.6,
+    25.4,
+    26.1,
+    26.1,
+    25.9,
+    0.97,
+    0.0
+   ],
+   [
+    "float16",
+    6144,
+    38.1,
+    38.2,
+    38.3,
+    38.2,
+    38.6,
+    38.9,
+    38.7,
+    38.8,
+    0.98,
+    0.0
+   ],
+   [
+    "float16",
+    8192,
+    60.2,
+    60.8,
+    61.0,
+    60.8,
+    58.2,
+    51.5,
+    51.4,
+    51.4,
+    1.17,
+    0.0
+   ],
+   [
+    "float16",
+    10240,
+    83.1,
+    84.3,
+    83.2,
+    83.2,
+    80.4,
+    68.4,
+    66.1,
+    65.9,
+    1.26,
+    0.0
+   ],
+   [
+    "float16",
+    12288,
+    103.5,
+    104.7,
+    104.1,
+    103.8,
+    102.6,
+    80.7,
+    77.8,
+    78.3,
+    1.33,
+    0.0
+   ],
+   [
+    "float16",
+    16384,
+    199.3,
+    198.9,
+    200.3,
+    184.4,
+    198.9,
+    108.7,
+    104.8,
+    105.2,
+    1.9,
+    0.0
+   ],
+   [
+    "float16",
+    24576,
+    336.4,
+    339.9,
+    339.1,
+    338.0,
+    343.1,
+    161.3,
+    156.0,
+    155.2,
+    2.16,
+    0.0
+   ],
+   [
+    "float16",
+    32768,
+    684.1,
+    680.3,
+    679.5,
+    649.4,
+    701.8,
+    210.6,
+    211.5,
+    210.5,
+    3.23,
+    0.0
+   ],
+   [
+    "float32",
+    4096,
+    44.0,
+    44.6,
+    44.6,
+    42.5,
+    44.4,
+    29.5,
+    27.7,
+    27.7,
+    1.59,
+    0.0
+   ],
+   [
+    "float32",
+    6144,
+    71.7,
+    71.5,
+    69.8,
+    71.6,
+    71.7,
+    45.2,
+    41.5,
+    41.6,
+    1.73,
+    0.0
+   ],
+   [
+    "float32",
+    8192,
+    141.2,
+    141.1,
+    140.3,
+    131.2,
+    141.5,
+    61.6,
+    56.1,
+    56.3,
+    2.52,
+    0.0
+   ],
+   [
+    "float32",
+    10240,
+    190.9,
+    190.1,
+    191.3,
+    190.9,
+    194.6,
+    75.0,
+    70.7,
+    70.0,
+    2.7,
+    0.0
+   ],
+   [
+    "float32",
+    12288,
+    257.0,
+    258.0,
+    255.6,
+    261.2,
+    266.2,
+    90.6,
+    84.4,
+    84.3,
+    3.05,
+    0.0
+   ],
+   [
+    "float32",
+    16384,
+    489.4,
+    492.6,
+    487.0,
+    494.7,
+    525.0,
+    124.0,
+    113.7,
+    113.2,
+    4.3,
+    0.0
+   ],
+   [
+    "float32",
+    24576,
+    1171.1,
+    1139.7,
+    1174.8,
+    1168.5,
+    1235.1,
+    182.2,
+    170.4,
+    170.3,
+    6.87,
+    0.0
+   ],
+   [
+    "float32",
+    32768,
+    2103.2,
+    2099.5,
+    2094.1,
+    2033.0,
+    2256.2,
+    249.8,
+    266.4,
+    272.5,
+    7.89,
+    0.0
+   ]
+  ]
+ },
+ "run_2_k32769": {
+  "command": "bench/with_gpu.sh .venv/bin/python bench/repro_mps_wide_linear.py --ks 32768,32769 --dtypes float16",
+  "started": "2026-11-09 10:35:19 PST",
+  "finished": "2026-11-09 10:41:53 PST",
+  "note": "The tracked script takes K through --ks, so no copy was made and no tracked file was edited. fp32 at K=32769 was skipped: the GPU budget was already used up (about 17 min total against the 15 min box).",
+  "columns": "same as run_1_default",
+  "rows": [
+   [
+    "float16",
+    32768,
+    678.1,
+    676.9,
+    679.6,
+    655.1,
+    690.7,
+    211.5,
+    210.8,
+    211.7,
+    3.22,
+    0.0
+   ],
+   [
+    "float16",
+    32769,
+    2372.8,
+    2378.2,
+    2308.3,
+    2363.9,
+    2369.1,
+    2295.6,
+    2268.7,
+    2264.2,
+    1.05,
+    0.0
+   ]
+  ]
+ },
+ "comparison_to_published": [
+  {
+   "cell": "fp16 K=32768 F.linear / contiguous",
+   "today": "3.23 (run 1) and 3.22 (run 2)",
+   "published": "3.52 (docs/findings.md:512, Oct 4); 3.59 on 2.14.1 and 3.62 on nightly (docs/upstream/pytorch-mps-wide-linear-issue.md:61, Oct 9); README.md:33 says 3.6x"
+  },
+  {
+   "cell": "fp32 K=32768 F.linear / contiguous",
+   "today": "7.89",
+   "published": "8.83 (docs/findings.md:512); 8.41 / 8.73 (docs/upstream/pytorch-mps-wide-linear-issue.md:65); README.md:33 says 8.7x"
+  },
+  {
+   "cell": "fp16 K=16384 ratio",
+   "today": "1.90",
+   "published": "1.91 / 1.89 (docs/upstream/pytorch-mps-wide-linear-issue.md:59)"
+  },
+  {
+   "cell": "fp32 K=16384 ratio",
+   "today": "4.30",
+   "published": "4.24 / 4.42 (docs/upstream/pytorch-mps-wide-linear-issue.md:64)"
+  }
+ ],
+ "files_changed": [],
+ "scratchpad_logs": [
+  "(scratch)/e8_default.log",
+  "(scratch)/e8_k32769.log"
+ ],
+ "_environment": "torch 2.14.1 (repo .venv), macOS 27.0.1, Apple M1 Max (32 GB), MPS available. Runs serialized through bench/with_gpu.sh (flock on /tmp/mac-kernels-gpu.lock). Host state before the run: load averages 14.08 / 21.95 / 21.43, uptime 3 days 23 h, swap used 631.5 MB of 2048 MB, no pmset thermal or performance warning recorded; top CPU users were mds_stores (79%), Arc browser helpers (31% and 25%), WindowServer (30%). Default run 2026-11-09 10:24:58 to 10:35:07 PST (about 10 min); K=32768/32769 fp16 run 10:35:19 to 10:41:53 PST (about 6.5 min). Total GPU time about 17 min, 2 min over the 15 min box. Script settings were the defaults: M=4608, N=6144, min ms over 3 interleaved rounds x 5 iterations after warm-up.",
+ "_interpretation": "1. The transposed-weight slowdown still reproduces today on torch 2.14.1: at K=32768 F.linear is 3.23x slower than the contiguous pre-transposed matmul in fp16 and 7.89x in fp32, with identical outputs (max abs diff 0). That is a little under the published 3.52x/3.59x fp16 and 8.41x-8.83x fp32 (docs/findings.md:512; docs/upstream/pytorch-mps-wide-linear-issue.md:61, :65; README.md:33). The absolute slow-path times are nearly unchanged (684 vs 714.6 ms fp16, 2103 vs 2067.7 ms fp32); the ratio dropped because the contiguous fast path measured slower today (211 vs 199 ms fp16, 266 vs 246 ms fp32), consistent with the host load average of 14-22 during the run. The K=16384 ratios (1.90 fp16, 4.30 fp32) match the published 1.91 and 4.24-4.42 (pytorch-mps-wide-linear-issue.md:59, :64).\n2. The slowdown does not depend on K being a power of two. It grows smoothly with K across every non-power-of-two value in the default sweep (fp16: 1.17x at 8192, 1.26x at 10240, 1.33x at 12288, 2.16x at 24576; fp32: 2.52x, 2.70x, 3.05x, 6.87x at the same Ks), and the transposed-left-operand variant stays near the contiguous one throughout, as the issue text says (pytorch-mps-wide-linear-issue.md:25).\n3. K=32769 is a different regime, not a test of the same effect: every variant, including the contiguous one, jumps to about 2.3 s (contiguous 210.8 ms at 32768 vs 2268.7 ms at 32769, a 10.8x cliff), so the ratio collapses to 1.05 only because everything is slow. This is the K > 32768 correctness reroute on M1/M2 that the script docstring (bench/repro_mps_wide_linear.py:3-4) and the issue draft (pytorch-mps-wide-linear-issue.md:9, :44) warn about. For the PyTorch issue, a K=32769 row should be labeled as the reroute path rather than presented as evidence either way about the transposed-weight bug. fp32 at K=32769 was not run (GPU budget). No repo files were edited; raw logs are in the scratchpad paths listed in table_json."
+}

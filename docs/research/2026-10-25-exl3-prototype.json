@@ -1,0 +1,1929 @@
+{
+  "date": "2026-10-25",
+  "host": "M1 Max 32 GB",
+  "published": "2026-11-09. Published from the private review of 2026-10-25. Agent review receipt identifiers were removed; every measurement, identity hash, correctness result and guard result is unchanged. Companion: 2026-10-25-exl3-prototype.md.",
+  "decision": "Do not undertake full EXL3 runtime port for speed on current evidence. Correct bounded prototype is slower; no claim that the format is intrinsically slow.",
+  "exl3": {
+    "status": "complete",
+    "started": 1792965309.791112,
+    "torch": "2.14.1",
+    "manifest_sha256": "38be03987ca0161b2ca4ae9dddaf4417595e3038ea293c61584711224b681186",
+    "oracle_sha256": "072b5233f0e1ec39615a70416a865ca3fbf3043669aa7dc9c5597cd132e8d45d",
+    "oracle_revision": "cdc785db89e263e65e5849cb53e1ada156411414",
+    "source_sha256": "c6e78893f5425f0527f02a3adba0c5136a3db3fda89e25c6ce74e9b6741f3b47",
+    "shader_sha256": "d3a76ebf2324b5c1c1e221d4fc4bc1f3886cd2daa43c23bcde851751f4c1f0bb",
+    "measurements": [
+      {
+        "matrix": "k_proj",
+        "k": 5120,
+        "n": 1024,
+        "bits": 3.5,
+        "rows": 1,
+        "preparation": {
+          "cpu_repack_ms": 0.6393329822458327,
+          "nmajor_bytes": 2293760,
+          "nmajor_sha256": "03039f07d4e1b07a319d4e827d25608452783cbec6b1df5c54a2e6a796c3c96e",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002159812754397736,
+            "max_scaled": 0.00041161709256888786
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002159812754397736,
+            "max_scaled": 0.00041161709256888786
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002159812754397736,
+            "max_scaled": 0.00041161709256888786
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002159812754397736,
+            "max_scaled": 0.00041161709256888786
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00035229727245299,
+            "max_scaled": 0.00041161709256888786
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002943101854039281,
+            "max_scaled": 0.000432379032473754
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            3.037500020582229,
+            0.9912079840432853,
+            1.0428340174257755,
+            1.250125002115965,
+            2.0674999977927655,
+            1.1258330196142197,
+            5.255958007182926
+          ],
+          "fused_reuse": [
+            2.5594999897293746,
+            2.6883750106208026,
+            0.9360840194858611,
+            1.0806249920278788,
+            2.9910000157542527,
+            0.9509579977020621,
+            1.1581250000745058
+          ],
+          "nmajor_arithmetic": [
+            0.8180839940905571,
+            0.7404590141959488,
+            0.7207499875221401,
+            0.8807079866528511,
+            0.6712919857818633,
+            7.254833006300032,
+            0.7102910021785647
+          ],
+          "nmajor_lut": [
+            1.3400839816313237,
+            1.1417499918024987,
+            1.3297089899424464,
+            1.0689999908208847,
+            1.139833009801805,
+            1.2876660039182752,
+            1.2622920039575547
+          ],
+          "reconstruct": [
+            5.034375004470348,
+            4.384333005873486,
+            3.8416250026784837,
+            3.917499998351559,
+            6.414750008843839,
+            8.959124999819323,
+            4.0521249757148325
+          ],
+          "resident_fp16": [
+            0.5956669920124114,
+            0.4547499993350357,
+            0.935332995140925,
+            0.4485420067794621,
+            0.43058302253484726,
+            0.6386250024661422,
+            0.5890410102438182
+          ]
+        },
+        "median_ms": {
+          "fused": 1.250125002115965,
+          "fused_reuse": 1.1581250000745058,
+          "nmajor_arithmetic": 0.7404590141959488,
+          "nmajor_lut": 1.2622920039575547,
+          "reconstruct": 4.384333005873486,
+          "resident_fp16": 0.5890410102438182
+        },
+        "live_gib": 0.1392078399658203,
+        "driver_gib": 1.0081939697265625
+      },
+      {
+        "matrix": "k_proj",
+        "k": 5120,
+        "n": 1024,
+        "bits": 3.5,
+        "rows": 4,
+        "preparation": {
+          "cpu_repack_ms": 0.6393329822458327,
+          "nmajor_bytes": 2293760,
+          "nmajor_sha256": "03039f07d4e1b07a319d4e827d25608452783cbec6b1df5c54a2e6a796c3c96e",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00021372761819228163,
+            "max_scaled": 0.0003885674829164807
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00021372761819228163,
+            "max_scaled": 0.0003885674829164807
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00021372761819228163,
+            "max_scaled": 0.0003885674829164807
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00021372761819228163,
+            "max_scaled": 0.0003885674829164807
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0003644461422164474,
+            "max_scaled": 0.0004635287698610292
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00029836075585775747,
+            "max_scaled": 0.0004102617183719553
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            2.4982500181067735,
+            2.701207995414734,
+            2.4523330212105066,
+            2.4847919994499534,
+            4.490666004130617,
+            2.512334001949057,
+            2.955749980174005
+          ],
+          "fused_reuse": [
+            2.3274999985005707,
+            2.5247920129913837,
+            2.7054999954998493,
+            2.5011250108946115,
+            2.4412920174654573,
+            2.4938330170698464,
+            2.392499998677522
+          ],
+          "nmajor_arithmetic": [
+            1.287166989641264,
+            1.3053340080659837,
+            1.2962920009158552,
+            1.2706669804174453,
+            1.242917001945898,
+            1.4287079975474626,
+            1.3126660196576267
+          ],
+          "nmajor_lut": [
+            3.1267079757526517,
+            3.183708991855383,
+            3.04512502043508,
+            3.0662920034956187,
+            3.4337500110268593,
+            4.672916984418407,
+            3.1586669792886823
+          ],
+          "reconstruct": [
+            4.481167008634657,
+            4.4217079994268715,
+            4.20662498800084,
+            4.215083026792854,
+            4.647750000003725,
+            4.2084579763468355,
+            8.883458998752758
+          ],
+          "resident_fp16": [
+            0.9587079985067248,
+            1.087749988073483,
+            0.7460410124622285,
+            0.8134170202538371,
+            0.824499991722405,
+            0.7888329855632037,
+            1.4466670108959079
+          ]
+        },
+        "median_ms": {
+          "fused": 2.512334001949057,
+          "fused_reuse": 2.4938330170698464,
+          "nmajor_arithmetic": 1.2962920009158552,
+          "nmajor_lut": 3.1586669792886823,
+          "reconstruct": 4.4217079994268715,
+          "resident_fp16": 0.824499991722405
+        },
+        "live_gib": 0.1393413543701172,
+        "driver_gib": 1.0081939697265625
+      },
+      {
+        "matrix": "in_proj_z",
+        "k": 5120,
+        "n": 6144,
+        "bits": 3,
+        "rows": 1,
+        "preparation": {
+          "cpu_repack_ms": 2.2194170160219073,
+          "nmajor_bytes": 11796480,
+          "nmajor_sha256": "12b40e8c75e02b54b1aba942b0bb6dab1f59ee3c31f05a1a7eb24f92ce6ff7a9",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002062867987941764,
+            "max_scaled": 0.00034993525077654125
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002062867987941764,
+            "max_scaled": 0.00034993525077654125
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002062867987941764,
+            "max_scaled": 0.00034993525077654125
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002062867987941764,
+            "max_scaled": 0.00034993525077654125
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00035867406009032574,
+            "max_scaled": 0.00042880902425158
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002933567668732365,
+            "max_scaled": 0.00042558869292014934
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            1.6629169986117631,
+            1.772584015270695,
+            1.7823750094976276,
+            1.7425420228391886,
+            1.8694579775910825,
+            2.2963339870329946,
+            2.3316669976338744
+          ],
+          "fused_reuse": [
+            1.8084579787682742,
+            1.7673749825917184,
+            1.8279170035384595,
+            1.9018750172108412,
+            1.9438330200500786,
+            2.391582995187491,
+            2.2510830021928996
+          ],
+          "nmajor_arithmetic": [
+            0.9177920001093298,
+            1.2521670141723007,
+            0.890416995389387,
+            1.8560829921625555,
+            0.9267920104321092,
+            1.170542003819719,
+            1.3199590030126274
+          ],
+          "nmajor_lut": [
+            2.2878329909872264,
+            2.243541006464511,
+            2.6776659942697734,
+            2.3507080040872097,
+            2.3790420091245323,
+            3.123833012068644,
+            2.9579589900095016
+          ],
+          "reconstruct": [
+            9.914124995702878,
+            9.86150000244379,
+            10.106083005666733,
+            10.334333026548848,
+            10.073792014736682,
+            10.337125015212223,
+            13.550125004258007
+          ],
+          "resident_fp16": [
+            0.5684579955413938,
+            0.6425419996958226,
+            0.6596670136786997,
+            0.6631670112255961,
+            0.7019580225460231,
+            0.7653750071767718,
+            0.6337499944493175
+          ]
+        },
+        "median_ms": {
+          "fused": 1.7823750094976276,
+          "fused_reuse": 1.9018750172108412,
+          "nmajor_arithmetic": 1.170542003819719,
+          "nmajor_lut": 2.3790420091245323,
+          "reconstruct": 10.106083005666733,
+          "resident_fp16": 0.6596670136786997
+        },
+        "live_gib": 0.20578384399414062,
+        "driver_gib": 1.0081787109375
+      },
+      {
+        "matrix": "in_proj_z",
+        "k": 5120,
+        "n": 6144,
+        "bits": 3,
+        "rows": 4,
+        "preparation": {
+          "cpu_repack_ms": 2.2194170160219073,
+          "nmajor_bytes": 11796480,
+          "nmajor_sha256": "12b40e8c75e02b54b1aba942b0bb6dab1f59ee3c31f05a1a7eb24f92ce6ff7a9",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002049180661238258,
+            "max_scaled": 0.00029849420124189533
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002049180661238258,
+            "max_scaled": 0.00029849420124189533
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002049180661238258,
+            "max_scaled": 0.00029849420124189533
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002049180661238258,
+            "max_scaled": 0.00029849420124189533
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0003563091975483558,
+            "max_scaled": 0.00035066659195611576
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00028648621718066903,
+            "max_scaled": 0.0003531233796329917
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            5.998665990773588,
+            6.8475409934762865,
+            6.001166999340057,
+            7.248416019137949,
+            9.535958990454674,
+            6.484667013864964,
+            8.906792005291209
+          ],
+          "fused_reuse": [
+            5.958958994597197,
+            6.684666994260624,
+            6.70316701871343,
+            6.868958997074515,
+            6.382541003404185,
+            7.69770800252445,
+            7.8558749810326844
+          ],
+          "nmajor_arithmetic": [
+            2.979374985443428,
+            3.0397909868042916,
+            3.0027080210857093,
+            2.6682089956011623,
+            2.7209580002818257,
+            2.709333988605067,
+            4.103291983483359
+          ],
+          "nmajor_lut": [
+            8.389208989683539,
+            8.127124980092049,
+            8.821750001516193,
+            9.305457992013544,
+            10.666707996279001,
+            11.108875012723729,
+            10.195832990575582
+          ],
+          "reconstruct": [
+            10.588750010356307,
+            11.864624975714833,
+            11.771749996114522,
+            10.774957976536825,
+            11.916291987290606,
+            12.9195420013275,
+            13.598999998066574
+          ],
+          "resident_fp16": [
+            0.8826669945847243,
+            1.0469999979250133,
+            1.9332499941810966,
+            0.8711249975021929,
+            0.9049579966813326,
+            1.1870409944094718,
+            0.9269580186810344
+          ]
+        },
+        "median_ms": {
+          "fused": 6.8475409934762865,
+          "fused_reuse": 6.70316701871343,
+          "nmajor_arithmetic": 2.979374985443428,
+          "nmajor_lut": 9.305457992013544,
+          "reconstruct": 11.864624975714833,
+          "resident_fp16": 0.9269580186810344
+        },
+        "live_gib": 0.20606040954589844,
+        "driver_gib": 1.0081787109375
+      },
+      {
+        "matrix": "mlp_up",
+        "k": 5120,
+        "n": 17408,
+        "bits": 3,
+        "rows": 1,
+        "preparation": {
+          "cpu_repack_ms": 3.62420899909921,
+          "nmajor_bytes": 33423360,
+          "nmajor_sha256": "89691b20c04e2acabe15e4662068baf552510112bd8478c9778aa8d5b375a68f",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002059759605758387,
+            "max_scaled": 0.00029755546397830024
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002059759605758387,
+            "max_scaled": 0.00029755546397830024
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002059759605758387,
+            "max_scaled": 0.00029755546397830024
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002059759605758387,
+            "max_scaled": 0.00029755546397830024
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00035390293196006556,
+            "max_scaled": 0.00047069214548241175
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00029017444170685927,
+            "max_scaled": 0.0004533670803832873
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            4.395083000417799,
+            4.588792013237253,
+            4.550083016511053,
+            4.524333984591067,
+            4.412417009007186,
+            4.531250015133992,
+            4.490625025937334
+          ],
+          "fused_reuse": [
+            4.328832990722731,
+            4.677499993704259,
+            4.63970800046809,
+            4.261124995537102,
+            4.370208014734089,
+            4.70758302253671,
+            4.366832989035174
+          ],
+          "nmajor_arithmetic": [
+            2.0797910110559314,
+            2.070624992484227,
+            2.0054159977007657,
+            1.9499589980114251,
+            2.040833991486579,
+            2.154666988644749,
+            3.3539169817231596
+          ],
+          "nmajor_lut": [
+            6.051417003618553,
+            6.191499996930361,
+            5.881666991626844,
+            5.938500020420179,
+            5.81116700777784,
+            6.920415995409712,
+            6.175416987389326
+          ],
+          "reconstruct": [
+            26.660166011424735,
+            26.585499988868833,
+            26.75983399967663,
+            26.621750002959743,
+            26.833459007320926,
+            27.15275000082329,
+            27.837916975840926
+          ],
+          "resident_fp16": [
+            1.0060000058729202,
+            1.0519580100663006,
+            1.164042012533173,
+            1.0252089996356517,
+            1.0147079883608967,
+            3.4681669785641134,
+            1.0651249904185534
+          ]
+        },
+        "median_ms": {
+          "fused": 4.524333984591067,
+          "fused_reuse": 4.370208014734089,
+          "nmajor_arithmetic": 2.070624992484227,
+          "nmajor_lut": 6.051417003618553,
+          "reconstruct": 26.75983399967663,
+          "resident_fp16": 1.0519580100663006
+        },
+        "live_gib": 0.3557910919189453,
+        "driver_gib": 1.0081787109375
+      },
+      {
+        "matrix": "mlp_up",
+        "k": 5120,
+        "n": 17408,
+        "bits": 3,
+        "rows": 4,
+        "preparation": {
+          "cpu_repack_ms": 3.62420899909921,
+          "nmajor_bytes": 33423360,
+          "nmajor_sha256": "89691b20c04e2acabe15e4662068baf552510112bd8478c9778aa8d5b375a68f",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00020544070867085319,
+            "max_scaled": 0.00025675489115085774
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00020544070867085319,
+            "max_scaled": 0.00025675489115085774
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00020544070867085319,
+            "max_scaled": 0.00025675489115085774
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00020544070867085319,
+            "max_scaled": 0.00025675489115085774
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00035408216683699726,
+            "max_scaled": 0.00043808579686078943
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.000289086386508008,
+            "max_scaled": 0.0003898808457384743
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            15.873583004577085,
+            15.703707991633564,
+            15.677999996114522,
+            15.927041007671505,
+            15.756292006699368,
+            15.639833000022918,
+            15.778125001816079
+          ],
+          "fused_reuse": [
+            15.680666983826086,
+            15.839667001273483,
+            15.631457994459197,
+            15.62483300222084,
+            15.832041011890396,
+            15.818207990378141,
+            15.917291981168091
+          ],
+          "nmajor_arithmetic": [
+            6.7475829855538905,
+            6.49791699834168,
+            6.809249985963106,
+            6.561582995345816,
+            6.631291995290667,
+            6.6035409981850535,
+            6.624417001148686
+          ],
+          "nmajor_lut": [
+            22.0488749910146,
+            22.422082984121516,
+            21.97033300762996,
+            22.28033301071264,
+            21.95912500610575,
+            21.933834010269493,
+            21.817625005496666
+          ],
+          "reconstruct": [
+            27.541916992049664,
+            27.277874993160367,
+            27.308334014378488,
+            27.03004199429415,
+            27.575624990276992,
+            27.359375002561137,
+            27.321208006469533
+          ],
+          "resident_fp16": [
+            1.6681249835528433,
+            1.6286660102196038,
+            1.4495000068563968,
+            1.6095830069389194,
+            1.5125839854590595,
+            1.5678330091759562,
+            1.7675420094747096
+          ]
+        },
+        "median_ms": {
+          "fused": 15.756292006699368,
+          "fused_reuse": 15.818207990378141,
+          "nmajor_arithmetic": 6.624417001148686,
+          "nmajor_lut": 21.97033300762996,
+          "reconstruct": 27.321208006469533,
+          "resident_fp16": 1.6095830069389194
+        },
+        "live_gib": 0.3563823699951172,
+        "driver_gib": 1.0081787109375
+      },
+      {
+        "matrix": "mlp_gate",
+        "k": 5120,
+        "n": 17408,
+        "bits": 3.5,
+        "rows": 1,
+        "preparation": {
+          "cpu_repack_ms": 20.339374983450398,
+          "nmajor_bytes": 38993920,
+          "nmajor_sha256": "c2dec827e87b756d6b2a0f6ccedbda15b322b04e490de873209e5b795993cf7e",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002063679806067899,
+            "max_scaled": 0.00018597457669931517
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002063679806067899,
+            "max_scaled": 0.00018597457669931517
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002063679806067899,
+            "max_scaled": 0.00018597457669931517
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002063679806067899,
+            "max_scaled": 0.00018597457669931517
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00035732979906142573,
+            "max_scaled": 0.0002835470378202
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00029090110958453593,
+            "max_scaled": 0.00027846321546851977
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            4.1259159916080534,
+            4.18254200485535,
+            4.2910000192932785,
+            4.29541600169614,
+            4.180499992799014,
+            4.047583002829924,
+            4.080749989952892
+          ],
+          "fused_reuse": [
+            4.253916995367035,
+            4.046167014166713,
+            4.1804589855019,
+            4.073874995810911,
+            4.155624978011474,
+            4.2049160110764205,
+            4.038082988699898
+          ],
+          "nmajor_arithmetic": [
+            2.2989589779172093,
+            1.8082080059684813,
+            1.7672079848125577,
+            1.8347919976804405,
+            1.7807080002967268,
+            1.8324999837204814,
+            1.7534159997012466
+          ],
+          "nmajor_lut": [
+            6.001166009809822,
+            6.006416981108487,
+            5.740749998949468,
+            5.732500023441389,
+            5.733083991799504,
+            5.641708004986867,
+            5.602542019914836
+          ],
+          "reconstruct": [
+            26.521457999479026,
+            26.65945899207145,
+            26.22595801949501,
+            26.518375001614913,
+            26.411124999867752,
+            26.524833985604346,
+            26.343207980971783
+          ],
+          "resident_fp16": [
+            0.9884579922072589,
+            0.9336670045740902,
+            0.9454580140300095,
+            0.9021669975481927,
+            0.8849160221870989,
+            0.8804170065559447,
+            0.9017919946927577
+          ]
+        },
+        "median_ms": {
+          "fused": 4.180499992799014,
+          "fused_reuse": 4.155624978011474,
+          "nmajor_arithmetic": 1.8082080059684813,
+          "nmajor_lut": 5.733083991799504,
+          "reconstruct": 26.518375001614913,
+          "resident_fp16": 0.9021669975481927
+        },
+        "live_gib": 0.3675098419189453,
+        "driver_gib": 1.0081787109375
+      },
+      {
+        "matrix": "mlp_gate",
+        "k": 5120,
+        "n": 17408,
+        "bits": 3.5,
+        "rows": 4,
+        "preparation": {
+          "cpu_repack_ms": 20.339374983450398,
+          "nmajor_bytes": 38993920,
+          "nmajor_sha256": "c2dec827e87b756d6b2a0f6ccedbda15b322b04e490de873209e5b795993cf7e",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002072846571743738,
+            "max_scaled": 0.00035757470232458937
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002072846571743738,
+            "max_scaled": 0.00035757470232458937
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002072846571743738,
+            "max_scaled": 0.00035757470232458937
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002072846571743738,
+            "max_scaled": 0.00035757470232458937
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0003563811680778269,
+            "max_scaled": 0.00047714943133987913
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00029028440572031794,
+            "max_scaled": 0.00035757470232458937
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            15.448459016624838,
+            15.449083992280066,
+            15.556124999420717,
+            15.462459006812423,
+            16.315416985889897,
+            15.951624984154478,
+            15.69416600978002
+          ],
+          "fused_reuse": [
+            15.477624983759597,
+            15.46795800095424,
+            15.424707991769537,
+            15.626582986442372,
+            15.599042002577335,
+            15.653332986403257,
+            15.841249987715855
+          ],
+          "nmajor_arithmetic": [
+            6.1391249764710665,
+            6.140499986940995,
+            6.357332982588559,
+            6.2387079815380275,
+            6.435540999518707,
+            6.323250010609627,
+            6.719500001054257
+          ],
+          "nmajor_lut": [
+            21.70087498961948,
+            21.730875014327466,
+            21.517417015274987,
+            21.642333013005555,
+            21.86095801880583,
+            21.546500007389113,
+            23.43616698635742
+          ],
+          "reconstruct": [
+            27.05420900019817,
+            26.792457996634766,
+            26.85458300402388,
+            26.830166985746473,
+            26.925707992631942,
+            27.09920797497034,
+            28.215625003213063
+          ],
+          "resident_fp16": [
+            1.2637920153792948,
+            1.2937500141561031,
+            1.2669579882640392,
+            1.2879999994765967,
+            1.6772919916547835,
+            4.5191670069471,
+            1.7627500055823475
+          ]
+        },
+        "median_ms": {
+          "fused": 15.556124999420717,
+          "fused_reuse": 15.599042002577335,
+          "nmajor_arithmetic": 6.323250010609627,
+          "nmajor_lut": 21.70087498961948,
+          "reconstruct": 26.925707992631942,
+          "resident_fp16": 1.2937500141561031
+        },
+        "live_gib": 0.3681011199951172,
+        "driver_gib": 1.0081787109375
+      },
+      {
+        "matrix": "mlp_down",
+        "k": 17408,
+        "n": 5120,
+        "bits": 3,
+        "rows": 1,
+        "preparation": {
+          "cpu_repack_ms": 7.279249985003844,
+          "nmajor_bytes": 33423360,
+          "nmajor_sha256": "8d5340aacf7bfbcf6d61a10ee746e8d503832c8c2ea3232ee3b4f98c3bc9c410",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002074567177082766,
+            "max_scaled": 0.0001221083743080206
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002074567177082766,
+            "max_scaled": 0.0001221083743080206
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002074567177082766,
+            "max_scaled": 0.0001221083743080206
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0002074567177082766,
+            "max_scaled": 0.0001221083743080206
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00037297077598679915,
+            "max_scaled": 0.000700360464815588
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.0003127968114792285,
+            "max_scaled": 0.000700360464815588
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            4.096625023521483,
+            4.083999985596165,
+            4.1295829869341105,
+            4.084957996383309,
+            4.065707995323464,
+            4.321291984524578,
+            4.186000005574897
+          ],
+          "fused_reuse": [
+            4.145541985053569,
+            4.076582990819588,
+            4.062208026880398,
+            4.061790998093784,
+            4.181500000413507,
+            4.124583007069305,
+            4.112041991902515
+          ],
+          "nmajor_arithmetic": [
+            1.7053329793270677,
+            1.721500011626631,
+            1.7267499933950603,
+            1.8443749868310988,
+            1.693166996119544,
+            1.863042009063065,
+            1.8247920088469982
+          ],
+          "nmajor_lut": [
+            5.84591701044701,
+            5.648124992148951,
+            5.696749984053895,
+            5.564999999478459,
+            5.560541991144419,
+            5.669959005899727,
+            5.638666014419869
+          ],
+          "reconstruct": [
+            29.555790999438614,
+            29.68166599748656,
+            29.576290980912745,
+            29.653499979758635,
+            29.68695800518617,
+            29.520499985665083,
+            29.73295797710307
+          ],
+          "resident_fp16": [
+            0.9098330046981573,
+            0.9397079993505031,
+            0.9482080058660358,
+            0.9465839830227196,
+            0.9322080004494637,
+            0.9762920089997351,
+            0.970416993368417
+          ]
+        },
+        "median_ms": {
+          "fused": 4.096625023521483,
+          "fused_reuse": 4.112041991902515,
+          "nmajor_arithmetic": 1.7267499933950603,
+          "nmajor_lut": 5.648124992148951,
+          "reconstruct": 29.653499979758635,
+          "resident_fp16": 0.9465839830227196
+        },
+        "live_gib": 0.35576820373535156,
+        "driver_gib": 1.0081787109375
+      },
+      {
+        "matrix": "mlp_down",
+        "k": 17408,
+        "n": 5120,
+        "bits": 3,
+        "rows": 4,
+        "preparation": {
+          "cpu_repack_ms": 7.279249985003844,
+          "nmajor_bytes": 33423360,
+          "nmajor_sha256": "8d5340aacf7bfbcf6d61a10ee746e8d503832c8c2ea3232ee3b4f98c3bc9c410",
+          "lookup_bytes": 131072,
+          "scope": "Lossless tile-axis transpose and LUT prepared/uploaded outside timers; both original and transposed packed copies stay resident for controlled comparisons."
+        },
+        "correctness": {
+          "fused": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00020355539720136412,
+            "max_scaled": 0.00011757102716801883
+          },
+          "fused_reuse": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00020355539720136412,
+            "max_scaled": 0.00011757102716801883
+          },
+          "nmajor_arithmetic": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00020355539720136412,
+            "max_scaled": 0.00011757102716801883
+          },
+          "nmajor_lut": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00020355539720136412,
+            "max_scaled": 0.00011757102716801883
+          },
+          "reconstruct": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.000360052157283365,
+            "max_scaled": 0.00042097600667717107
+          },
+          "resident_fp16": {
+            "pass": true,
+            "finite": true,
+            "relative_rms": 0.00029078592823845756,
+            "max_scaled": 0.00042097600667717107
+          }
+        },
+        "samples_ms": {
+          "fused": [
+            15.48908301629126,
+            15.253457997459918,
+            15.568582981359214,
+            15.442624979186803,
+            15.500834007980302,
+            15.456207998795435,
+            15.432040992891416
+          ],
+          "fused_reuse": [
+            15.463582996744663,
+            15.32479200977832,
+            15.45341601013206,
+            15.390499989734963,
+            15.554584009805694,
+            15.50575002329424,
+            15.39395799045451
+          ],
+          "nmajor_arithmetic": [
+            5.869457992957905,
+            5.980000016279519,
+            5.945166980382055,
+            5.839416000526398,
+            6.065791996661574,
+            5.954207998001948,
+            5.8434579987078905
+          ],
+          "nmajor_lut": [
+            21.71329199336469,
+            21.70700000715442,
+            21.424667007522658,
+            21.66395800304599,
+            21.527624980080873,
+            21.531500009587035,
+            21.602583990897983
+          ],
+          "reconstruct": [
+            29.91116701741703,
+            29.849834012566134,
+            29.995499993674457,
+            29.84787500463426,
+            29.8808750230819,
+            29.818875016644597,
+            29.988750000484288
+          ],
+          "resident_fp16": [
+            1.1590000067371875,
+            1.1993339867331088,
+            1.1121669958811253,
+            1.1689999955706298,
+            1.1058749805670232,
+            1.170542003819719,
+            1.1194160033483058
+          ]
+        },
+        "median_ms": {
+          "fused": 15.456207998795435,
+          "fused_reuse": 15.45341601013206,
+          "nmajor_arithmetic": 5.945166980382055,
+          "nmajor_lut": 21.602583990897983,
+          "reconstruct": 29.8808750230819,
+          "resident_fp16": 1.1590000067371875
+        },
+        "live_gib": 0.35626792907714844,
+        "driver_gib": 1.0081787109375
+      }
+    ],
+    "scope": "Actual packed operators with synthetic activations; no full-model or GGUF speed claim.",
+    "timing_scope": "Resident weights/pipeline; all calls include transforms and synchronization. fused_reuse and nmajor variants reuse scratch/output; other paths allocate each call. Python dispatch remains included.",
+    "event_timing": "Not collected. Optional torch.mps.Event diagnostics were removed after the installed Torch 2.14.1 elapsed-time wait hung. Wall measurements are not pure GPU kernel durations.",
+    "eviction_bytes": 134217728,
+    "cache_treatment": "Before every timed call, multiply a separate reusable FP32 MPS buffer and synchronize outside the stopwatch. This applies cache pressure; it does not prove a perfectly cold cache.",
+    "finished": 1792965332.3879528
+  },
+  "exl3_guard": {
+    "exit": 0,
+    "reason": null,
+    "seconds": 24.149,
+    "peak_group_rss_gib": 4.724639892578125,
+    "warning_seconds": 0,
+    "memory_limits": {
+      "rss_gib": 18,
+      "swap_growth_gib": 4,
+      "min_free_percent": 0,
+      "min_disk_free_gib": 4
+    }
+  },
+  "gguf_binary_sha256": "fa19adfabf4a69f3b3ca8625c18bb7dbce2965681b6ec7dba84c6861319e5fe2",
+  "gguf_source_sha256": "9b9988d250e3ab3b0a0999bc7f873e8145b107e5aa49f6f87f37433a3af2fc09",
+  "gguf_libraries": {
+    "libggml-base.dylib": "5b58f3bf245e261da898ee867eeebc8a5fd79b46528ad05b20f0225df64536e2",
+    "libggml.dylib": "a23fcdbe8cc5d65c6a7f504d0cf4642ce3ddf98c1ae03f9fb87a67592e892231",
+    "libggml-metal.so": "2282accab16d665c402d68ed96303af473e9fef57a2eb3662ac61a7784b5c6cb"
+  },
+  "gguf": [
+    {
+      "model": "nano",
+      "tensor": "ffn_up",
+      "m": 1,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "39a6b5174e5d3dbbf01008c826a61b7264c99dbb3d7c83a811e5aa88cee0f8f0",
+        "median_ms": 0.635875,
+        "worst_relative_rms": 7.351116732e-08,
+        "worst_relative_max": 7.822893223e-08,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 306823168,
+        "times_ms": [
+          0.785083,
+          0.696708,
+          0.633209,
+          0.648625,
+          0.645708,
+          0.638541,
+          0.632125,
+          0.602541,
+          0.632,
+          0.625083
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "ffn_up",
+      "m": 1,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "cf382dceca3dd56965ab1c8649f4f8bb3c02494d543a73488f1148b643d67d06",
+        "median_ms": 0.595563,
+        "worst_relative_rms": 7.224049899e-08,
+        "worst_relative_max": 1.123506373e-07,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 315875328,
+        "times_ms": [
+          0.590792,
+          0.600334,
+          0.640875,
+          0.626291,
+          0.6245,
+          0.601584,
+          0.590083,
+          0.579083,
+          0.559208,
+          0.569583
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "nano",
+      "tensor": "ffn_up",
+      "m": 4,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "39a6b5174e5d3dbbf01008c826a61b7264c99dbb3d7c83a811e5aa88cee0f8f0",
+        "median_ms": 1.609646,
+        "worst_relative_rms": 7.175792911e-08,
+        "worst_relative_max": 6.710866717e-08,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 307093504,
+        "times_ms": [
+          1.686417,
+          1.688541,
+          1.673625,
+          1.887,
+          1.701333,
+          1.545667,
+          1.472292,
+          0.986333,
+          0.977792,
+          0.968583
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "ffn_up",
+      "m": 4,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "cf382dceca3dd56965ab1c8649f4f8bb3c02494d543a73488f1148b643d67d06",
+        "median_ms": 1.529833,
+        "worst_relative_rms": 7.698470886e-08,
+        "worst_relative_max": 8.436754042e-08,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 316145664,
+        "times_ms": [
+          1.545584,
+          1.526791,
+          1.530625,
+          1.518875,
+          1.76875,
+          1.530667,
+          1.529041,
+          1.548791,
+          0.904542,
+          0.895625
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "nano",
+      "tensor": "ffn_gate",
+      "m": 1,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "b5bf1036a0243417110bc76017f278cf1bf0e410d3d00292f0ab560e38d1eaee",
+        "median_ms": 0.6425,
+        "worst_relative_rms": 7.433103405e-08,
+        "worst_relative_max": 1.036409773e-07,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 297074688,
+        "times_ms": [
+          0.82325,
+          0.830375,
+          0.828833,
+          0.83725,
+          0.73175,
+          0.55325,
+          0.537,
+          0.552583,
+          0.540709,
+          0.517375
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "ffn_gate",
+      "m": 1,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "0736545a5b3e037c8560b6e5abc8857c749608a6b0dded4e744e4eed7e5b1f88",
+        "median_ms": 0.5839375,
+        "worst_relative_rms": 6.854677132e-08,
+        "worst_relative_max": 6.264437705e-08,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 315875328,
+        "times_ms": [
+          0.596,
+          0.5685,
+          0.585333,
+          0.582542,
+          0.567084,
+          0.6055,
+          0.595292,
+          0.576625,
+          0.570416,
+          0.600292
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "nano",
+      "tensor": "ffn_gate",
+      "m": 4,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "b5bf1036a0243417110bc76017f278cf1bf0e410d3d00292f0ab560e38d1eaee",
+        "median_ms": 1.4274375,
+        "worst_relative_rms": 8.27466864e-08,
+        "worst_relative_max": 9.921060333e-08,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 297345024,
+        "times_ms": [
+          2.497875,
+          2.431542,
+          2.553334,
+          2.144416,
+          1.372125,
+          1.381208,
+          1.387167,
+          1.364292,
+          1.449333,
+          1.405542
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "ffn_gate",
+      "m": 4,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "0736545a5b3e037c8560b6e5abc8857c749608a6b0dded4e744e4eed7e5b1f88",
+        "median_ms": 1.544354,
+        "worst_relative_rms": 8.070218607e-08,
+        "worst_relative_max": 1.20775808e-07,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 316145664,
+        "times_ms": [
+          1.53725,
+          1.525625,
+          1.550333,
+          1.611875,
+          1.545583,
+          1.535625,
+          1.543125,
+          1.54725,
+          1.530792,
+          1.62175
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "nano",
+      "tensor": "ffn_down",
+      "m": 1,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "a2f60f09e699f30709aaaf65bc5f81c0c57fb182678105b11626139d8180095c",
+        "median_ms": 0.7146455,
+        "worst_relative_rms": 1.118577931e-07,
+        "worst_relative_max": 1.270584914e-07,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 306823168,
+        "times_ms": [
+          0.712125,
+          0.789542,
+          0.721416,
+          0.66575,
+          0.721875,
+          0.760125,
+          0.716375,
+          0.712916,
+          0.706541,
+          0.693041
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "ffn_down",
+      "m": 1,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "7a5733f8697b7e926ed58b13455a1d19adfe9c912091f78596e6213fea23f8f2",
+        "median_ms": 0.6161665,
+        "worst_relative_rms": 1.13411959e-07,
+        "worst_relative_max": 1.098448017e-07,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 315875328,
+        "times_ms": [
+          0.608583,
+          0.616791,
+          0.678666,
+          0.616583,
+          0.61575,
+          0.731208,
+          0.615167,
+          0.627041,
+          0.61475,
+          0.608292
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "nano",
+      "tensor": "ffn_down",
+      "m": 4,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "a2f60f09e699f30709aaaf65bc5f81c0c57fb182678105b11626139d8180095c",
+        "median_ms": 1.465562,
+        "worst_relative_rms": 1.029288173e-07,
+        "worst_relative_max": 1.006390571e-07,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 307093504,
+        "times_ms": [
+          1.4855,
+          1.480833,
+          1.454041,
+          1.489875,
+          1.472334,
+          1.469958,
+          1.451292,
+          1.460208,
+          1.461166,
+          1.459125
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "ffn_down",
+      "m": 4,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "7a5733f8697b7e926ed58b13455a1d19adfe9c912091f78596e6213fea23f8f2",
+        "median_ms": 1.721229,
+        "worst_relative_rms": 1.14955159e-07,
+        "worst_relative_max": 1.307163683e-07,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 316145664,
+        "times_ms": [
+          1.77025,
+          1.875625,
+          1.747416,
+          1.854958,
+          1.715708,
+          1.72675,
+          1.713584,
+          1.314542,
+          1.242,
+          1.233917
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "nano",
+      "tensor": "attn_gate",
+      "m": 1,
+      "evict_mib": 0,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "86fb44a77b4bf4b9ed43c22c02e937bf19711cdc8e73bf2680d31ac330886008",
+        "median_ms": 0.3950625,
+        "worst_relative_rms": 8.428488641e-08,
+        "worst_relative_max": 9.176444983e-08,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 0,
+        "eviction_output_bytes": 0,
+        "cache_treatment": "no eviction sweep",
+        "buffer_bytes": 13561856,
+        "times_ms": [
+          0.411167,
+          0.394833,
+          0.399584,
+          0.397375,
+          0.570375,
+          0.395292,
+          0.389542,
+          0.366625,
+          0.374708,
+          0.387375
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "nano",
+      "tensor": "attn_gate",
+      "m": 1,
+      "evict_mib": 128,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "86fb44a77b4bf4b9ed43c22c02e937bf19711cdc8e73bf2680d31ac330886008",
+        "median_ms": 0.396271,
+        "worst_relative_rms": 8.428488641e-08,
+        "worst_relative_max": 9.176444983e-08,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 281997312,
+        "times_ms": [
+          0.401375,
+          0.429542,
+          0.430125,
+          0.41625,
+          0.369,
+          0.390875,
+          0.391167,
+          0.387,
+          0.38975,
+          0.404916
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "nano",
+      "tensor": "attn_gate",
+      "m": 4,
+      "evict_mib": 0,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "86fb44a77b4bf4b9ed43c22c02e937bf19711cdc8e73bf2680d31ac330886008",
+        "median_ms": 0.7655415,
+        "worst_relative_rms": 7.229773287e-08,
+        "worst_relative_max": 8.153501888e-08,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 0,
+        "eviction_output_bytes": 0,
+        "cache_treatment": "no eviction sweep",
+        "buffer_bytes": 13697024,
+        "times_ms": [
+          0.75875,
+          0.763209,
+          0.752125,
+          0.764833,
+          0.780875,
+          0.806292,
+          0.77375,
+          0.76775,
+          0.76625,
+          0.763208
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "nano",
+      "tensor": "attn_gate",
+      "m": 4,
+      "evict_mib": 128,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "86fb44a77b4bf4b9ed43c22c02e937bf19711cdc8e73bf2680d31ac330886008",
+        "median_ms": 0.754312,
+        "worst_relative_rms": 7.229773287e-08,
+        "worst_relative_max": 8.153501888e-08,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 282132480,
+        "times_ms": [
+          0.804333,
+          0.765125,
+          0.747125,
+          0.786042,
+          0.747875,
+          0.745917,
+          0.751416,
+          0.757208,
+          0.733792,
+          0.847708
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "attn_gate",
+      "m": 1,
+      "evict_mib": 0,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "00ae0994753118ef22b811867766f399641456bbb27b31e0a7e465865282907c",
+        "median_ms": 0.376646,
+        "worst_relative_rms": 7.825568237e-08,
+        "worst_relative_max": 6.876563147e-08,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 0,
+        "eviction_output_bytes": 0,
+        "cache_treatment": "no eviction sweep",
+        "buffer_bytes": 16756736,
+        "times_ms": [
+          0.370834,
+          0.386875,
+          0.350791,
+          0.378125,
+          0.387291,
+          0.375167,
+          0.359292,
+          0.389958,
+          0.381208,
+          0.368334
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "attn_gate",
+      "m": 1,
+      "evict_mib": 128,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "00ae0994753118ef22b811867766f399641456bbb27b31e0a7e465865282907c",
+        "median_ms": 0.3678545,
+        "worst_relative_rms": 7.825568237e-08,
+        "worst_relative_max": 6.876563147e-08,
+        "reference_channels": 64,
+        "reference_rows": 1,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 285192192,
+        "times_ms": [
+          0.383541,
+          0.377584,
+          0.366791,
+          0.3675,
+          0.374167,
+          0.368209,
+          0.363292,
+          0.362334,
+          0.396291,
+          0.3605
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "attn_gate",
+      "m": 4,
+      "evict_mib": 0,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "00ae0994753118ef22b811867766f399641456bbb27b31e0a7e465865282907c",
+        "median_ms": 0.6857915,
+        "worst_relative_rms": 7.770080194e-08,
+        "worst_relative_max": 6.278858962e-08,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 0,
+        "eviction_output_bytes": 0,
+        "cache_treatment": "no eviction sweep",
+        "buffer_bytes": 16891904,
+        "times_ms": [
+          0.700083,
+          0.696292,
+          0.69425,
+          0.684375,
+          0.695916,
+          0.677917,
+          0.682,
+          0.68475,
+          0.677584,
+          0.686833
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    },
+    {
+      "model": "orca",
+      "tensor": "attn_gate",
+      "m": 4,
+      "evict_mib": 128,
+      "result": {
+        "event": "result",
+        "status": "passed",
+        "backend": "MTL0",
+        "registration_name": "MTL",
+        "tensor_sha256": "00ae0994753118ef22b811867766f399641456bbb27b31e0a7e465865282907c",
+        "median_ms": 0.6864165,
+        "worst_relative_rms": 7.770080194e-08,
+        "worst_relative_max": 6.278858962e-08,
+        "reference_channels": 64,
+        "reference_rows": 4,
+        "eviction_input_bytes": 134217728,
+        "eviction_output_bytes": 134217728,
+        "cache_treatment": "distinct-buffer SCALE sweep before every call; not a proven cold cache",
+        "buffer_bytes": 285327360,
+        "times_ms": [
+          0.688875,
+          0.728916,
+          0.845459,
+          0.695917,
+          0.671917,
+          0.683958,
+          0.683834,
+          0.729709,
+          0.664458,
+          0.671458
+        ],
+        "timing_scope": "resident graph dispatch plus synchronize; reusable output; excludes loading, allocation, transfers, poisoning, eviction sweep and validation"
+      }
+    }
+  ],
+  "limitations": [
+    "EXL3 uses three Python-submitted kernels and FP16 I/O; GGML uses a resident C++ graph and F32 I/O. Complete call timings, not pure device kernel times.",
+    "128 MiB read/write cache pressure is not proof of perfectly cold caches.",
+    "Different model weights; each was verified against its own decoded-weight oracle. No quality equivalence or whole-model speed claim.",
+    "MPS event elapsed_time stalled in installed Torch; supervised attempt cancelled cleanly. Subsequent wall-only run completed.",
+    "GGUF runs were too short for meaningful sampled peak RSS; graph allocation bytes are recorded."
+  ],
+  "verification": {
+    "focused_cpu_passed": 16,
+    "repo_suite_passed": 709,
+    "repo_suite_skipped": 16,
+    "repo_subtests_passed": 17,
+    "gguf_node_passed": 25,
+    "guards": "both clean"
+  }
+}

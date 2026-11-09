@@ -175,6 +175,10 @@ def stop_group(child, grace, pgid=None, exclude_pid=None):
     child.wait()
 
 
+# macOS keeps swap files here; fall back to / where that path does not exist.
+SWAP_VOLUME = "/private/var/vm" if os.path.exists("/private/var/vm") else "/"
+
+
 def system_state(*, include_free_percent=True):
     if sys.platform != "darwin":
         raise RuntimeError("--monitor currently requires macOS")
@@ -193,7 +197,7 @@ def system_state(*, include_free_percent=True):
         raise RuntimeError("Cannot parse system memory telemetry")
     return {"pressure": int(lines[0]), "swap_gib": float(swap[1]) / 1024,
             "free_percent": int(percent[1]) if percent else None,
-            "disk_free_gib": shutil.disk_usage("/private/var/vm").free / 2**30}
+            "disk_free_gib": shutil.disk_usage(SWAP_VOLUME).free / 2**30}
 
 
 def arguments(argv):

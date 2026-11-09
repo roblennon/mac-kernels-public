@@ -70,6 +70,15 @@ PYTHONPATH=vendor/ck-gguf bench/with_gpu.sh .venv/bin/python -m pytest tests/tes
 
 `bench/with_gpu.sh` serializes anything that touches the GPU, so tests never overlap a render or a training run. The GGUF node tests run separately because they need the `mps-gguf` Kitchen checkout on the path in place of the active one.
 
+The kernel numerics live in the vendor checkouts, not in `tests/`. Most skip themselves when the mps backend is unavailable; `test_mps_attention_backward.py` falls back to CPU instead. They test whatever commit the vendor checkout holds, which can differ from the October 8 snapshot in the table above, so record `git -C vendor/comfy-kitchen rev-parse HEAD` with the result. Run them the same way, from the repository root:
+
+```bash
+bench/with_gpu.sh .venv/bin/python -m pytest vendor/comfy-kitchen/tests/test_mps_int8_linear.py vendor/comfy-kitchen/tests/test_mps_w4a8.py vendor/comfy-kitchen/tests/test_mps_block_formats.py vendor/comfy-kitchen/tests/test_mps_gguf.py vendor/comfy-kitchen/tests/test_mps_autograd.py vendor/comfy-kitchen/tests/test_mps_packed_autograd.py vendor/comfy-kitchen/tests/test_mps_attention_backward.py -q -p no:cacheprovider
+PYTHONPATH=vendor/ck-gguf bench/with_gpu.sh .venv/bin/python -m pytest vendor/ck-gguf/tests/test_mps_gguf.py -q -p no:cacheprovider
+```
+
+`test_mps_int8_linear.py` checks the INT8 linear against a float64 CPU linear over the dequantized weight. `test_mps_w4a8.py` and `test_mps_block_formats.py` check the W4A8/W6A8 and NVFP4/MXFP8/W4A4 decodes and linears against eager on CPU. `test_mps_gguf.py` checks the GGUF decode bit for bit against the `gguf` package. `test_mps_autograd.py`, `test_mps_packed_autograd.py` and `test_mps_attention_backward.py` check the backward paths against CPU fp32 or float64 oracles. `test_mps_linear_lifetime.py` is a CPU regression for the chunk driver's tensor lifetimes, and `test_mps_empty_linear.py` covers empty contractions; neither is a numerics check.
+
 Without `vendor/ComfyUI` (a fresh clone), [tests/conftest.py](tests/conftest.py) skips the test files that need the patched runtime and says so in the pytest header (visible without `-q`). The remaining CPU contracts still run, but the skipped files hold the real-runtime contracts, so treat a vendor-less run as a smoke check, not a pass.
 
 ## Verification by boundary

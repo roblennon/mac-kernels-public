@@ -1,6 +1,10 @@
 #!/bin/zsh
 set -eu
 project_dir="${0:A:h}"
+if [[ ! -x "$project_dir/.venv/bin/python" ]]; then
+  print -u2 'Video Workbench needs the installed project Python environment.'
+  exit 2
+fi
 export PORT=${PORT:-8188}
 export MK_ROOT=${MK_ROOT:-$HOME/mac-kernels-data}
 if [ ! -d "$MK_ROOT/models" ]; then

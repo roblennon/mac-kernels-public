@@ -1,6 +1,6 @@
 # PyTorch issue: MPS matmul with a transposed right-hand operand is up to 8.7x slower at wide K
 
-Prepared for [PyTorch issues](https://github.com/pytorch/pytorch/issues/new) (Bug Report; suggested labels `module: mps`, `module: performance`). Not filed. Refreshed October 9, 2026: the gap reproduces on release 2.14.1 and on nightly 2.16.0.dev20261009.
+Prepared for [PyTorch issues](https://github.com/pytorch/pytorch/issues/new) (Bug Report; suggested labels `module: mps`, `module: performance`). Filed October 13, 2026 as [pytorch/pytorch#200782](https://github.com/pytorch/pytorch/issues/200782). Checked with `gh` on November 9, 2026: open, labels `triaged`, `module: mps`, `module: performance`; the only comment is from kinetrix on October 20, 2026, and it has had no reply. The posted text is [ready/pytorch-issue-mps-wide-linear.md](ready/pytorch-issue-mps-wide-linear.md). Refreshed October 9, 2026: the gap reproduces on release 2.14.1 and on nightly 2.16.0.dev20261009.
 
 ## Duplicate triage (refreshed 2026-10-09)
 

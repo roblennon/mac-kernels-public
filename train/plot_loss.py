@@ -1,8 +1,8 @@
 """Loss curve PNG from a run's log.jsonl: training loss (10-step means, grey) and the fixed
-validation loss (same images, noise and sigmas each time, black).
+training-set loss (the log's val_loss: the same training images, noise and sigmas each time, black).
 
   train/.venv/bin/python train/plot_loss.py RUN_DIR OUT.png
-  train/.venv/bin/python train/plot_loss.py --compare OUT.png RUN_A RUN_B ...   (validation curves only)
+  train/.venv/bin/python train/plot_loss.py --compare OUT.png RUN_A RUN_B ...   (fixed training-set loss curves only)
 """
 import json
 import sys
@@ -37,7 +37,7 @@ def main(run, out):
     for s, v in val:
         x, y = pt(s, v)
         d.ellipse([x - 4, y - 4, x + 4, y + 4], fill="black")
-    d.text((P, 15), "grey: training loss, 10-step mean    black: fixed validation loss    x: step", fill="black")
+    d.text((P, 15), "grey: training loss, 10-step mean    black: fixed training-set loss    x: step", fill="black")
     img.save(out)
 
 
@@ -73,7 +73,7 @@ def compare(out, runs):
         for s, v in c:
             x, y = pt(s, v)
             d.ellipse([x - 4, y - 4, x + 4, y + 4], fill=col)
-        d.text((P + 10, 10 + 16 * j), f"{run.rstrip('/').split('/')[-1]}: fixed validation loss", fill=col)
+        d.text((P + 10, 10 + 16 * j), f"{run.rstrip('/').split('/')[-1]}: fixed training-set loss", fill=col)
     img.save(out)
 
 

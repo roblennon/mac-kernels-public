@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Milestone 2 profiling, one GPU-lock hold: Qwen-Image 2.1 INT8 LoRA steps at 512px, and at 1024px
-# with and without the chunked attention backward.   bench/with_gpu.sh train/m2_profile.sh
-HERE=${0:A:h}; ROOT=${MK_ROOT:-$HOME/mac-kernels-data}; PY=$HERE/.venv/bin/python; LOGS=${HERE:h}/logs
+# with and without the chunked attention backward.   bench/with_gpu.sh train/historical/m2_profile.sh
+HERE=${0:A:h:h}; ROOT=${MK_ROOT:-$HOME/mac-kernels-data}; PY=$HERE/.venv/bin/python; LOGS=${HERE:h}/logs
 Q=(--arch qwen21 --dataset $ROOT/train/datasets/cyanoprint --unet qwen_image_2.1_int8_convrot.safetensors)
 cd $HERE
 $PY -m pytest -q ${HERE:h}/vendor/comfy-kitchen/tests/test_mps_attention_backward.py > $LOGS/train-attn-tests.log 2>&1

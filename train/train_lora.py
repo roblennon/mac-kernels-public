@@ -621,7 +621,7 @@ def main():
     if start == 0 and not args.profile_steps:
         v = val_loss()
         log.write(json.dumps({"step": 0, "val_loss": v}) + "\n")
-        print(f"val loss step 0: {v:.5f}", flush=True)
+        print(f"fixed training-set loss step 0: {v:.5f}", flush=True)
 
     if not args.profile_steps and not args.resume:
         save_state(state_path, start, loras, opt, scaler, gen, identity=identity)
@@ -672,7 +672,7 @@ def main():
             v = val_loss()
             log.write(json.dumps({"step": step, "val_loss": v}) + "\n")
             log.flush()
-            print(f"val loss step {step}: {v:.5f}", flush=True)
+            print(f"fixed training-set loss step {step}: {v:.5f}", flush=True)
         export_lora_if_due(args, step, loras, len(blocks), act_dtype)
         preview_if_due(step)
     summary = {"summary": True, "steps": [start, step], "mean_s_per_step": sum(times[3:]) / max(1, len(times) - 3),

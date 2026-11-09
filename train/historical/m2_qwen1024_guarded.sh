@@ -5,7 +5,7 @@ if (( $# )); then
   print -u2 "This launcher accepts no arguments; its experiment configuration is fixed."
   exit 2
 fi
-HERE=${0:A:h}
+HERE=${0:A:h:h}
 REPO=${HERE:h}
 export MK_ROOT=${MK_ROOT:-$HOME/mac-kernels-data}
 OUT=$MK_ROOT/train/runs/cyan_qwen_1024_int8_seed1_20261003

@@ -1,6 +1,6 @@
 #!/bin/zsh
-# Milestone 2 generation proofs, one GPU-lock hold.   STAGE=ab|1024 bench/with_gpu.sh train/m2_eval.sh
-HERE=${0:A:h}; ROOT=${MK_ROOT:-$HOME/mac-kernels-data}; PY=$HERE/.venv/bin/python; LOGS=${HERE:h}/logs
+# Milestone 2 generation proofs, one GPU-lock hold.   STAGE=ab|1024 bench/with_gpu.sh train/historical/m2_eval.sh
+HERE=${0:A:h:h}; ROOT=${MK_ROOT:-$HOME/mac-kernels-data}; PY=$HERE/.venv/bin/python; LOGS=${HERE:h}/logs
 L=$ROOT/models/qwen21/loras; R=$ROOT/train/runs
 VIGGLE=Qwen-Image-2.1-viggle-turbo-v0.3-6step-lora-r128.safetensors
 Q=(--arch qwen21 --unet qwen_image_2.1_int8_convrot.safetensors --palette cyan)

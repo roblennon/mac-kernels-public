@@ -1,0 +1,2 @@
+.venv/bin/python -m pytest tests -q -p no:cacheprovider --ignore=tests/test_gguf_node.py
+PYTHONPATH=vendor/ck-gguf .venv/bin/python -m pytest tests/test_gguf_node.py -q -p no:cacheprovider

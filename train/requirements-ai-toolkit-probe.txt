@@ -1,0 +1,4 @@
+# Optional imports for bench/probe_ai_toolkit.py against the separately cloned toolkit.
+# Install into train/.venv after the ordinary trainer setup.
+accelerate==1.15.0
+diffusers==0.40.0

@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+vendor/
+out/
+logs/
+
+# trainer: own venv, cloned ai-toolkit (inspected, not patched), large files
+train/.venv/
+train/ai-toolkit/
+*.safetensors
+*.pt
+.venv
+vendor

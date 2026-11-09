@@ -1,0 +1,29 @@
+# Model folders under $MK_ROOT for the forked ComfyUI (bench/serve.sh passes this file).
+# Each model family keeps its own subfolder; ComfyUI searches every listed folder, so templates find
+# files by their names wherever they sit. $MK_ROOT is set by serve.sh (default ~/mac-kernels-data).
+mac_kernels:
+  base_path: $MK_ROOT/models
+  diffusion_models: |
+    diffusion_models
+    gguf
+    qwen21/diffusion_models
+    wan/diffusion_models
+    h3/diffusion_models
+  text_encoders: |
+    text_encoders
+    qwen21/text_encoders
+    wan/text_encoders
+    h3/text_encoders
+  vae: |
+    vae
+    qwen21/vae
+    wan/vae
+    h3/vae
+  vae_approx: |
+    vae_approx
+    wan/vae
+  loras: |
+    loras
+    qwen21/loras
+    wan/loras
+    h3/loras

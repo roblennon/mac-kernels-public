@@ -1,0 +1,105 @@
+# Open-source contribution review — October 8, 2026
+
+Scope is the contribution surface evidenced by this repository, its independent vendor forks, historical drafts and later integrated changes. Done means each evidenced candidate has a destination, dependency, qualification boundary and next action. No kernel changes, GPU runs, branch rebases, public posts or CLA acceptance are part of this pass.
+
+This review holds the evidence and dated prioritization; the [October 4 inventory](README.md#branch-inventory) preserves historical branch heads and PR drafts. “Prepared” means a separated private branch exists, not that it is ready to submit. The coverage below is comprehensive for the inspected surfaces, not a claim to enumerate every possible idea in the ecosystem.
+
+## What changed since the old inventory
+
+Fetched upstream ComfyUI `origin/master` at `46493d82` and Kitchen `origin/main` at `be003b7`. All 19 recorded local preparation tips still match the October 4 inventory. Read-only `git merge-tree --write-tree` checks against these heads find **five conflicting ComfyUI branches**: sidepath, accounting, adapter types, block formats and mapped offload. All five conflict in `comfy/ops.py`. The other ten ComfyUI branches and all four Kitchen branches merge cleanly. These checks do not execute rebased code, prove semantic compatibility or verify current private remote refs. The working checkouts were clean; root `main` matches fetched `origin/main`.
+
+Upstream recently changed the Linear wrapper/fusion API ([#16861](https://github.com/Comfy-Org/ComfyUI/pull/16861), [#16862](https://github.com/Comfy-Org/ComfyUI/pull/16862)). Port the affected integration to those contracts rather than mechanically resolving the conflicts. The older Kitchen GGUF/block-format registration conflict remains a combined-stack concern even though each branch merges independently.
+
+October 5 source commits `a138076` (Kitchen), `e11d9226` (ComfyUI) and `bef90ac` (GGUF node) contain later correctness repairs. The first two are absent from the October 4 preparation snapshot; the GGUF node has no separated submission branch in that snapshot. Do not submit the older series without these repairs.
+
+## Recommended first batch
+
+Start with the independent VAE dtype and OOM-recovery patches (CU-02, CU-12), the existing UniPC contribution lane (CU-04), and the PyTorch performance report (PT-01). They have concrete benefits and avoid the large quantized runtime dependency chain. This is a recommendation, not a decision to publish. In parallel with that preparation, refresh Kitchen's backend (CK-01), which unlocks the larger contribution stack.
+
+Avoid promising general MPS acceleration: hardware, OS, Torch version, recipe and memory limits all matter. In particular, the latest upstream INT8 proposals disagree on the release gate; validate the actual capability and preserve the older-GPU weight-only path.
+
+## First-batch progress — October 9
+
+Refreshed against upstream ComfyUI `08ff3c11`, re-reviewed, and checked on the M1 Max under the GPU guard. Nothing was posted on October 9. Six contributions were later posted on October 13, 2026: ComfyUI #16996, #16997 and #16998, a comment on ComfyUI PR #16574, comfy-kitchen #249 and PyTorch issue #200782 (see [ready/](ready/README.md)).
+
+- **CU-02 FP16 VAE: prepared.** Branch `refresh/mps-fp16-vae` (`0908e9d7`). On Wan 2.2, Wan 2.1 and Qwen-Image 2.1 VAEs, fp16 decodes match fp32 at 75–79 dB PSNR and run 5–10× faster than today's bf16, which reaches only 57–61 dB. Independent review found nothing blocking; its test fixes are applied. [Draft](comfyui-mps-fp16-vae.md).
+- **CU-12 OOM recovery: prepared.** Branch `refresh/mps-oom-recovery` (`eb6acbd0`). Torch 2.14.1 still raises MPS OOM as a plain `RuntimeError`, so the fix is still needed. It affects every `is_oom` caller, not only VAE tiling, and the draft now says so. The recovery test now genuinely splits into tiles. [Draft](comfyui-mps-followups.md#vae-recovery).
+- **CU-04 UniPC: withdraw our branch and support #16574.** On real MPS, #16574 passes our corrector-weight check on MPS and CPU, while master fails on both. Our MPS-only gate kept a real CPU/CUDA error, and our extra `h_phi_1`/`B(h)` handling changes nothing measurable. A comment and an optional test are prepared. [Disposition](comfyui-mps-unipc-float64.md).
+- **PT-01 PyTorch report: prepared.** The gap reproduces on 2.14.1 and nightly 2.16.0.dev20261009 (up to 3.6× fp16, 8.7× fp32). No duplicate found. The draft drops stale line numbers and unproven claims. [Draft](pytorch-mps-wide-linear-issue.md).
+- **CU-01: closed without a PR.** On Torch 2.14.1, the current stable release, a 5-D temporal `F.pad` on MPS zeroes its data in fp32, fp16 and bf16 at sizes down to 12 MiB. Qwen-Image 2.1 512px encodes come out all-NaN in fp16/bf16 in 3 of 3 runs, and about 13% off in fp32. The upstream fix is already on `release/2.15`. Nightly 2.16.0.dev20261009 encodes correctly in 3 of 3 runs (fp16 0.33% and bf16 1.2% relative L2 vs CPU fp32), matching our workaround. A ComfyUI workaround would serve only 2.14.x users until 2.15 ships, so it is not worth a PR. The root runtime keeps its integrated fix while it runs 2.14.1.
+
+### Foundation and small fixes — October 9
+
+- **CK-01 Kitchen MPS backend: prepared.** `refresh/mps-backend` (`8782535`) on Kitchen `be003b7`. Independent review found and the M1 Max confirmed a LoRA epilogue flush and an M = 1 retention; both are fixed in the branch and in the runtime Kitchen. Asymmetric W4A8 precision and subnormal flushing are documented contracts, not bugs. One benchmark run: 39/104/106 ms against 76/202/243 ms dequantize-per-call. #107 (which also carries an M5 Metal 4 INT8 kernel) and #145 are complementary, with no file overlap. [Draft](comfy-kitchen-mps-backend.md).
+- **CU-16 WAN Diffusers LoRA keys: prepared.** Upstream `08ff3c11` loads 0 of 300 targets; `refresh/wan-diffusers-lora-keys` (`75728d8d`) loads all 300 plus WAN-scoped `lora_B.bias`. [Draft](comfyui-wan-diffusers-lora-keys.md).
+- **CK-02, CK-03, CK-04: prepared and composed.** Each follow-up is rebased on the reviewed backend, independently reviewed and fixed (training: a blocking grouped-query attention bug; block formats: logical-width enforcement; GGUF: wide odd-K layers refused). `refresh/mps-stack` (`5e7f6a4`) composes block formats and GGUF with a registration test; 1475 Kitchen tests pass. [Follow-ups](comfy-kitchen-mps-followups.md).
+- **CU-03 attention and CU-05 Conv3d: prepared.** Both still needed on Torch 2.14.1 and the 2.16 nightly; review found a batch-1 broadcast shape bug and an unguarded VAE SDPA path (CU-03) and an empty-time-axis parity bug (CU-05). [Attention](comfyui-mps-pytorch-attention.md), [Conv3d](comfyui-mps-conv3d.md).
+- **CU-11 direct load: prepared, still experimental.** `refresh/mps-direct-load` (`8ebf0c5c`). Upstream has no direct-to-MPS path; pread reaches MPS 5.5× faster than mmap on a real 4.77 GiB file. Independent review found direct-loaded weights were left unregistered with the memory manager and that F16 storage (present in a real H3 export) was refused; both fixed. The real-file direct load was refused by its own admission check on the 32 GiB host and was not forced. [Draft](comfyui-mps-followups.md#direct-loading).
+- **CU-13 encoder ownership: prepared.** `refresh/mps-encoder-ownership` (`702eaec4`). Upstream keeps text encoders on CPU on MPS by default, so this applies to the default path: real Wan and Krea files assign 242/242 and 713/713 tensors, and the Krea load drops from 38.0 s and 9.66 GiB peak RSS to 0.4 s and 0.52 GiB. Review found aliased `.pt` keys would be coupled and nested borrowed loads inherited permission; both fixed. [Draft](comfyui-mps-followups.md#encoder-ownership).
+- **CU-14 cache ownership: prepared.** `refresh/mps-cache-ownership` (`bc58dad1`). On upstream a 4 MiB CLIP entry sizes as 0 bytes and a mid-prompt eviction leaves the weight alive; both reproduce and are fixed. Review added patcher backups to the sizing. Not MPS-specific; the PR should say so. [Draft](comfyui-mps-followups.md#encoder-cache-ownership).
+
+## Prepared ComfyUI candidates
+
+Destination: [Comfy-Org/ComfyUI](https://github.com/Comfy-Org/ComfyUI). Each ID corresponds to `upstream/mps-<suffix>` in `vendor/ComfyUI-upstream`; exact historic tips and drafts are in the old inventory. “Clean” below means only the October 8 merge-tree result.
+
+| ID / suffix | Contribution and dependency | Evidence and next boundary |
+| --- | --- | --- |
+| CU-01 `vae-temporal-padding` | Preserve temporal VAE padding; independent. Clean. | Exact AvgDown3D corruption and 18 separated CPU/MPS regressions. [Draft](comfyui-mps-vae-temporal-padding.md). PyTorch issue is now closed: establish affected Torch/OS versions before offering a compatibility workaround. |
+| CU-02 `fp16-vae` | Prefer supported FP16 VAEs on MPS, preserving explicit flags and CPU placement; independent. Clean. | Historical WAN/Qwen decode gains and seven policy cases. [Draft](comfyui-mps-fp16-vae.md). Refresh current dtype policy and rerun representative output parity; qualify hardware/OS claims. |
+| CU-03 `pytorch-attention` | SDPA default, bounded calls, explicit FP32 and broadcasts; independent. Clean. | [Draft](comfyui-mps-pytorch-attention.md). Compare open #14838; include the later independent-head fix from `e11d9226`. Separate default-policy choice from corruption safeguards if useful to maintainers. |
+| CU-04 `unipc-float64` | MPS-only high-precision scalar coefficients; independent. Clean. | [Draft](comfyui-mps-unipc-float64.md). Open #16574 already addresses coefficient recurrence. Compare our additional h_phi_1/B(h) handling and contribute evidence or a minimal extension to that lane. |
+| CU-05 `conv3d` | Stacked-tap Conv2d for eligible MPS Conv3d; independent. Clean. | [Draft](comfyui-mps-conv3d.md). Include later padding repair from `e11d9226`; rerun fallback/gradient parity and realistic decode performance on current upstream. |
+| CU-06 `kitchen-formats` | INT8/W4A8/W6A8 capability dispatch; requires released CK-01. Clean. | [Draft](comfyui-mps-kitchen-formats.md). Align with current INT8 capability proposals and actual Kitchen release; no invented dependency version. |
+| CU-07 `lora-sidepath` | Keep ordinary LoRAs beside packed weights; CU-06 plus Kitchen side arguments. **Conflict**. | [Draft](comfyui-mps-lora-sidepath.md). Port to current wrapper/fusion API, preserving save/unpatch/hooks and immutable packed base. |
+| CU-08 `lora-accounting` | Count shared resident side factors once across clones; CU-07. **Conflict**. | [Draft](comfyui-mps-followups.md#clone-accounting). Use real side-container fixtures after porting CU-07. |
+| CU-09 `lora-types` | LoKr/LoHa/DoRA/LoCon/diff/model-strength with safe fallback; CU-08. **Conflict**. | [Draft](comfyui-mps-followups.md#adapter-types). Include later input-axis DoRA range repair from `e11d9226`; preserve merged-reference equivalence and declined-type behavior. |
+| CU-10 `block-formats` | NVFP4/MXFP8/W4A4 and opt-in packed text encoding; CU-07 + CK-03. **Conflict**. | [Draft](comfyui-mps-followups.md#formats-and-text-encoders). FP32 NVFP4 repair is already prepared. Recheck allocator/driver admission gaps; bounded integrated encoder proof does not qualify whole-encoder residency. |
+| CU-11 `direct-load` | Explicit INT8 ConvRot safetensors pread loading; independent, needs supported safetensors. Clean. | [Draft](comfyui-mps-followups.md#direct-loading). Integrated Qwen production-node/three-request evidence exists; separated current-upstream server acceptance still needed. Keep default off and ownership restrictions explicit. |
+| CU-12 `oom-recovery` | Recognize MPS allocator errors for existing tiled-VAE recovery; independent. Clean. | [Draft](comfyui-mps-followups.md#vae-recovery). Refresh exception contract and focused recovery/non-recovery tests; avoid swallowing unrelated failures. |
+| CU-13 `encoder-ownership` | Transfer owned WAN/Krea encoder storage without redundant copies; independent. Clean. | [Draft](comfyui-mps-followups.md#encoder-ownership). Verify source ownership, clones and release against current encoder loader; do not claim lower physical memory from allocation counters alone. |
+| CU-14 `cache-ownership` | Release unused encoder/cache owners under RAM pressure; independent of new MPS backend. Clean. | [Draft](comfyui-mps-followups.md#encoder-cache-ownership). 82 separated CPU tests historically; full persistent-server pressure acceptance remains narrower/unproven. |
+| CU-15 `mapped-offload` | Restore eligible mapped weights on offload; CU-09 + CU-11. **Conflict; experimental**. | [Draft](comfyui-mps-followups.md#mapped-offload-candidate). Explicit default-off option; generic generation-memory acceptance remains open. Later family-specific read-only successes do not validate this policy. |
+
+## Kitchen and GGUF candidates
+
+Kitchen destination: [Comfy-Org/comfy-kitchen](https://github.com/Comfy-Org/comfy-kitchen). Its four `upstream/mps-*` branches live in `vendor/comfy-kitchen-upstream` and merge cleanly individually at the inspected upstream head.
+
+| ID / branch | Contribution and dependency | Evidence and next boundary |
+| --- | --- | --- |
+| CK-01 `mps-backend` | Native weight-only Metal INT8/ConvRot/W4A8/W6A8, range-safe compute and LoRA sides; foundation. | [Draft](comfy-kitchen-mps-backend.md). Compare open fallback PRs #107/#145; retain distinct native decode/performance scope. Split output-dtype/empty-forward repairs from `a138076` into this branch. |
+| CK-02 `mps-training` | Bounded frozen packed input gradients and attention backward; CK-01. | [Draft](comfy-kitchen-mps-followups.md#training). Include exponent, empty-backward and vector-mask repairs from `a138076`; verify saved-tensor bounds and real optimizer/checkpoint behavior. |
+| CK-03 `mps-block-formats` | Weight-only NVFP4/MXFP8/ConvRot W4A4; CK-01. | [Draft](comfy-kitchen-mps-followups.md#block-formats). Include mixed-scale MXFP8 repair from `a138076`; document measured 50–60% large-token layer slowdown and larger FP32 slabs. |
+| CK-04 `mps-gguf` | Q4_0–Q8_0, Q2_K–Q6_K and IQ4_NL/IQ4_XS block kernels; CK-01. | [Draft](comfy-kitchen-mps-followups.md#gguf). Compose registration with CK-03 deliberately and rerun dispatch/format parity; generic format support is broader than representative full-model proof. |
+| GG-01 integrated `mps-gguf-kernel` | Route supported GGUF linears to Kitchen; destination [city96/ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF), requires CK-04. | Sources `1cd62a6`, `ab012c4`; not one of the 19 prepared branches. Extract a minimal branch; preserve unsupported-format fallback. Compare open #456's compute-dtype contract. |
+| GG-02 integrated follow-ups | Call-local LoRA ownership, explicit precision and finite-range factors; GG-01 where coupled. | Sources `2f71d58`, `7156e0a`, `bef90ac`. Decide whether ownership/precision fixes can land independently; retain sliced-factor copies and whole/sliced parity. |
+
+## Later contributions and reusable project work
+
+These have evidence or useful code but no separated submission branch in the recorded series.
+
+| ID | Destination / contribution | Evidence, qualification and disposition |
+| --- | --- | --- |
+| PT-01 | [PyTorch](https://github.com/pytorch/pytorch): wide-K transposed-right-operand performance report | [Issue draft](pytorch-mps-wide-linear-issue.md), [repro](../../bench/repro_mps_wide_linear.py). Exclusive October 4 Torch 2.14.1 run: up to 3.52× FP16 / 8.83× FP32 microbenchmark gap, exact output equality. Current nightly untested. Refresh targeted duplicate search and optionally a bounded current-build check; don't claim Apple's kernel selection is proven. |
+| CU-16 | ComfyUI WAN Diffusers LoRA key aliases | Source `2eff11c`, [mapping](../../bench/video_loras.py). All 300 real targets admitted and I2V completed. Extract family-scoped aliases into upstream's mapper, retaining alpha/shape checks and other-family isolation; check for duplicate support. |
+| DIST-01 | This repo: reusable public Mac package, workflows and training examples | Workbenches, saved WAN draft/final, export, source-bound conditioning caches, recovery/buckets/previews and guarded execution are reusable project assets, rather than automatic core-runtime PRs. [Ownership/installation gaps](../../CONTRIBUTING.md), [trainer](../how-to-train.md). Decide the distribution boundary; inspect licenses of reused helpers, document vendor/dependency pins and asset acquisition, and prove a fresh installation without private fork access. Root remote visibility/public release was not audited here. |
+| CACHE-01 | This repo / reusable custom-node example: invalidate same-name LoRA replacements | Source `7288181`, with an actual Comfy cache regression. Fixed in owned nodes, not proof of a core ComfyUI bug. Include in DIST-01; promote a core PR only after reproducing a stock node defect. |
+| MEM-01 | ComfyUI: inference-mode unload avoids copying mapped inference weights | Source `3bdad84`, with real module and warm-export proof. Owned API fix is shipped. Stock worker unload remains an investigation: reproduce its path before proposing a broader vendor change. |
+| MEM-02 | ComfyUI or this repo: read-only construction, bounded residency and streamed plain block LoRAs | Root Krea/WAN/H3/Qwen implementations and [shared contracts](../../CONTRIBUTING.md#shared-contracts). Short accepted renders are real; general patcher/memory-policy support is not established. Park broad upstream extraction pending maintainers' architecture fit; bundle recipes with DIST-01. |
+| TRAIN-01 | [ai-toolkit](https://github.com/ostris/ai-toolkit): explicit weight-only ConvRot training mode | In a boundary trial, two optimizer steps and checkpoint/input-gradient checks pass; removes activation fake quantization and changes numerical behavior. Deferred until explicit mode plus full trainer/checkpoint/export and loading-fit acceptance; never market as transparent W8A8 replacement. |
+
+## Upstream overlap checked October 8
+
+Live GitHub API reads and bounded issue/PR searches covered ComfyUI, Kitchen, GGUF and PyTorch. Source recency matters: ComfyUI Linear changes are October 2026; fallback/attention/UniPC overlap is August–September 2026. Searches are triage, not proof that no duplicate exists.
+
+- Kitchen [#107](https://github.com/Comfy-Org/comfy-kitchen/pull/107) and [#145](https://github.com/Comfy-Org/comfy-kitchen/pull/145) are open float-GEMM INT8 fallback proposals. Compare, coordinate, and show what the native backend adds.
+- ComfyUI [#14838](https://github.com/Comfy-Org/ComfyUI/pull/14838) (attention) and [#16574](https://github.com/Comfy-Org/ComfyUI/pull/16574) (UniPC) are open. Existing lanes take precedence over redundant submissions.
+- ComfyUI [#16451](https://github.com/Comfy-Org/ComfyUI/pull/16451) is open and gates native INT8 on Torch 2.15; [#16808](https://github.com/Comfy-Org/ComfyUI/pull/16808), which proposed 2.14, is closed with no merge timestamp. Resolve release/capability evidence before refreshing CU-06.
+- PyTorch [#194922](https://github.com/pytorch/pytorch/issues/194922) is closed as completed; related [#194944](https://github.com/pytorch/pytorch/pull/194944) and [#195147](https://github.com/pytorch/pytorch/pull/195147) are closed with no merge timestamps. Closure alone does not establish that the installed build/OS is fixed. Determine the actual shipped resolution before CU-01 or CU-05 workaround submission.
+- PyTorch [#198182](https://github.com/pytorch/pytorch/issues/198182) (Metal matmul speed) and [#195163](https://github.com/pytorch/pytorch/issues/195163) (large-K batched correctness) remain open; related to PT-01 but not demonstrated duplicates.
+- GGUF [#456](https://github.com/city96/ComfyUI-GGUF/pull/456) is open and concerns reported compute dtype.
+
+## Submission boundary and parked ideas
+
+For a chosen candidate: compare current upstream and overlaps, port only its necessary dependencies and later repairs, run focused regressions and required guarded GPU/recipe checks, obtain a different-family review, refresh the public-facing description, then present the exact diff/destination for a publication decision. Preserve human author and Agent-Provenance. [Kitchen's current contributor rules](https://github.com/Comfy-Org/comfy-kitchen/blob/main/CONTRIBUTING.md) require Apache-2.0 licensing and DCO; [ComfyUI's rules](https://github.com/Comfy-Org/ComfyUI/blob/master/CONTRIBUTING.md) request duplicate checks and link the contribution workflow. Recheck destination CI/trailer rules and CLA requirements when preparing the actual submission. This audit posts nothing.
+
+Range-admitted MXFP8 fast compute, single-token kernels, reference-validation memoization, SPEED scheduling, additional adapter/task types and Identity Edit training are research/product extensions, not submission-ready patches. Apple Feedback for PT-01 may be useful after framework triage, but is not an open-source contribution and needs a concrete repro/destination decision.

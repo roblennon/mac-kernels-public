@@ -1,0 +1,601 @@
+{
+  "checked_date_utc": "2026-10-04",
+  "scope": "Bounded primary-source availability and native-layout research for F1; no complete weight payload downloaded or executed by this research pass.",
+  "method": "Public model APIs with blobs=true; pinned safetensors header ranges required HTTP 206 and exact byte length. All 224 mixed W4A4 checkpoint format configurations were additionally fetched as one 20224-byte range. Header hashes are hashes of original header bytes, excluding the initial 8-byte length.",
+  "payload_hash_status": "Expected complete-file SHA256 from publisher LFS metadata; not independently verified against complete payload in this pass.",
+  "selected_candidates": [
+    {
+      "repo": "Comfy-Org/Krea-2",
+      "revision": "eb1eddd3983a54678545a9b2c178c5853b30f7be",
+      "lastModified": "2026-09-23T08:03:53.000Z",
+      "filename": "diffusion_models/krea2_turbo_mxfp8.safetensors",
+      "bytes": 13532318080,
+      "sha256": "4c09131a442c3a01e95f934b43c76c1e691b9f683694a7b68d6fc707d5ecfce3",
+      "url": "https://huggingface.co/Comfy-Org/Krea-2/resolve/eb1eddd3983a54678545a9b2c178c5853b30f7be/diffusion_models/krea2_turbo_mxfp8.safetensors",
+      "header_bytes": 95456,
+      "header_sha256": "bf87820c81063f34d7ec9a0c357061da5e04f193410a8012c15f95ce7a95a4b4",
+      "metadata_keys": [
+        "_quantization_metadata",
+        "format"
+      ],
+      "metadata_formats": {
+        "mxfp8": 256
+      },
+      "metadata_quant_layer_count": 256,
+      "metadata_sample_layers": {
+        "blocks.0.attn.gate": {
+          "format": "mxfp8",
+          "full_precision_matrix_mult": true
+        },
+        "blocks.0.attn.wk": {
+          "format": "mxfp8",
+          "full_precision_matrix_mult": false
+        },
+        "blocks.0.attn.wo": {
+          "format": "mxfp8",
+          "full_precision_matrix_mult": true
+        }
+      },
+      "tensor_count": 686,
+      "storage_bytes_by_dtype": {
+        "BF16": 643142808,
+        "F8_E4M3": 12498501632,
+        "U8": 390578176
+      },
+      "selected_quant_configs": [],
+      "selected_tensors": {
+        "blocks.0.attn.qknorm.knorm.scale": {
+          "dtype": "BF16",
+          "shape": [
+            128
+          ],
+          "data_offsets": [
+            0,
+            256
+          ]
+        },
+        "blocks.0.attn.qknorm.qnorm.scale": {
+          "dtype": "BF16",
+          "shape": [
+            128
+          ],
+          "data_offsets": [
+            256,
+            512
+          ]
+        },
+        "blocks.0.mod.lin": {
+          "dtype": "BF16",
+          "shape": [
+            36864
+          ],
+          "data_offsets": [
+            512,
+            74240
+          ]
+        },
+        "blocks.0.postnorm.scale": {
+          "dtype": "BF16",
+          "shape": [
+            6144
+          ],
+          "data_offsets": [
+            74240,
+            86528
+          ]
+        },
+        "blocks.0.prenorm.scale": {
+          "dtype": "BF16",
+          "shape": [
+            6144
+          ],
+          "data_offsets": [
+            86528,
+            98816
+          ]
+        }
+      },
+      "max_tensor_bytes": 452984832,
+      "comfy_quant_tensor_count": 0,
+      "quantized_layer_count": 256
+    },
+    {
+      "repo": "ariaotp/INT4-ConvRot-W4A4-ComfyUI",
+      "revision": "e347d86f6f4e9cf4cec2a34f6b3e9e4335fc55f7",
+      "lastModified": "2026-07-21T18:21:08.000Z",
+      "filename": "Krea2/krea2_turbo_int4_tensorwise_mixed.safetensors",
+      "bytes": 9234026328,
+      "sha256": "ba38c7f58f2189e2a94dc1d32a319984d9cb4f40883d8570f2e1f26b3fc0004d",
+      "url": "https://huggingface.co/ariaotp/INT4-ConvRot-W4A4-ComfyUI/resolve/e347d86f6f4e9cf4cec2a34f6b3e9e4335fc55f7/Krea2/krea2_turbo_int4_tensorwise_mixed.safetensors",
+      "header_bytes": 87840,
+      "header_sha256": "8454fc3e98922843b42b1a9935fb7d2b0ef9247364020e5c7bcd4e9695192569",
+      "metadata_keys": [
+        "scale_granularity",
+        "convrot",
+        "scale_axis",
+        "int4_tensor_count",
+        "quantized_tensor_count",
+        "project",
+        "artifact_target",
+        "artifact_contract",
+        "int8_fallback_tensor_count",
+        "weight_packing",
+        "model_id",
+        "target_dtype",
+        "model_family",
+        "quant_storage_dtype",
+        "convrot_groupsize"
+      ],
+      "metadata_formats": {},
+      "metadata_quant_layer_count": 0,
+      "metadata_sample_layers": {},
+      "tensor_count": 878,
+      "quantized_layer_count": 224,
+      "storage_bytes_by_dtype": {
+        "F32": 1293052208,
+        "BF16": 686817280,
+        "I8": 7254048768,
+        "U8": 20224
+      },
+      "selected_quant_configs": [
+        {
+          "name": "blocks.0.attn.gate.comfy_quant",
+          "value": {
+            "format": "convrot_w4a4",
+            "params": {
+              "convrot_groupsize": 256,
+              "quant_group_size": 64,
+              "linear_dtype": "int4"
+            }
+          },
+          "range": "bytes 9234006104-9234006207/9234026328"
+        },
+        {
+          "name": "blocks.9.mlp.up.comfy_quant",
+          "value": {
+            "format": "convrot_w4a4",
+            "params": {
+              "convrot_groupsize": 256,
+              "quant_group_size": 64,
+              "linear_dtype": "int4"
+            }
+          },
+          "range": "bytes 9234026224-9234026327/9234026328"
+        }
+      ],
+      "selected_tensors": {
+        "blocks.0.attn.gate.weight_scale": {
+          "dtype": "F32",
+          "shape": [
+            6144
+          ],
+          "data_offsets": [
+            0,
+            24576
+          ]
+        },
+        "blocks.0.attn.qknorm.knorm.scale": {
+          "dtype": "F32",
+          "shape": [
+            128
+          ],
+          "data_offsets": [
+            24576,
+            25088
+          ]
+        },
+        "blocks.0.attn.qknorm.qnorm.scale": {
+          "dtype": "F32",
+          "shape": [
+            128
+          ],
+          "data_offsets": [
+            25088,
+            25600
+          ]
+        },
+        "blocks.0.attn.wk.weight_scale": {
+          "dtype": "F32",
+          "shape": [
+            1536,
+            1
+          ],
+          "data_offsets": [
+            25600,
+            31744
+          ]
+        },
+        "blocks.0.attn.wo.weight_scale": {
+          "dtype": "F32",
+          "shape": [
+            6144,
+            1
+          ],
+          "data_offsets": [
+            31744,
+            56320
+          ]
+        }
+      },
+      "max_tensor_bytes": 905969664,
+      "all_quant_configs": {
+        "range": "bytes 9234006104-9234026327/9234026328",
+        "downloaded_bytes": 20224,
+        "sha256": "264220d63162ea2141c66120815910babb26d0a6e1ed5a3cb47313fee4117279",
+        "formats": {
+          "convrot_w4a4": 128,
+          "int8_tensorwise": 96
+        },
+        "unique_configs": [
+          {
+            "format": "convrot_w4a4",
+            "params": {
+              "convrot_groupsize": 256,
+              "quant_group_size": 64,
+              "linear_dtype": "int4"
+            }
+          },
+          {
+            "format": "int8_tensorwise",
+            "convrot": true,
+            "convrot_groupsize": 256
+          }
+        ]
+      }
+    }
+  ],
+  "api_snapshot": [
+    {
+      "id": "Comfy-Org/Krea-2",
+      "sha": "eb1eddd3983a54678545a9b2c178c5853b30f7be",
+      "lastModified": "2026-09-23T08:03:53.000Z",
+      "gated": false,
+      "disabled": false,
+      "matching_files": [
+        {
+          "rfilename": "diffusion_models/krea2_raw_bf16.safetensors",
+          "blobId": "0c5e7b4c1ffebb9fa1e29ce3bc2bd731474712c2",
+          "size": 26283332608,
+          "lfs": {
+            "sha256": "f99bb0ff8e362b77342bc4994e0c50906fe7ef7074864b181b7d48d2fa6d03d7",
+            "size": 26283332608,
+            "pointerSize": 136
+          }
+        },
+        {
+          "rfilename": "diffusion_models/krea2_raw_fp8_scaled.safetensors",
+          "blobId": "459a6d70985c925d40e7eb6a96cb52362efa2a41",
+          "size": 13141730784,
+          "lfs": {
+            "sha256": "48cd5d6c100297968349b41a8e77c6591d1dac18a215807f5f25f59e5c54cd61",
+            "size": 13141730784,
+            "pointerSize": 136
+          }
+        },
+        {
+          "rfilename": "diffusion_models/krea2_raw_int8_convrot.safetensors",
+          "blobId": "d2e8170a6208c9da94b02a851a470f743a7e467a",
+          "size": 13492686496,
+          "lfs": {
+            "sha256": "5585a4a38c4bcfb6fde2d480a4aa6edf7f665721ebde56d30662c35a45f5fa5c",
+            "size": 13492686496,
+            "pointerSize": 136
+          }
+        },
+        {
+          "rfilename": "diffusion_models/krea2_turbo_bf16.safetensors",
+          "blobId": "446cec6805101a2198770129bccab2182386a3fc",
+          "size": 26283332608,
+          "lfs": {
+            "sha256": "78bbf8f4165eda19cea3cb06c78089221932a39e2eed8af9da741f942c47ffb3",
+            "size": 26283332608,
+            "pointerSize": 136
+          }
+        },
+        {
+          "rfilename": "diffusion_models/krea2_turbo_fp8_scaled.safetensors",
+          "blobId": "c06aa040dbb0f28d3550bb90273327e7475b18ce",
+          "size": 13141730784,
+          "lfs": {
+            "sha256": "eb4dd8c612cfd10f64f25b057e6e6bbcb5737c94a7372177e456dbf7579502f1",
+            "size": 13141730784,
+            "pointerSize": 136
+          }
+        },
+        {
+          "rfilename": "diffusion_models/krea2_turbo_int8_convrot.safetensors",
+          "blobId": "21471903cff1b41995db8d35f45286bf07b7180a",
+          "size": 13492686496,
+          "lfs": {
+            "sha256": "8e4eeda70dd5037ab1ba2bef6b417f9f901e26093117cf397f741fc1fdaaf3f1",
+            "size": 13492686496,
+            "pointerSize": 136
+          }
+        },
+        {
+          "rfilename": "diffusion_models/krea2_turbo_mxfp8.safetensors",
+          "blobId": "78de7753e07ad8c85804d497510a6a9b52106d2e",
+          "size": 13532318080,
+          "lfs": {
+            "sha256": "4c09131a442c3a01e95f934b43c76c1e691b9f683694a7b68d6fc707d5ecfce3",
+            "size": 13532318080,
+            "pointerSize": 136
+          }
+        },
+        {
+          "rfilename": "diffusion_models/krea2_turbo_nvfp4.safetensors",
+          "blobId": "8cfbea7cc571bc0db43d0e38e8685132c048915a",
+          "size": 7673668448,
+          "lfs": {
+            "sha256": "61527003b2d537055494d01bc8efe51d6e86e64192ba23e3721a5647231fe394",
+            "size": 7673668448,
+            "pointerSize": 135
+          }
+        },
+        {
+          "rfilename": "loras/krea2_darkbrush.safetensors",
+          "blobId": "fc7be399719b0d839cdc1900e21a87fd03d8d122",
+          "size": 469291992,
+          "lfs": {
+            "sha256": "f47c4316dd93af66e0518c93b582f459571d4925b519133770c73a52cd5db7c6",
+            "size": 469291992,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_dotmatrix.safetensors",
+          "blobId": "c28ef9d23ac2d0bbd218bd566fb4b8b825112948",
+          "size": 469291992,
+          "lfs": {
+            "sha256": "805aa30d863347222485b9d3ce81642dbc70a73cebc95ab57219d98b878fceec",
+            "size": 469291992,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_kidsdrawing.safetensors",
+          "blobId": "abd9a3ad6bde1d761e8a30326db4e3487673a9e8",
+          "size": 469291992,
+          "lfs": {
+            "sha256": "8c1d45d204aeb4e34a7d9e16a7d473917592ba0048b03f4e03e037e3578ca500",
+            "size": 469291992,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_neondrip.safetensors",
+          "blobId": "e7bca90f70ad00cf31cc3917d203a4332663d471",
+          "size": 469291992,
+          "lfs": {
+            "sha256": "a779c14435949eabae9ce0bface4320cad6672ef3547e8489107e3498d65e871",
+            "size": 469291992,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_rainywindow.safetensors",
+          "blobId": "790dc45980c61dcee8e6c40206ac6f76c23a8202",
+          "size": 469291992,
+          "lfs": {
+            "sha256": "7063a6f15ec6112ad3c06d79097b2a30a3ea7d9072821cb36021010d55989fe5",
+            "size": 469291992,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_retroanime.safetensors",
+          "blobId": "7bfadc6d26cfacde12d0d600ce2f4e379f126b71",
+          "size": 469291992,
+          "lfs": {
+            "sha256": "ca42107783d9e517c5d62cb9a9db9ab2ba4887d90e9dad97a9d1a7fe6ff14c56",
+            "size": 469291992,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_softwatercolor.safetensors",
+          "blobId": "97ee72a533d5aec338df8ddbe5b9c1c408415e8f",
+          "size": 469291992,
+          "lfs": {
+            "sha256": "3805e8655f19fbcac116542685e3f78f3a642e8fbfb857b5352bb32a4b3d445a",
+            "size": 469291992,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_style_reference.safetensors",
+          "blobId": "46b2e4966671aeea3145eb189c43e17d5c53a4fc",
+          "size": 457111760,
+          "lfs": {
+            "sha256": "f50df5a9e62e4be8aa926a63dd5bb1a64770c4004f763c1208007ae13daa82b8",
+            "size": 457111760,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_sunsetblur.safetensors",
+          "blobId": "dd8a1226a86c3011e660a51a5895cb292a42da4d",
+          "size": 469291992,
+          "lfs": {
+            "sha256": "194abdd531ca190d32799f26ab5bab634aa5ba3f07b7a60ffb282657db8bf3a0",
+            "size": 469291992,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_turbo_lora_rank_64_bf16.safetensors",
+          "blobId": "cdb89fe434cbcb74cd6c0bec2d3ad7df34da24a3",
+          "size": 469423778,
+          "lfs": {
+            "sha256": "db8c5bae0a415d448da9d842111d6e51f7d32e47143a3118eb267e5c4773de87",
+            "size": 469423778,
+            "pointerSize": 134
+          }
+        },
+        {
+          "rfilename": "loras/krea2_vintagetarot.safetensors",
+          "blobId": "b42461707943adc48d03724672fb52ee5c4ab7f7",
+          "size": 469291992,
+          "lfs": {
+            "sha256": "8cca96c56658fb3ac5269f9ef2245bd07cbf1b7a189f517c8763470bb1385f9f",
+            "size": 469291992,
+            "pointerSize": 134
+          }
+        }
+      ]
+    },
+    {
+      "id": "ariaotp/INT4-ConvRot-W4A4-ComfyUI",
+      "sha": "e347d86f6f4e9cf4cec2a34f6b3e9e4335fc55f7",
+      "lastModified": "2026-07-21T18:21:08.000Z",
+      "gated": false,
+      "disabled": false,
+      "matching_files": [
+        {
+          "rfilename": "Krea2/krea2_raw_int4_tensorwise_mixed.safetensors",
+          "blobId": "b79a4351510307624f23d373a2cb494268483855",
+          "size": 9234026336,
+          "lfs": {
+            "sha256": "0a33fbe28ac1638c1f59224ba14e423bd5fd51f5ab7c3442dc7c738973601ed7",
+            "size": 9234026336,
+            "pointerSize": 135
+          }
+        },
+        {
+          "rfilename": "Krea2/krea2_turbo_int4_tensorwise_mixed.safetensors",
+          "blobId": "46ecd42626721242dcf81f511cf1130b926235a7",
+          "size": 9234026328,
+          "lfs": {
+            "sha256": "ba38c7f58f2189e2a94dc1d32a319984d9cb4f40883d8570f2e1f26b3fc0004d",
+            "size": 9234026328,
+            "pointerSize": 135
+          }
+        },
+        {
+          "rfilename": "convert_int4_tensorwise_to_convrot_w4a4.py",
+          "blobId": "07ef937d5862e481633c1b9b0d50dc6e22bc9ce0",
+          "size": 25218
+        }
+      ]
+    },
+    {
+      "id": "JoaoZaokk/Krea-2-Turbo-W4A4-ConvRot",
+      "sha": "e86f30d3f9a8b9c05c62b05fa316d7b699b6bdf1",
+      "lastModified": "2026-09-14T06:05:00.000Z",
+      "gated": "auto",
+      "disabled": false,
+      "matching_files": [
+        {
+          "rfilename": "LICENSE_KREA_2_COMMUNITY.pdf",
+          "blobId": "78cb4aa4bb89da0b52b0619663b485a918d7d596",
+          "size": 137711,
+          "lfs": {
+            "sha256": "b82a2805162bde714a4eb27b9063c4fc3345d08a30be055134a6160e5430ba74",
+            "size": 137711,
+            "pointerSize": 131
+          }
+        },
+        {
+          "rfilename": "LICENSE_KREA_2_COMMUNITY.txt",
+          "blobId": "aee49a8963aa6d1d46947e7599280877e8d9e062",
+          "size": 15026
+        },
+        {
+          "rfilename": "images/edit_int8_vs_w4a4.png",
+          "blobId": "de926aee31f0f1ee183ba4c22ba9362691abaa19",
+          "size": 1065706,
+          "lfs": {
+            "sha256": "83ee70e41372b3494cc77ee9901df15ae6f2ac64224435483a667e9d7a7fdeed",
+            "size": 1065706,
+            "pointerSize": 132
+          }
+        },
+        {
+          "rfilename": "images/p1_w4a4.png",
+          "blobId": "7e06cc15a217a282112ac8b0e2497259c844e4b5",
+          "size": 1223973,
+          "lfs": {
+            "sha256": "a9587666819295c9ba7cfab97e2e397f5de3876cd65c9b6b241998f77bfb9f0a",
+            "size": 1223973,
+            "pointerSize": 132
+          }
+        },
+        {
+          "rfilename": "images/p2_w4a4.png",
+          "blobId": "fb7f5e7e065b4f869b12e014242bb30c45dae3ab",
+          "size": 1306203,
+          "lfs": {
+            "sha256": "ed7e301f6147f57b6d856db6e17b49193b76a077b7f2db04b0708dfccdfab308",
+            "size": 1306203,
+            "pointerSize": 132
+          }
+        },
+        {
+          "rfilename": "krea2_turbo_mixed.quant.json",
+          "blobId": "6efe4aff415163e5a01a18c7459a89024d0c2bc4",
+          "size": 11668
+        },
+        {
+          "rfilename": "krea2_turbo_mixed.safetensors",
+          "blobId": "bb1f5a937b392ce4cdc313ed125ca45de6ecbfe7",
+          "size": 8268671864,
+          "lfs": {
+            "sha256": "4d0bba0eec47e7087b352a3edfc1b234691748e8f60260fc43393f5c5e61514a",
+            "size": 8268671864,
+            "pointerSize": 135
+          }
+        },
+        {
+          "rfilename": "krea2_turbo_w4a4.quant.json",
+          "blobId": "115ffb5d126240ccea7a574579ee0e14d73a3af5",
+          "size": 11564
+        },
+        {
+          "rfilename": "krea2_turbo_w4a4.safetensors",
+          "blobId": "77dffd800610075908662abc366ad64b70144c3c",
+          "size": 8057499632,
+          "lfs": {
+            "sha256": "8632678821f6ad5bf45d2e67fe17c8613142bcb8f4847f13e6e6ff16ef1ff9ad",
+            "size": 8057499632,
+            "pointerSize": 135
+          }
+        }
+      ]
+    },
+    {
+      "id": "Comfy-Org/Qwen-Image-2.1",
+      "sha": "cb504a4090723e43f17ad01cec0359490e2de613",
+      "lastModified": "2026-09-29T16:14:55.000Z",
+      "gated": false,
+      "disabled": false,
+      "matching_files": []
+    },
+    {
+      "id": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "sha": "ee6f4a40737a995bf5818954cfce6d59443b0f04",
+      "lastModified": "2026-09-23T06:01:28.000Z",
+      "gated": false,
+      "disabled": false,
+      "matching_files": []
+    },
+    {
+      "id": "joeygambino/MiniMax-H3-comfy-native-fl2va",
+      "sha": "d24400b69702a0e242351a945bb23f22f702b36b",
+      "lastModified": "2026-08-15T19:32:13.000Z",
+      "gated": false,
+      "disabled": false,
+      "matching_files": [
+        {
+          "rfilename": "MiniMax-H3-fl2va-pruned-comfy-mxfp8.safetensors",
+          "blobId": "5ec5c27284f156144a37635490f7a637534e453e",
+          "size": 21560298928,
+          "lfs": {
+            "sha256": "9faf4f897809dd481064ce64c9be7bb9508db729d95c6b6b104590253c62403b",
+            "size": 21560298928,
+            "pointerSize": 136
+          }
+        }
+      ]
+    }
+  ]
+}

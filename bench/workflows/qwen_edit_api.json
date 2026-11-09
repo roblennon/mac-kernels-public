@@ -1,0 +1,176 @@
+{
+  "1": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "edit-image.png"
+    },
+    "_meta": {
+      "title": "Image to edit (image 1)"
+    }
+  },
+  "2": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "_meta": {
+      "title": "VAELoader"
+    }
+  },
+  "3": {
+    "class_type": "BenchQwenEditPrepare",
+    "inputs": {
+      "unet_name": "qwen_image_2.1_turbo_int8_convrot.safetensors",
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "vae": [
+        "2",
+        0
+      ],
+      "image_1": [
+        "1",
+        0
+      ],
+      "prompt": "Change the season to a snowy winter evening. Keep the subject, pose and framing unchanged.",
+      "resolution": 1024
+    },
+    "_meta": {
+      "title": "Qwen 2.1 edit: images, instruction and checkpoint"
+    }
+  },
+  "4": {
+    "class_type": "BenchVideoLoRAStack",
+    "inputs": {
+      "model": [
+        "3",
+        0
+      ],
+      "lora_1": "none",
+      "strength_1": 1.0,
+      "lora_2": "none",
+      "strength_2": 1.0,
+      "lora_3": "none",
+      "strength_3": 1.0,
+      "lora_4": "none",
+      "strength_4": 1.0,
+      "lora_5": "none",
+      "strength_5": 1.0
+    },
+    "_meta": {
+      "title": "Optional Qwen LoRAs"
+    }
+  },
+  "5": {
+    "class_type": "QwenImage21Cache",
+    "inputs": {
+      "model": [
+        "4",
+        0
+      ],
+      "device": "auto",
+      "dtype": "default"
+    },
+    "_meta": {
+      "title": "Qwen prefix cache"
+    }
+  },
+  "6": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "5",
+        0
+      ],
+      "conditioning": [
+        "3",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "CFG 1 guider"
+    }
+  },
+  "7": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 7
+    },
+    "_meta": {
+      "title": "Seed"
+    }
+  },
+  "8": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "_meta": {
+      "title": "Sampler"
+    }
+  },
+  "9": {
+    "class_type": "ManualSigmas",
+    "inputs": {
+      "sigmas": "1.0, 0.978453, 0.95418, 0.926626, 0.89508, 0.845148, 0.704534, 0.414568, 0.0"
+    },
+    "_meta": {
+      "title": "Turbo 8-step schedule"
+    }
+  },
+  "10": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "7",
+        0
+      ],
+      "guider": [
+        "6",
+        0
+      ],
+      "sampler": [
+        "8",
+        0
+      ],
+      "sigmas": [
+        "9",
+        0
+      ],
+      "latent_image": [
+        "3",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "Turbo 8-step edit"
+    }
+  },
+  "11": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "VAEDecode"
+    }
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "11",
+        0
+      ],
+      "filename_prefix": "qwen/edit"
+    },
+    "_meta": {
+      "title": "Save Qwen edit"
+    }
+  }
+}

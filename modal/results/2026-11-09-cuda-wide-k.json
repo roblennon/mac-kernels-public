@@ -1,0 +1,104 @@
+{
+ "_status": "PARTIAL. Only a two-width check on T4 was measured. The full sweep (K = 4096 to 32768 plus 32769, fp16 and fp32, on T4, A10G and A100) was not run: the session's permission layer refused the paid three-GPU launch after the check had completed. A10G and A100 have no measurement. Nothing here covers K = 16384, 32768 or 32769. The T4 object below is the --out JSON of the check as written by modal_app.py; every key starting with an underscore, and not_run, was added by hand afterwards. The unannotated --out file was not kept separately. The check ran before modal_app.py recorded the TF32 setting, so the T4 object has no matmul_allow_tf32 key (T4 has no TF32 hardware; torch's default is off).",
+ "_date": "2026-11-09",
+ "_command_run": "modal run modal/modal_app.py --wide-k --gpus T4 --ks 4096,8192 --out <file>",
+ "_command_not_run": "modal run modal/modal_app.py --wide-k --gpus T4,A10G,A100 --out modal/results/2026-11-09-cuda-wide-k.json",
+ "_method": "modal_app.py::cuda_wide_k_t4 imports bench/repro_mps_wide_linear.py (shipped into the image as a single file) and calls its sweep() with device cuda: same eight variants, same interleaved rounds, min ms over 3 rounds x 5 iterations after one warm-up call per variant, torch.cuda.synchronize() around each call. M=4608, N=6144.",
+ "_m1_max_reference": "docs/review/2026-11-09-experiments/wide-k-32769.json (run_1_default, torch 2.14.1)",
+ "T4": {
+  "device": "Tesla T4",
+  "sm": "7.5",
+  "memory_gib": 14.6,
+  "torch": "2.15.0+cu132",
+  "cuda": "13.2",
+  "m": 4608,
+  "n": 6144,
+  "iters": 5,
+  "rounds": 3,
+  "timing": "min ms over rounds x iters, torch.cuda.synchronize() around each call",
+  "ratio": "F.linear(x, w) / x @ wt (contiguous)",
+  "variants": [
+   "F.linear(x, w)",
+   "x @ w.t()",
+   "torch.mm(x, w.t())",
+   "F.linear(x_nc, w)",
+   "torch.mm(w, x.t()).t()",
+   "torch.mm(xt.t(), wt) (A transposed)",
+   "x @ wt (contiguous)",
+   "torch.mm(x, wt)"
+  ],
+  "rows": [
+   {
+    "dtype": "float16",
+    "K": 4096,
+    "ms": {
+     "F.linear(x, w)": 9.119593000001203,
+     "x @ w.t()": 8.92429299999975,
+     "torch.mm(x, w.t())": 8.756670000000355,
+     "F.linear(x_nc, w)": 8.636722000000319,
+     "torch.mm(w, x.t()).t()": 8.750811000000525,
+     "torch.mm(xt.t(), wt) (A transposed)": 8.464595999999602,
+     "x @ wt (contiguous)": 9.782441999998781,
+     "torch.mm(x, wt)": 10.478450000000805
+    },
+    "ratio": 0.9322409476082085,
+    "max_abs_diff": 0.0
+   },
+   {
+    "dtype": "float16",
+    "K": 8192,
+    "ms": {
+     "F.linear(x, w)": 17.68360700000038,
+     "x @ w.t()": 17.54219100000043,
+     "torch.mm(x, w.t())": 17.533493999998484,
+     "F.linear(x_nc, w)": 17.564836000000028,
+     "torch.mm(w, x.t()).t()": 17.548253999999375,
+     "torch.mm(xt.t(), wt) (A transposed)": 17.342720000002032,
+     "x @ wt (contiguous)": 20.267134999997438,
+     "torch.mm(x, wt)": 20.5806500000012
+    },
+    "ratio": 0.872526235208016,
+    "max_abs_diff": 0.00390625
+   },
+   {
+    "dtype": "float32",
+    "K": 4096,
+    "ms": {
+     "F.linear(x, w)": 49.35642200000245,
+     "x @ w.t()": 49.38417199999989,
+     "torch.mm(x, w.t())": 49.41777799999869,
+     "F.linear(x_nc, w)": 50.01194600000147,
+     "torch.mm(w, x.t()).t()": 49.72814199999931,
+     "torch.mm(xt.t(), wt) (A transposed)": 47.094669999999894,
+     "x @ wt (contiguous)": 51.198315000000605,
+     "torch.mm(x, wt)": 53.59882000000127
+    },
+    "ratio": 0.964024343379306,
+    "max_abs_diff": 1.6689300537109375e-05
+   },
+   {
+    "dtype": "float32",
+    "K": 8192,
+    "ms": {
+     "F.linear(x, w)": 102.93243099999927,
+     "x @ w.t()": 103.57944500000116,
+     "torch.mm(x, w.t())": 103.42240799999658,
+     "F.linear(x_nc, w)": 103.00441600000099,
+     "torch.mm(w, x.t()).t()": 103.18950699999974,
+     "torch.mm(xt.t(), wt) (A transposed)": 90.57721100000293,
+     "x @ wt (contiguous)": 116.30484600000202,
+     "torch.mm(x, wt)": 122.92110700000336
+    },
+    "ratio": 0.8850227186578062,
+    "max_abs_diff": 2.3126602172851562e-05
+   }
+  ],
+  "peak_memory_gib": 1.12
+ },
+ "A10G": {
+  "not_run": "launch refused by the session permission layer; no measurement"
+ },
+ "A100": {
+  "not_run": "launch refused by the session permission layer; no measurement"
+ }
+}

@@ -7,6 +7,8 @@ cross-platform anchor for the same shapes, and a CPU farm for reference numerics
 Functions return plain Python only (floats, lists, dicts). A returned torch tensor is
 unpickled in the local `modal` process, which has no torch, and the run fails there.
 """
+from pathlib import Path
+
 import modal
 
 app = modal.App("mac-kernels")
@@ -170,6 +172,82 @@ def cuda_gemm_bench_a100(n_iters: int = 20) -> dict:
     return _gemm_anchor(n_iters)
 
 
+# --- GPU: wide-K transposed-weight control (bench/repro_mps_wide_linear.py on CUDA) ---
+
+# The repro script itself is shipped into the container as a module, so the CUDA control
+# runs the same variants, interleaving and timing loop as the MPS run. Nothing else from
+# the repo is added.
+_REPRO = Path(__file__).resolve().parent.parent / "bench" / "repro_mps_wide_linear.py"
+wide_k_image = gpu_image
+if modal.is_local():
+    wide_k_image = gpu_image.add_local_file(str(_REPRO), "/root/repro_mps_wide_linear.py")
+
+# The script's default sweep plus K = 32769, the first width past the M1/M2 reroute.
+WIDE_KS = "4096,6144,8192,10240,12288,16384,24576,32768,32769"
+
+
+def _wide_k(ks: str, dtypes: str, m: int, n: int, iters: int, rounds: int) -> dict:
+    """Min ms over `rounds` interleaved rounds x `iters` calls for every variant in the
+    repro script, per dtype and K, on the container's CUDA device."""
+    import sys
+    import torch
+
+    sys.path.insert(0, "/root")
+    import repro_mps_wide_linear as repro
+
+    assert torch.cuda.is_available(), "no CUDA device in this container"
+    dev = torch.device("cuda")
+    props = torch.cuda.get_device_properties(0)
+    out = {
+        "device": torch.cuda.get_device_name(0),
+        "sm": f"{props.major}.{props.minor}",
+        "memory_gib": round(props.total_memory / 2**30, 1),
+        "torch": str(torch.__version__),
+        "cuda": str(torch.version.cuda),
+        "m": m, "n": n, "iters": iters, "rounds": rounds,
+        "timing": "min ms over rounds x iters, torch.cuda.synchronize() around each call",
+        "ratio": "F.linear(x, w) / x @ wt (contiguous)",
+        "variants": list(repro.VARIANTS),
+        # fp32 rows on Ampere and newer depend on these; torch defaults to IEEE fp32 (TF32 off).
+        "matmul_allow_tf32": bool(torch.backends.cuda.matmul.allow_tf32),
+        "float32_matmul_precision": str(torch.get_float32_matmul_precision()),
+        "rows": [],
+    }
+    print(repro.describe(dev), flush=True)
+    try:
+        for row in repro.sweep(dev, m, n, [int(k) for k in ks.split(",")], dtypes.split(","), iters, rounds):
+            print(repro.format_row(row), flush=True)
+            out["rows"].append(row)
+    except Exception as ex:  # keep the rows measured so far and record the failure as it is
+        out["error"] = f"{type(ex).__name__}: {str(ex)[:300]}"
+    out["peak_memory_gib"] = round(torch.cuda.max_memory_allocated() / 2**30, 2)
+    return out
+
+
+@app.function(image=wide_k_image, gpu="T4", timeout=1500)
+def cuda_wide_k_t4(ks: str = WIDE_KS, dtypes: str = "float16,float32", m: int = 4608,
+                   n: int = 6144, iters: int = 5, rounds: int = 3) -> dict:
+    return _wide_k(ks, dtypes, m, n, iters, rounds)
+
+
+@app.function(image=wide_k_image, gpu="A10G", timeout=1500)
+def cuda_wide_k_a10g(ks: str = WIDE_KS, dtypes: str = "float16,float32", m: int = 4608,
+                     n: int = 6144, iters: int = 5, rounds: int = 3) -> dict:
+    return _wide_k(ks, dtypes, m, n, iters, rounds)
+
+
+@app.function(image=wide_k_image, gpu="A100-40GB", timeout=1500)
+def cuda_wide_k_a100(ks: str = WIDE_KS, dtypes: str = "float16,float32", m: int = 4608,
+                     n: int = 6144, iters: int = 5, rounds: int = 3) -> dict:
+    return _wide_k(ks, dtypes, m, n, iters, rounds)
+
+
+WIDE_K_FUNCTIONS = {
+    "T4": cuda_wide_k_t4,
+    "A10G": cuda_wide_k_a10g,
+    "A100": cuda_wide_k_a100,
+}
+
 GPU_FUNCTIONS = {
     "T4": cuda_gemm_bench_t4,
     "A10G": cuda_gemm_bench_a10g,
@@ -179,19 +257,28 @@ GPU_FUNCTIONS = {
 
 
 @app.local_entrypoint()
-def main(gpus: str = "T4,A10G,A100", skip_gpu: bool = False, skip_cpu: bool = False):
+def main(gpus: str = "T4,A10G,A100", skip_gpu: bool = False, skip_cpu: bool = False,
+         wide_k: bool = False, ks: str = WIDE_KS, out: str = ""):
     """`modal run modal/modal_app.py` runs the CPU check and the GEMM anchor on the
-    listed GPUs in parallel, and prints one JSON object. Results from 2026-11-09 are in
-    modal/results/."""
+    listed GPUs in parallel, and prints one JSON object. With --wide-k it runs only the
+    wide-K transposed-weight control on the listed GPUs. --out writes the JSON to a file
+    as well. Results from 2026-11-09 are in modal/results/."""
     import json
     result = {}
-    if not skip_cpu:
-        result["gguf_dequant_check"] = gguf_dequant_check.remote()
-    if not skip_gpu:
-        handles = {g: GPU_FUNCTIONS[g].spawn() for g in gpus.split(",") if g in GPU_FUNCTIONS}
-        for g, h in handles.items():
-            try:
-                result[g] = h.get()
-            except Exception as ex:
-                result[g] = {"error": str(ex)[:300]}
-    print(json.dumps(result, indent=1))
+    if wide_k:
+        table = WIDE_K_FUNCTIONS
+        handles = {g: table[g].spawn(ks=ks) for g in gpus.split(",") if g in table}
+    else:
+        if not skip_cpu:
+            result["gguf_dequant_check"] = gguf_dequant_check.remote()
+        table = GPU_FUNCTIONS
+        handles = {} if skip_gpu else {g: table[g].spawn() for g in gpus.split(",") if g in table}
+    for g, h in handles.items():
+        try:
+            result[g] = h.get()
+        except Exception as ex:
+            result[g] = {"error": f"{type(ex).__name__}: {str(ex)[:300]}"}
+    text = json.dumps(result, indent=1)
+    if out:
+        Path(out).write_text(text + "\n")
+    print(text)

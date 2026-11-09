@@ -15,7 +15,11 @@ modal run modal/modal_app.py::cuda_gemm_bench_t4                 # one GPU, a fe
 modal run modal/modal_app.py --gpus T4,A10G,A100                 # CPU check plus three GPUs in parallel
 modal run modal/modal_app.py --skip-gpu
 modal run modal/modal_app.py --skip-cpu --gpus A10G > modal/results/<date>-cuda-gemm-anchor.json
+modal run modal/modal_app.py --wide-k --gpus T4,A10G,A100 --out modal/results/<date>-cuda-wide-k.json
+modal run modal/modal_app.py --wide-k --gpus T4 --ks 4096,8192   # two-width check, under a minute
 ```
+
+`--wide-k` runs only the wide-K transposed-weight control: `bench/repro_mps_wide_linear.py` is added to the image as one file and its `sweep()` runs with `device cuda`. The default widths are the script's own sweep plus K = 32769. The same script runs directly on any CUDA machine with `python bench/repro_mps_wide_linear.py --device cuda`.
 
 Notes
 
@@ -25,3 +29,4 @@ Notes
 - GPU types are separate functions (`cuda_gemm_bench_t4`, `_a10g`, `_l4`, `_a100`). On 2026-11-09 L4 sat in the scheduler queue for 20 minutes with no capacity, so it is not in the default list. Do not add `region=` or `nonpreemptible=`; both multiply cost.
 - Functions return dicts only. Returning a torch tensor fails locally with `DeserializationError` because the pipx `modal` env has no torch.
 - Anything longer than a laptop sleep: add `--detach`.
+- Wide-K control status, 2026-11-09: only the two-width T4 check ran (`results/2026-11-09-cuda-wide-k.json`; its `_`-prefixed keys and `not_run` were added by hand around the `--out` JSON). The three-GPU sweep was refused by the session's permission layer before launch and still has to be run with the first `--wide-k` command above.

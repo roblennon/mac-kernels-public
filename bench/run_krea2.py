@@ -35,8 +35,12 @@ MAPPED = READONLY or ADAPTER_READONLY
 LORA_NAME = os.environ.get("LORA_NAME", "krea2_darkbrush.safetensors"); LORA_STRENGTH = float(os.environ.get("LORA_STRENGTH", 1.0))
 CODE = os.environ.get("COMFY_DIR") or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "vendor", "ComfyUI")
 sys.path.insert(0, CODE); os.chdir(CODE)
-ATTN = os.environ.get("ATTN", "")  # "pytorch" explicitly selects SDPA; current MPS Torch also defaults to it
-sys.argv = [sys.argv[0]] + (["--fp16-unet"] if FP16 else []) + (["--use-pytorch-cross-attention"] if ATTN == "pytorch" else []) + (["--fp16-vae"] if os.environ.get("VAE_FP16") == "1" else [])
+ATTN = os.environ.get("ATTN", "")  # "pytorch" selects SDPA (the fork default on MPS with torch >= 2.13); "quad" selects
+# upstream ComfyUI's sub-quadratic default on Apple GPUs, for stock-versus-fork attention comparisons
+if ATTN not in ("", "pytorch", "quad"):
+    raise ValueError("ATTN must be empty, pytorch or quad")
+ATTN_ARGS = {"pytorch": ["--use-pytorch-cross-attention"], "quad": ["--use-quad-cross-attention"]}.get(ATTN, [])
+sys.argv = [sys.argv[0]] + (["--fp16-unet"] if FP16 else []) + ATTN_ARGS + (["--fp16-vae"] if os.environ.get("VAE_FP16") == "1" else [])
 import comfy.options; comfy.options.enable_args_parsing()
 import torch, folder_paths
 for k in ("diffusion_models", "text_encoders", "vae", "loras"):
@@ -165,7 +169,7 @@ with torch.inference_mode():
     img = N["VAEDecode"]().decode(vae, out)[0]; lap("decode")
 steps = [round(b - a, 2) for a, b in zip(step_t, step_t[1:])]
 lora_tag = f"-lora-{'merge' if os.environ.get('COMFY_MPS_LORA_SIDE_PATH') == '0' else 'side'}" if LORA else ""
-tag = f"{MODE}{f'-readonly{resident_gib:g}g' if MAPPED else ''}{'-spectral' if os.environ.get('SPECTRAL') == '1' else ''}{'-fp16' if FP16 else ''}{'-sdpa' if ATTN == 'pytorch' else ''}{lora_tag}-{W}x{H}{('-' + os.environ['TAG']) if os.environ.get('TAG') else ''}"
+tag = f"{MODE}{f'-readonly{resident_gib:g}g' if MAPPED else ''}{'-spectral' if os.environ.get('SPECTRAL') == '1' else ''}{'-fp16' if FP16 else ''}{'-sdpa' if ATTN == 'pytorch' else '-quad' if ATTN == 'quad' else ''}{lora_tag}-{W}x{H}{('-' + os.environ['TAG']) if os.environ.get('TAG') else ''}"
 os.makedirs(f"{ROOT}/out", exist_ok=True)
 from PIL import Image; import numpy as np
 arr = (img[0].float().cpu().numpy() * 255).clip(0, 255).astype("uint8"); Image.fromarray(arr).save(f"{ROOT}/out/krea2-{tag}.png")

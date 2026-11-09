@@ -40,6 +40,7 @@ The folder is flat, so this index sorts it. Roughly a third of the files are use
 ## Headless runners
 
 `run_krea2.py`, `run_qwen21.py`, `run_wan5b.py`, `run_wan14b.py`, `run_h3.py` and `run_templates.py` run each model through ComfyUI nodes without the browser, for timing. The docstring at the top of each lists its environment switches.
+- `krea_four_way.py`: the clean four-way Krea 2 Turbo sweep (stock/Metal x sub-quadratic/SDPA x sizes), fresh process per run, shuffled order, host state per run, JSONL output and `--summarize`.
 
 ## Getting and converting weights
 

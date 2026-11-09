@@ -945,3 +945,12 @@ Same three shapes on NVIDIA T4, A10G and A100-80GB through Modal, torch 2.15.0+c
 - bf16 is emulated on T4 (9x slower than fp16), the same shape of penalty as bf16 on the M1 Max (1.8x). bf16-by-default is a datacenter assumption.
 - True INT8 GEMM is 1.7 to 2.0x faster than fp16 wherever integer tensor units exist. That is the ceiling Apple M5 could bring and the M1 Max `_int_mm` above does not reach.
 - fp8 `_scaled_mm` is unsupported on all three parts (needs sm89 or newer).
+
+## 2026-11-09: Krea 2 Turbo four-way sweep, refused at admission
+
+Attempted the clean four-way sweep the pre-grant review asked for (stock and Metal, each with sub-quadratic and SDPA attention, 512 and 1024, fresh process per run, shuffled order): `bench/krea_four_way.py`, new today, with `ATTN=quad` added to `bench/run_krea2.py` because the fork now defaults MPS to SDPA and the upstream sub-quadratic default has to be requested explicitly. Record: [review/2026-11-09-experiments/e1-krea-four-way.jsonl](review/2026-11-09-experiments/e1-krea-four-way.jsonl).
+
+- First attempt, conditioning cache off: the memory monitor stopped the stock 512 run after 78 s during text-encoder load. Swap grew from 0.6 to 4.6 GB while the process group held 0.27 GiB; the internal disk went from 9.9 to 5.9 GiB free. Stop reason: swap growth over 4 GiB.
+- Second attempt, conditioning captured once per cell (39 s, then cache hits) and a 2 GiB swap-growth cap: all twelve 512 runs were refused at admission with "swap-volume disk headroom". Swap stood at 8.3 GB and the internal disk at 3.5 GiB free.
+- Cause: the system volume is nearly full, so macOS swap cannot grow, and the machine was carrying several other resident applications. The October runs had the same models and limits on a quieter machine. No timing was recorded, and none should be inferred from this entry. The Krea 1024 row keeps its caveat.
+- To run: free about 10 GiB on the internal disk, quiet the machine, then from the repo root: `MK_ROOT=<models> .venv/bin/python bench/krea_four_way.py --out docs/review/2026-11-09-experiments/e1-krea-four-way.jsonl --sizes 512,1024 --repeats 3 --cond-cache auto --capture`. The driver appends as it goes, stops after two consecutive refusals, and summarizes with `--summarize`.

@@ -1,0 +1,59 @@
+# bench/bench_int8_linear.py 4608,6144,6144 4608,6144,16384 4608,16384,6144 through bench/with_gpu.sh, 2026-11-09, M1 Max, macOS 27.0.1, two consecutive runs
+## run 1
+torch 2.14.1
+F failed: NotImplementedError("The operator 'aten::_int_mm' is not currently implemented for the MPS device. If you want this op to be considered for addition please comm
+
+== M=4608 K=6144 N=6144  (int8 weight 38 MB, fp16 75 MB)
+      68.62 ms  x 1.00  relerr 0.0029  A dense bf16 (weights resident, 2 B/w)
+      38.64 ms  x 0.56  relerr 0.0004  B dense fp16 (weights resident, 2 B/w)
+      40.47 ms  x 0.59  relerr 0.0004  B2 rotate-x + fp16 rotated weight resident
+      76.45 ms  x 1.11  relerr 0.0029  C ComfyUI-style: dequant+unrotate weight per call, bf16
+      43.93 ms  x 0.64  relerr 0.0005  D weight-only: rotate x, torch dequant per call, fp16
+      42.80 ms  x 0.62  relerr 0.0004  E weight-only: Metal one-pass dequant, fp16
+F failed: NotImplementedError("The operator 'aten::_int_mm' is not currently implemented for the MPS device. If you want this op to be considered for addition please comm
+
+== M=4608 K=6144 N=16384  (int8 weight 101 MB, fp16 201 MB)
+     181.77 ms  x 1.00  relerr 0.0029  A dense bf16 (weights resident, 2 B/w)
+     101.73 ms  x 0.56  relerr 0.0004  B dense fp16 (weights resident, 2 B/w)
+     104.88 ms  x 0.58  relerr 0.0004  B2 rotate-x + fp16 rotated weight resident
+     205.05 ms  x 1.13  relerr 0.0029  C ComfyUI-style: dequant+unrotate weight per call, bf16
+     115.13 ms  x 0.63  relerr 0.0005  D weight-only: rotate x, torch dequant per call, fp16
+     107.03 ms  x 0.59  relerr 0.0004  E weight-only: Metal one-pass dequant, fp16
+F failed: NotImplementedError("The operator 'aten::_int_mm' is not currently implemented for the MPS device. If you want this op to be considered for addition please comm
+
+== M=4608 K=16384 N=6144  (int8 weight 101 MB, fp16 201 MB)
+     225.36 ms  x 1.00  relerr 0.0029  A dense bf16 (weights resident, 2 B/w)
+     222.61 ms  x 0.99  relerr 0.0004  B dense fp16 (weights resident, 2 B/w)
+     211.53 ms  x 0.94  relerr 0.0004  B2 rotate-x + fp16 rotated weight resident
+     238.67 ms  x 1.06  relerr 0.0029  C ComfyUI-style: dequant+unrotate weight per call, bf16
+     215.72 ms  x 0.96  relerr 0.0005  D weight-only: rotate x, torch dequant per call, fp16
+     208.94 ms  x 0.93  relerr 0.0004  E weight-only: Metal one-pass dequant, fp16
+## run 2
+torch 2.14.1
+F failed: NotImplementedError("The operator 'aten::_int_mm' is not currently implemented for the MPS device. If you want this op to be considered for addition please comm
+
+== M=4608 K=6144 N=6144  (int8 weight 38 MB, fp16 75 MB)
+      68.50 ms  x 1.00  relerr 0.0029  A dense bf16 (weights resident, 2 B/w)
+      37.79 ms  x 0.55  relerr 0.0004  B dense fp16 (weights resident, 2 B/w)
+      40.34 ms  x 0.59  relerr 0.0004  B2 rotate-x + fp16 rotated weight resident
+      76.39 ms  x 1.12  relerr 0.0029  C ComfyUI-style: dequant+unrotate weight per call, bf16
+      43.74 ms  x 0.64  relerr 0.0005  D weight-only: rotate x, torch dequant per call, fp16
+      41.16 ms  x 0.60  relerr 0.0004  E weight-only: Metal one-pass dequant, fp16
+F failed: NotImplementedError("The operator 'aten::_int_mm' is not currently implemented for the MPS device. If you want this op to be considered for addition please comm
+
+== M=4608 K=6144 N=16384  (int8 weight 101 MB, fp16 201 MB)
+     181.59 ms  x 1.00  relerr 0.0029  A dense bf16 (weights resident, 2 B/w)
+     101.18 ms  x 0.56  relerr 0.0004  B dense fp16 (weights resident, 2 B/w)
+     103.96 ms  x 0.57  relerr 0.0004  B2 rotate-x + fp16 rotated weight resident
+     204.17 ms  x 1.12  relerr 0.0029  C ComfyUI-style: dequant+unrotate weight per call, bf16
+     115.88 ms  x 0.64  relerr 0.0005  D weight-only: rotate x, torch dequant per call, fp16
+     106.46 ms  x 0.59  relerr 0.0004  E weight-only: Metal one-pass dequant, fp16
+F failed: NotImplementedError("The operator 'aten::_int_mm' is not currently implemented for the MPS device. If you want this op to be considered for addition please comm
+
+== M=4608 K=16384 N=6144  (int8 weight 101 MB, fp16 201 MB)
+     225.64 ms  x 1.00  relerr 0.0029  A dense bf16 (weights resident, 2 B/w)
+     200.66 ms  x 0.89  relerr 0.0004  B dense fp16 (weights resident, 2 B/w)
+     214.78 ms  x 0.95  relerr 0.0004  B2 rotate-x + fp16 rotated weight resident
+     249.50 ms  x 1.11  relerr 0.0029  C ComfyUI-style: dequant+unrotate weight per call, bf16
+     216.83 ms  x 0.96  relerr 0.0005  D weight-only: rotate x, torch dequant per call, fp16
+     213.75 ms  x 0.95  relerr 0.0004  E weight-only: Metal one-pass dequant, fp16

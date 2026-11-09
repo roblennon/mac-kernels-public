@@ -5,8 +5,15 @@ Each run is a fresh process through bench/gpu_runner.py --monitor, cells are vis
 shuffled order (seeded, recorded), and host state is captured before every run. Results are
 appended to a JSONL file as they arrive, so a stopped sweep keeps what it measured.
 
-Steady-state seconds per step is the median of steps 2..N of one run (step 1 includes the
-first-use weight load). The cell summary is the median and IQR of that value across repeats.
+run_krea2.py reports the intervals between sampler callbacks, so an 8-step run yields 7 step
+times and the first step (which includes the first-use weight load) is never in them.
+Steady-state seconds per step is the median of those intervals after dropping the first one.
+The cell summary is the median and IQR of that value across repeats.
+
+Before each run the driver waits for system swap to stop falling. A run that was just stopped
+or has just exited releases several GiB of swap over a few seconds; gpu_runner reads its swap
+baseline once at start, so starting during that release gives the next run a baseline that is
+too high (2026-11-09: pass 1 alternated stop, complete, stop for this reason).
 
 Usage (from the repo root, with the native .venv):
   MK_ROOT=/path/to/models .venv/bin/python bench/krea_four_way.py --out results.jsonl \
@@ -47,6 +54,30 @@ def host_state():
     }
 
 
+def swap_used_gib():
+    out = subprocess.run(["sysctl", "-n", "vm.swapusage"], capture_output=True, text=True).stdout
+    for part in out.split("  "):
+        if part.strip().startswith("used"):
+            v = part.split("=")[1].strip()
+            return float(v[:-1]) / (1024 if v.endswith("M") else 1)
+    return None
+
+
+def settle(max_s=90, interval=3, tolerance_gib=0.1):
+    """Wait until swap stops falling. Returns (seconds waited, swap at start, swap at end)."""
+    first = prev = swap_used_gib()
+    waited = 0
+    while prev is not None and waited < max_s:
+        time.sleep(interval)
+        waited += interval
+        now = swap_used_gib()
+        if now is None or prev - now < tolerance_gib:
+            prev = now
+            break
+        prev = now
+    return dict(waited_s=waited, swap_gib_first=first, swap_gib_last=prev)
+
+
 def run_cell(label, mode, attn, size, rep, args, capture=False):
     env = dict(os.environ)
     env.update(MODE=mode, ATTN=attn, W=str(size), H=str(size), STEPS=str(args.steps), SEED=str(args.image_seed),
@@ -60,7 +91,9 @@ def run_cell(label, mode, attn, size, rep, args, capture=False):
     cmd = [py, str(ROOT / "bench" / "gpu_runner.py"), "--monitor", "--seconds", str(args.deadline),
            "--rss-gib", str(args.rss_gib), "--swap-growth-gib", str(args.swap_growth_gib),
            "--", py, str(ROOT / "bench" / "run_krea2.py")]
+    settled = settle()
     before = host_state()
+    before["settle"] = settled
     t0 = time.perf_counter()
     proc = subprocess.run(cmd, cwd=ROOT, env=env, capture_output=True, text=True)
     wall = round(time.perf_counter() - t0, 1)
@@ -112,7 +145,7 @@ def summarize(records):
 
 def print_table(summary, records):
     failed = [r for r in records if not r.get("capture") and r.get("steady_s_per_step") is None]
-    print(f"{'size':>5} {'cell':<11} {'n':>2} {'median s/step':>14} {'IQR':>16} {'min':>6} {'max':>6} {'step1':>6} {'GB after':>9}")
+    print(f"{'size':>5} {'cell':<11} {'n':>2} {'median s/step':>14} {'IQR':>16} {'min':>6} {'max':>6} {'step2':>6} {'GB after':>9}")
     for s in summary:
         print(f"{s['size']:>5} {s['cell']:<11} {s['n']:>2} {s['median_s_per_step']:>14} {str(s['iqr']):>16} "
               f"{s['min']:>6} {s['max']:>6} {s['first_step_median']:>6} {s['mem_after_sample_gb_median']:>9}")
@@ -153,7 +186,9 @@ def main():
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "a") as f:
         f.write(json.dumps(dict(plan=[dict(cell=c[0], size=s, repeat=r) for c, s, r in plan], shuffle_seed=args.seed,
-                                steps=args.steps, image_seed=args.image_seed, mk_root=os.environ.get("MK_ROOT"),
+                                steps=args.steps, image_seed=args.image_seed, swap_growth_gib=args.swap_growth_gib,
+                                rss_gib=args.rss_gib, deadline_s=args.deadline, cond_cache=args.cond_cache,
+                                sizes=sizes, repeats=args.repeats,
                                 started=time.strftime("%Y-%m-%d %H:%M:%S %Z"))) + "\n")
     records = []
     if args.capture:

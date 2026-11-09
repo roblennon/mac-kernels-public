@@ -42,7 +42,7 @@ Open risk: fp16 overflow inside real DiT activations. Unverified until end-to-en
 - With both changes the step time sits at the fp16 GEMM estimate for the linear layers (about 16 s at 1024), so the model is now GEMM-bound on this GPU.
 - fp16 compute inside the INT8 layers did not overflow on Krea 2 Turbo.
 - Forcing the whole model to fp16 gave nothing extra at 512.
-- Stock 1024 needs a clean rerun with no download in progress.
+- Stock 1024 needs a clean rerun with no download in progress. Done 2026-11-09: 27.1 to 28.0 s/step over six clean runs; see the four-way sweep entry of 2026-11-09 at the end of this file.
 
 ## 2026-10-02: storage
 
@@ -80,7 +80,7 @@ Per call, bf16 in and out, median ms:
 | INT8 4608, 16384, 6144 | 103 | 148.5 | 107 |
 | W4A8 4608, 16384, 6144 | | 218 | 111 |
 
-Krea 2 Turbo 512: 3.65 to 3.69 s/step (was 4.6), image statistics unchanged. Stock ComfyUI is 8.7.
+Krea 2 Turbo 512: 3.65 to 3.69 s/step (was 4.6), image statistics unchanged. Stock ComfyUI is 8.7. A clean rerun on 2026-11-09 measures 3.75 to 3.78 against 8.3 to 8.6; see the four-way sweep entry of 2026-11-09 at the end of this file.
 
 Note: Apple GPUs flush fp32 subnormals to zero in shader arithmetic, so exponent handling is done on raw bits.
 
@@ -387,7 +387,7 @@ Real Krea 2 Raw layers, 1056 tokens (`bench/bench_int8_backward.py`):
 | mlp.up 6144 to 16384 | 24.9 | 25.2 | 23.9 | 32.4 | 3.6e-4 | 1.7e-3 |
 | mlp.down 16384 to 6144 | 26.6 | 25.9 | 24.2 | 32.7 | 3.6e-4 | 1.7e-3 |
 
-The backward runs within 2 to 8% of a dense fp16 GEMM with resident weights, and about 25% faster than ai-toolkit's per-call whole-layer dequantize. Errors sit at the fp16 floor (fp16 gradient) and at bf16 output rounding (bf16 gradient).
+The backward runs within 5 to 8% of a dense fp16 GEMM with resident weights on the three large layers (attn.wq, mlp.up, mlp.down) and about 25% faster than ai-toolkit's per-call whole-layer dequantize there. The narrow attn.wk layer is the exception: 3.2 ms against 2.3 ms dense, 39% slower, and no faster than the whole-layer dequantize. Errors sit at the fp16 floor (fp16 gradient) and at bf16 output rounding (bf16 gradient).
 
 **Trainer (`train/`).** Its own uv venv (`train/setup.sh`, the inference venv's pins, comfy-kitchen path-linked).
 - `make_dataset.py`: 20 Krea 2 Turbo INT8 images, 512px, 8 steps. Each is rendered from "<subject>, flat vector art in only red, white and black, ..." and captioned "rwbflat style, <subject>". The captions deliberately leave out the style words, so the LoRA has to learn the style from the pixels and tie it to the trigger.
@@ -404,10 +404,10 @@ The backward runs within 2 to 8% of a dense fp16 GEMM with resident weights, and
 | Seconds per step | 12.2 for most steps, 13.3 mean; steps 400 to 500 averaged 15.2 (cause not identified; the run held the GPU lock throughout) |
 | Peak GPU driver memory | 15.9 GB (model 13.0 GB after load) |
 | Step 0 against ComfyUI's own forward | 4.4e-4 relative (B = 0; fp16 rounding) |
-| Fixed validation loss (2 images x 3 sigmas, same noise) | 0.0473 at step 0, 0.0318 at 50, 0.0294 at 150, 0.0280 at 400, 0.0281 at 500 |
+| Fixed training-set loss (training images 0 and 7 x 3 sigmas, same noise; not held-out data) | 0.0473 at step 0, 0.0318 at 50, 0.0294 at 150, 0.0280 at 400, 0.0281 at 500 |
 | GradScaler | scale held at 65536, no skipped steps, no non-finite loss |
 
-The per-step training loss is dominated by the random noise level (10-step means range from 0.013 to 0.07), so the fixed validation loss is the trend to read. It falls by 41%, most of it in the first 50 steps. Curve: `out/train-rwbflat-raw-loss.png`. The research estimate was 11 to 14 s/step and about 16 GB; both hold.
+The per-step training loss is dominated by the random noise level (10-step means range from 0.013 to 0.07), so the fixed training-set loss is the trend to read. It falls by 41%, most of it in the first 50 steps. Curve: `out/train-rwbflat-raw-loss.png`. The research estimate was 11 to 14 s/step and about 16 GB; both hold.
 
 **Generation proof (`train/eval_lora.py`, the LoraLoaderModelOnly path).** Seed 7, 512px, held-out subjects. Palette share is the fraction of pixels that are near black, near white, or saturated red.
 
@@ -514,21 +514,21 @@ At K=32768, fp16 F.linear took 697.9 ms against 198.2 ms for a contiguous pre-tr
 
 ## 2026-10-04: Training milestone 2: completed experiments and remaining evaluation
 
-Qwen seed-0 1024px training is already complete at 300 steps with query-chunked attention: approximately 36 s/step, 11.49 GiB driver peak, final validation loss 0.17037. The 512px comparison also completed all three 300-step arms:
+Qwen seed-0 1024px training is already complete at 300 steps with query-chunked attention: approximately 36 s/step, 11.49 GiB driver peak, final fixed training-set loss 0.17037 (logged as `val_loss`; computed on two training images, not held-out data). The 512px comparison also completed all three 300-step arms:
 
-| Training base | Training seed | Mean seconds/update | Driver peak | Final validation loss |
+| Training base | Training seed | Mean seconds/update | Driver peak | Final fixed training-set loss |
 |---|---:|---:|---:|---:|
 | INT8 ConvRot | 0 | 8.389 | 9.46 GiB | 0.16436 |
 | bf16 | 0 | 12.350 | 15.57 GiB | 0.16506 |
 | INT8 ConvRot | 1 | 8.591 | 9.46 GiB | 0.16337 |
 
-INT8 used 6.11 GiB less driver memory and 32% less update time than the matched bf16-base run. The same-seed validation gap (0.00070) is smaller than the two INT8 seeds' gap (0.00099). On four prompts rendered on the same INT8 inference base with Viggle, mean image PSNR between the same-seed training-base pair was 20.76/24.80 dB at 512/1024px, versus 14.28/16.99 dB between the two INT8 training seeds. In this sample, training-base changes affected rendered images less than changing seed. This is not a general quality bound or proof of transfer to bf16 inference. Logs: `train-qwen-512-*.log` and `train-eval-qwen-ab{512,1024}.log`.
+INT8 used 6.11 GiB less driver memory and 32% less update time than the matched bf16-base run. The time gap is confounded by dtype: bf16 GEMM runs about 1.75x slower than fp16 on this M1 Max (first entry of this file), and no fp16 dense arm was run, so the 32% is not the kernel's contribution alone. The same-seed fixed training-set loss gap (0.00070) is smaller than the two INT8 seeds' gap (0.00099). On four prompts rendered on the same INT8 inference base with Viggle, mean image PSNR between the same-seed training-base pair was 20.76/24.80 dB at 512/1024px, versus 14.28/16.99 dB between the two INT8 training seeds. In this sample, training-base changes affected rendered images less than changing seed. This is not a general quality bound or proof of transfer to bf16 inference. Logs: `train-qwen-512-*.log` and `train-eval-qwen-ab{512,1024}.log`.
 
 Remaining T1 acceptance is the 1024-trained adapter's held-out trigger/no-trigger evaluation on plain and Viggle INT8 inference, plus bf16 inference-base portability. The reviewed single-column runner prepares twelve individually bounded images without repeating training. T2 initially targeted continuation from the finite step-8 seed-1 pilot. The later confirmed padding defect below requires distinct corrected cache/run identities instead; the old pilot remains historical save/resume evidence, not the starting point for corrected training. Matched final visual comparison remains required.
 
 ## 2026-10-04: Usable trainer features and packed-weight proof
 
-The trainer now has JSON configuration with CLI overrides, deterministic aspect-ratio buckets and distinct cache identity, atomic recovery with immutable configuration/content fingerprints, and opt-in scheduled previews. A real three-image run used 384×512, 512×320 and 448×448 buckets over four updates in two processes. Identity-validated resume completed; validation loss changed 0.21995→0.21594→0.21410, updates took 4.84–6.06 s, driver peak was 9.44 GiB, and both supervisor exits were normal without swap growth. The resumed run produced a coherent inspected blue-fox preview through real Qwen and CPU VAE. This closes T3/T4/T6 at the measured pilot scope, not at arbitrary preview resolutions.
+The trainer now has JSON configuration with CLI overrides, deterministic aspect-ratio buckets and distinct cache identity, atomic recovery with immutable configuration/content fingerprints, and opt-in scheduled previews. A real three-image run used 384×512, 512×320 and 448×448 buckets over four updates in two processes. Identity-validated resume completed; fixed training-set loss (logged as val_loss) changed 0.21995→0.21594→0.21410, updates took 4.84–6.06 s, driver peak was 9.44 GiB, and both supervisor exits were normal without swap growth. The resumed run produced a coherent inspected blue-fox preview through real Qwen and CPU VAE. This closes T3/T4/T6 at the measured pilot scope, not at arbitrary preview resolutions.
 
 Packed W4 and W6 input backward passed 43 MPS tests and separate two-update real Qwen proofs. Each run converted all six projections in transformer block 1, leaving the remaining base INT8. Every converted layer returned finite nonzero input gradients twice; LoRA weights updated, packed weights stayed unchanged, and initial output matched the ordinary route exactly. Both runs peaked at 9.45 GiB driver memory and completed without swap increase. The quantization preparation ran in a separate CPU process. This closes T5's representative mixed-base acceptance; it does not claim complete W4/W6 checkpoint training or H3 training.
 
@@ -574,7 +574,7 @@ All 24 native FP16 MPS encodes pass full finite RGBA reconstruction through the 
 
 ## 2026-10-04: Corrected Qwen seed-0 save/resume and cache preservation
 
-Corrected seed 0 passes four fresh and four identity-checked resumed updates in separate bounded processes (290.097/222.100 s). Both exit normally with unchanged swap, 1.098/1.177 GiB sampled peak group RSS and 11.48 GiB driver peak. Validation loss declines 0.230067→0.224644→0.223674; this is not visual adapter acceptance. Independent CPU inspection finds all 1,537 step-8 recovery tensors finite, verifies the exact corrected input identity, and matches every step-8 exported tensor to the existing trainer's saved-state export mapping. Both step-4/8 exports have 672 finite tensors. Full corrected training and evaluation remain open.
+Corrected seed 0 passes four fresh and four identity-checked resumed updates in separate bounded processes (290.097/222.100 s). Both exit normally with unchanged swap, 1.098/1.177 GiB sampled peak group RSS and 11.48 GiB driver peak. Fixed training-set loss declines 0.230067→0.224644→0.223674; this is not visual adapter acceptance. Independent CPU inspection finds all 1,537 step-8 recovery tensors finite, verifies the exact corrected input identity, and matches every step-8 exported tensor to the existing trainer's saved-state export mapping. Both step-4/8 exports have 672 finite tensors. Full corrected training and evaluation remain open.
 
 Both old default caches are retained under `.pre-avgdown-fix.pt` names with verified hashes. The default 1024 path now contains an independent corrected copy; default 512 is absent for fresh rebuilding. Explicit corrected run configurations remain bound to their original validated cache. Unfingerprinted legacy Qwen resumes are refused before model loading (`b888630`), preventing a filename match from silently accepting changed targets. Historical checkpoint preservation is not independently established by these cache hash checks.
 
@@ -595,7 +595,7 @@ Wan14's 4 GiB limiter succeeds, but the API run stops at the first high-noise sa
 
 ## 2026-10-04: Corrected seed-0 step-50 continuation gate
 
-The identity-checked step-8-to-50 segment completed in 1,558.269 seconds, at 11.48 GiB driver peak and 1.229 GiB sampled group RSS, with flat swap and no pressure stop. Validation loss declined to 0.22025 from 0.230067 initially. Independent CPU verification reproduces all 672 exported tensors from the actual trainer mapping; the staged export is byte-identical. A temporary staging-reader suffix mismatch was repaired from down/up to A/B without changing training or exported weights.
+The identity-checked step-8-to-50 segment completed in 1,558.269 seconds, at 11.48 GiB driver peak and 1.229 GiB sampled group RSS, with flat swap and no pressure stop. Fixed training-set loss declined to 0.22025 from 0.230067 initially. Independent CPU verification reproduces all 672 exported tensors from the actual trainer mapping; the staged export is byte-identical. A temporary staging-reader suffix mismatch was repaired from down/up to A/B without changing training or exported weights.
 
 The 1024px, seed-7, six-step Viggle-stacked INT8 held-out horse image completed in 127.264 seconds with flat swap and 10.258 GiB sampled group RSS. Independent inspection finds coherent blue horse/beach imagery and stronger grain than the preserved base, with no beige collapse. The base was already blue and both palette measurements are 1.0, so this is an early continuation gate, not proof of learned style or final T1/T2 acceptance. Corrected full training, the second seed, trigger/no-trigger comparisons and bf16 portability remain open.
 
@@ -805,9 +805,9 @@ The canonical v2 parent receipt corrects the earlier summary’s whole-block fil
 
 Eight coarse events retain conditioning replay with zero real encoder constructions and zero original audio/video VAE factory calls; diffusion admission remains 162,660,112 bytes. All owned processes and their group are absent, and the permanent GPU lock is idle at parent closeout. The allocation cause remains unknown.
 
-This H3 attempt followed an actual 773.965-second independent review completed at 20:49:56 UTC with a fresh `NO_FINDINGS` verdict. The parent accepted its correctness verdict with qualified procedural scope: two read-only `awk` text counters violated the literal interpreter restriction, without candidate-code execution, mutation or payload/GPU access. The review’s claim of no interpreter use was rejected. That bounded acceptance does not change the later failed GPU outcome or imply that other reviews passed.
+An independent source review preceded this attempt and found nothing blocking. Its process record is in [review/2026-10-05-review-process-receipts.md](review/2026-10-05-review-process-receipts.md#h3-smaller-review). It does not change the failed GPU outcome.
 
-The separate WAN v8 512×288×33 candidate passes 56 parent CPU tests in 4.571 seconds with its 2^26 attention cap. Its first independent review is invalid for activation: it was stopped after 211.404 seconds, exited −15 and emitted no final verdict. Actual tool use wrote `/tmp/vf.txt` and `/tmp/vb.txt` and invoked a prohibited Python interpreter. Source and input checks after the stop preserve 334 source pins, 377 evidence pins, five failure pins, six model-stat identities, 715 copied text files and the 717-file inventory. No GPU execution or activation occurred.
+The separate WAN v8 512×288×33 candidate passes 56 parent CPU tests in 4.571 seconds with its 2^26 attention cap. Its first independent review was stopped without a verdict and is invalid; no GPU execution or activation occurred. Process record: [review/2026-10-05-review-process-receipts.md](review/2026-10-05-review-process-receipts.md#wan-v8-first-review).
 
 At this earlier boundary, H3 pressure and job-local read-only review permissions were under CPU investigation. The subsequent separate replacement review and bounded WAN attempt are recorded below. The accepted H3 encoder capture, accepted WAN admission observation, earlier H3 phase failure, WAN v7 phase failure and all preceding receipts remain unchanged. Neither useful video is accepted; G2 is the only remaining project gate.
 
@@ -822,7 +822,7 @@ The coarse stream has 52 rows, comprising 50 phase records and two target/loadin
 
 The guard retains a fresh child sample with a recorded age of 0.329490 seconds: 1,153,711,616 MPS current bytes, 3,368,173,568 driver bytes, 1,591,672,832 process RSS bytes and 5,853,839,360 system-available bytes. The child reports pressure 2 and the same flat swap; its counters are unsynchronized. These measurements do not identify task footprint, compression or the allocation causing system pressure. Different host intervals and changed observation/geometry prevent a controlled claim of physical memory savings. All owned processes and group 36434 are absent, and the permanent GPU lock is idle at parent closeout.
 
-The separate replacement review completes in 388.396 seconds at 21:13:37 UTC with exit 0 and `NO BLOCKING FINDINGS`. All 46 actual tool calls are reads inside the copied input tree, with no dynamically loaded instruction files. Parent adjudication retains accurate partial coverage, corrects the optional claim that CPU test names are not pinned and an incorrect file attribution, and defers inherited direct-test-run ergonomics because the frozen discovery command executes all 56 tests. The original invalid review remains invalid and preserved; this compliant replacement source review does not qualify the failed GPU result.
+A replacement source review completed with no blocking findings; it does not qualify the failed GPU result. Process record: [review/2026-10-05-review-process-receipts.md](review/2026-10-05-review-process-receipts.md#wan-v8-replacement-review).
 
 At this earlier boundary, H3’s read-only comparison had found no proved remedy and a bounded footprint, compression and global-VM observer was in CPU preparation. Its subsequent attempt is recorded below. The accepted H3 encoder capture, accepted WAN admission observation, smaller H3 failure, first invalid WAN v8 review and all preceding receipts remain unchanged. Neither useful video is accepted; G2 is the only remaining project gate.
 
@@ -837,7 +837,7 @@ Task footprint grows from 472,370,496 bytes at configuration to 5,235,008,000 by
 
 The matched late global window, records 14–26, shows compressor physical occupancy increasing by 67,095 pages (1.0238 GiB), while wired pages decrease by 32,431 (0.4949 GiB). This physical compressor gauge is distinct from stored-page representation and task compressed accounting. The surrounding task samples give the same qualitative result on both sides of the global intervals: rows 93–117 add 28,950,720 footprint bytes while compressed bytes fall by 179,929,088; rows 94–118 add 21,037,184 footprint bytes while compressed bytes fall by 165,789,696. Driver bytes are unchanged in both comparisons. These are observed brackets, not simultaneous measurements or bounds on unobserved peaks. The last global VM query ends 2.089128 seconds before the unsafe pressure reading; the final phase sample ends 0.117637 seconds before it. The unfinished block and the final global gap remain unobserved.
 
-The actual independent source review completes in 509.298 seconds with no blocking findings. Its 49 tool calls are reads, with 34 complete files and seven excerpts; no extra instruction files or tool errors are recorded. Parent adjudication preserves partial coverage and two nonblocking limitations: the cumulative telemetry-cost budget can stop a sufficiently slow observation, and an oversized supplemental diagnostic may be omitted after the workload is already stopping. Neither limitation weakens the primary guard or accepts an incomplete run. All owned processes and their group are gone, and the GPU lock is idle at parent closeout.
+An independent source review found nothing blocking and left two nonblocking limitations: the cumulative telemetry-cost budget can stop a sufficiently slow observation, and an oversized supplemental diagnostic may be omitted after the workload is already stopping. Neither weakens the primary guard or accepts an incomplete run. All owned processes and their group are gone, and the GPU lock is idle at parent closeout. Process record: [review/2026-10-05-review-process-receipts.md](review/2026-10-05-review-process-receipts.md#h3-task-vm-review).
 
 The completed comparison meets the predeclared stop rule: stop the local H3 diagnostic work and current local G2 runtime work under these conditions. No evidence-backed local retry or causal source fix is identified. Meaningful runtime qualification needs changed execution conditions or concrete evidence of an avoidable allocation; further resize or guard cycles are unsupported. This is an evidence boundary, not a permission gate, proof that the hardware can never fit the models, or attribution to another process. The bounded WAN v8 failure, accepted prerequisites and all prior receipts remain unchanged. G2 remains the only open project gate, with neither useful video accepted.
 
@@ -868,18 +868,18 @@ Optional Krea conditioning reuse binds stronger encoder stat identity, tokenizer
 
 After the storage controls, the unchanged ordinary Krea entry completes 1024px fresh encoding/off in 189.190s and a source-bound conditioning hit in 140.040s. Sampling is 135.39s/132.43s, decode 1.19s/1.17s, peak group RSS 7.393/1.323 GiB. Both have normal pressure, flat swap, eight denoiser calls, 1,792 native calls and 771,686,304-byte resident weights. Latent and decoded float image match each other and the earlier accepted 1024px output bit-exactly; parent inspection passes with the same cropped hands/foot and blurred rear hand. These natural-file-cache acceptance runs do not prove a universal speedup.
 
-The previously unfinished headless same-process 512px baseline/baseline/spectral/spectral/baseline sequence now completes in 187.419s, peak RSS 1.357 GiB, normal pressure and flat swap. All 40 forwards and 8,960 native calls complete; three baselines and two spectral outputs each match their earlier respective tensor references exactly. Warm baseline mean sampling is 39.558s versus spectral 30.162s: 23.753% lower sampling time in this one session. Spectral preserves a coherent high kick and scene but changes face identity/beard and framing. This earns a conditional warm-session trade-off, not image equivalence, fresh-process or API-server speed. Writable four-step LoRA remains deferred after its separate pressure stop; static readonly residency refusal is preserved.
+The previously unfinished headless same-process 512px baseline/baseline/spectral/spectral/baseline sequence now completes in 187.419s, peak RSS 1.357 GiB, normal pressure and flat swap. All 40 forwards and 8,960 native calls complete; three baselines and two spectral outputs each match their earlier respective tensor references exactly. Warm baseline mean sampling is 39.558s versus spectral 30.162s: about 24% lower sampling time in this one session. Spectral preserves a coherent high kick and scene but changes face identity/beard and framing. This earns a conditional warm-session trade-off, not image equivalence, fresh-process or API-server speed. Writable four-step LoRA remains deferred after its separate pressure stop; static readonly residency refusal is preserved.
 
 
 ## 2026-10-06: 1024px spectral bracket and second-subject quality
 
-Four fresh ordinary-entry processes complete baseline/spectral/spectral/baseline at 1024px, with exact latent/image repeats within each route, all 32 denoiser forwards and 7,168 native INT8 calls. Mean sampling is 170.28s baseline versus 128.685s spectral, a 24.427% reduction in this natural-cache bracket. Parent inspection passes the changed soccer composition. A seed 7 snowy-fox pair at 512px completes sixteen more forwards and 3,584 native calls with coherent anatomy/fur in both images. First fox request encodes while the second hits conditioning, so whole-request times are not compared. No runtime source changes.
+Four fresh ordinary-entry processes complete baseline/spectral/spectral/baseline at 1024px, with exact latent/image repeats within each route, all 32 denoiser forwards and 7,168 native INT8 calls. Mean sampling is 170.28s baseline versus 128.685s spectral, about a 24% reduction in this natural-cache bracket. Parent inspection passes the changed soccer composition. A seed 7 snowy-fox pair at 512px completes sixteen more forwards and 3,584 native calls with coherent anatomy/fur in both images. First fox request encodes while the second hits conditioning, so whole-request times are not compared. No runtime source changes.
 
 The separate writable baseline adds the existing generic 1 GiB cap and 0.5 allocator fraction but pressure-stops at 17.513s before completing the first forward. Euler's 0/8 progress bar indicates sampling preparation returned; admission alone is not established as the failure phase. No adapter was loaded. Private mapped-weight streaming remains a hypothesis requiring persisted cap/prediction/footprint observations; unchanged retries and readonly-refusal bypass remain unjustified.
 
 ## 2026-10-06: immutable Krea four-step adapter and repeated readonly API
 
-The explicitly admitted released rank64/four-step adapter now renders the 512px soccer/seed42 recipe with 896 native/fused-side calls, all 228 patched layers each step, finite inspected decode, normal pressure and flat swap. Shared ACCESS_READ construction mitigates the earlier writable pressure boundary without closing its exact OS cause. The first immutable successor completes but fails native qualification because LowVramPatch merges offloaded quantized weights into dense temporaries. The retained bench-only successor uses Comfy's existing temporary side representation across the whole forward/direct activation entry, restoring all state in finally; no vendor kernel or sampler change. Sampling 38.42s versus 43.82s baseline is one scoped 12.323% comparison, not 2× or a general default.
+The explicitly admitted released rank64/four-step adapter now renders the 512px soccer/seed42 recipe with 896 native/fused-side calls, all 228 patched layers each step, finite inspected decode, normal pressure and flat swap. Shared ACCESS_READ construction mitigates the earlier writable pressure boundary without closing its exact OS cause. The first immutable successor completes but fails native qualification because LowVramPatch merges offloaded quantized weights into dense temporaries. The retained bench-only successor uses Comfy's existing temporary side representation across the whole forward/direct activation entry, restoring all state in finally; no vendor kernel or sampler change. Sampling 38.42s versus 43.82s baseline is one scoped comparison (about 12% lower), not 2× or a general default.
 
 The dedicated localhost base 512px API profile passes initial/changed-seed/changed-prompt requests in 50.581/37.976/73.778s, 24 forwards/5,376 native calls, one retained model/load identity, expected graph-cache invalidation and finite inspected decode. Both fresh encoder calls release their objects before sampling; persistent conditioning reuse is disabled to prove this path. Aggregate 167.862s, peak RSS 7.431 GiB, normal pressure and flat swap; owned server/group stopped. Initial saved pixels match accepted headless baseline exactly. An earlier metadata guard failure is preserved; the correct EmptyLatentImage `downscale_ratio_spacial:8` is retained and a real CPU node-boundary test prevents recurrence.
 
@@ -897,7 +897,7 @@ The project sweep closes stale current-doc claims about Krea restoration/warm ex
 
 A review of this repo for grant use is at [docs/review/2026-11-09-pre-grant-review.md](review/2026-11-09-pre-grant-review.md). It changed the headline numbers as follows.
 
-- The Krea 2 Turbo headline is now 512²: 8.7 s/step stock against 3.65 to 3.69 s/step on the hardened Metal backend (2.36 to 2.38x; the README rounds this to 3.7 s and 2.35x). The 1024 row stays caveated: the stock 35 s was one run during a download and the 16.5 s is older than the 14.91 s measured later.
+- The Krea 2 Turbo headline is now 512²: 8.7 s/step stock against 3.65 to 3.69 s/step on the hardened Metal backend (2.36 to 2.38x; the README rounds this to 3.7 s and 2.35x). The 1024 row stays caveated: the stock 35 s was one run during a download and the 16.5 s is older than the 14.91 s measured later. Superseded on 2026-11-09 by clean numbers at four sizes; see the four-way sweep entry of 2026-11-09 at the end of this file.
 - Qwen-Image 2.1 1024² is the second headline: 15.1 to 8.8 s/step at 9.1 GB.
 - The INT8 overhead over a resident fp16 GEMM is quoted from the hardened table (3.3 to 4.5 percent here, 1.4 to 2.1 percent in the comfy-kitchen PR writeup), not the 4 to 9 percent measured before hardening.
 - Verification wording: kernel outputs are checked against a float32 or float64 reference; end-to-end runs are checked for NaNs and compared to stock by PSNR/SSIM where noted; timings are single-machine measurements.
@@ -941,8 +941,8 @@ Same three shapes on NVIDIA T4, A10G and A100-80GB through Modal, torch 2.15.0+c
 | 4608, 6144, 6144 | A100 | 1.51 | 1.52 | 1.48 | 1.57 | 0.84 |
 | 4608, 16384, 6144 | A100 | 3.55 | 3.61 | 3.59 | 4.28 | 2.53 |
 
-- The transposed-weight penalty at K=16384 is 1.53x on T4 (Turing), 1.12x on A10G (Ampere) and absent on A100. It is a layout-dispatch problem newer cuBLAS solved; MPS has not.
-- bf16 is emulated on T4 (9x slower than fp16), the same shape of penalty as bf16 on the M1 Max (1.8x). bf16-by-default is a datacenter assumption.
+- The transposed-weight penalty at K=16384 is 1.53x on T4 (Turing), 1.12x on A10G (Ampere) and absent on A100. That column times `F.linear(x, wt.t())` with the weight stored `[K, N]`, which is the layout MPS runs fast, so it is a slowdown in the opposite direction from the MPS one and is not a control for it. The control is the wide-K entry below.
+- bf16 is 9x slower than fp16 on T4 and level with fp16 on A10G and A100. The M1 Max shows a smaller penalty of the same kind (1.75x). The cause was not investigated on either part. bf16-by-default is a datacenter assumption.
 - True INT8 GEMM is 1.7 to 2.0x faster than fp16 wherever integer tensor units exist. That is the ceiling Apple M5 could bring and the M1 Max `_int_mm` above does not reach.
 - fp8 `_scaled_mm` is unsupported on all three parts (needs sm89 or newer).
 
@@ -951,8 +951,242 @@ Same three shapes on NVIDIA T4, A10G and A100-80GB through Modal, torch 2.15.0+c
 Attempted the clean four-way sweep the pre-grant review asked for (stock and Metal, each with sub-quadratic and SDPA attention, 512 and 1024, fresh process per run, shuffled order): `bench/krea_four_way.py`, new today, with `ATTN=quad` added to `bench/run_krea2.py` because the fork now defaults MPS to SDPA and the upstream sub-quadratic default has to be requested explicitly. Record: [review/2026-11-09-experiments/e1-krea-four-way-refused.jsonl](review/2026-11-09-experiments/e1-krea-four-way-refused.jsonl).
 
 - First attempt, conditioning cache off: the memory monitor stopped the stock 512 run after 78 s during text-encoder load. Swap grew from 0.6 to 4.6 GB while the process group held 0.27 GiB; the internal disk went from 9.9 to 5.9 GiB free. Stop reason: swap growth over 4 GiB.
-- Second attempt, conditioning captured once per cell (39 s, then cache hits) and a 2 GiB swap-growth cap: all twelve 512 runs were refused at admission with "swap-volume disk headroom". Swap stood at 8.3 GB and the internal disk at 3.5 GiB free.
+- Second attempt, conditioning captured once per cell (39 s, then cache hits) and a 2 GiB swap-growth cap: the first timed run (stock with sub-quadratic attention) was admitted with swap at 4.74 GiB and stopped after 60 s on swap growth, peaking at 8.30 GiB; the other eleven 512 runs were refused at admission with "swap-volume disk headroom". Swap stood at 8.3 GB and the internal disk at 3.5 GiB free.
 - Cause: the system volume is nearly full, so macOS swap cannot grow, and the machine was carrying several other resident applications. The October runs had the same models and limits on a quieter machine. No timing was recorded, and none should be inferred from this entry. The Krea 1024 row keeps its caveat.
 - Third attempt, after the disk was freed (27 GiB free) and with the conditioning cache: both timed runs that started were stopped by the monitor on swap growth, and the driver halted after the second. Stock with sub-quadratic attention at 1024 stopped at 113 s with swap up from 6.5 to 11.1 GiB. Metal with SDPA at 512 stopped at 125 s with swap up from 6.6 to 15.3 GiB. Record: [review/2026-11-09-experiments/e1-krea-four-way-stopped-swap.jsonl](review/2026-11-09-experiments/e1-krea-four-way-stopped-swap.jsonl).
 - Cause of the third stop: a Colima Docker virtual machine with about twenty running containers held about 17 GiB (6 resident, 11 compressed), so even the 512 Metal cell pushed other memory to swap. Raising the swap cap would time the cells while the machine pages, which is the noise this sweep exists to remove. Still no timing recorded.
-- To run: stop the Colima VM and other large resident applications, confirm swap is near zero, then from the repo root: `MK_ROOT=<models> .venv/bin/python bench/krea_four_way.py --out docs/review/2026-11-09-experiments/e1-krea-four-way.jsonl --sizes 512,1024 --repeats 3 --cond-cache auto --capture`. The driver appends as it goes, stops after two consecutive refusals or stops, and summarizes with `--summarize`.
+- To run: stop the Colima VM and other large resident applications, confirm swap is near zero, then from the repo root: `MK_ROOT=<models> .venv/bin/python bench/krea_four_way.py --out docs/review/2026-11-09-experiments/e1-krea-four-way.jsonl --sizes 512,1024 --repeats 3 --cond-cache auto --capture`. The driver appends as it goes, stops after two consecutive refusals or stops, and summarizes with `--summarize`. The sweep completed later the same day with an 8 GiB cap; see the next four-way entry at the end of this file.
+
+## 2026-11-09: review should-fix pass
+
+A documentation pass over section 3 and Appendix B of the [pre-grant review](review/2026-11-09-pre-grant-review.md). Nothing was measured; every figure below was already in this file.
+
+- fp16 precision wording. The power-of-two row scaling is exact. The fp16 cast after it keeps full precision only down to about rowmax*2^-14, and the GEMM output carries fp16's 11 significand bits. The two comfy-kitchen PR write-ups under `upstream/` now say this in place of "changes no mantissa ... exact at subnormals".
+- "Validation loss" is renamed "fixed training-set loss" in this file, in the trainer's console output and in the loss plots. It is computed on training images 0 and 7 at three noise levels, not on held-out data. The log key stays `val_loss`.
+- The packed backward is within 5 to 8% of a dense fp16 GEMM on the three large Krea 2 Raw layers. The narrow attn.wk layer is 39% slower (3.2 against 2.3 ms). The earlier "2 to 8%" sentence is corrected in place.
+- The 32% training-time advantage of the INT8 base over bf16 at 512px is confounded by dtype: bf16 GEMM is about 1.75x slower than fp16 on this M1 Max and no fp16 dense arm was run. The write-ups that gave "because bf16 is emulated" as the cause of that gap now state only the measured slowdown; the cause was not investigated.
+- Spectral speedups are now quoted as about 24%, about 24% and about 12%. The run counts are small: two warm baselines against two spectral runs in one session at 512px, two against two across four fresh processes at 1024px, and one against one for the adapter case. The seconds they come from are unchanged.
+- Four paragraphs describing how the October 5 source reviews were run (durations, tool-call counts, restriction violations) moved to [review/2026-10-05-review-process-receipts.md](review/2026-10-05-review-process-receipts.md), with pointers left in the entries.
+- The Milestone 2 launchers moved to `train/historical/`. CONTRIBUTING.md now explains the thirteen test cases that skip without the pinned Krea2Edit runtime, how to set it up, and that the two Spectral cases among them also need the pinned LC helper.
+- Still open and needing measurement: repeat-run variance with raw per-iteration logs, host thermal and load state in result lines, external baselines, LPIPS/CLIP on a prompt set, the one-block gradient check against fp32 on real weights, and an fp16 dense training arm. Two items on the review's list were measured the same day and have their own entries below: the K=16384 fp16 error and the packed W4/W6 backward at real Qwen widths.
+
+## 2026-11-09: Web research on the pre-grant review's open questions
+
+Nothing in this entry was measured. It is web research only, read on 2026-11-09.
+
+- The write-up is [review/2026-11-09-gap-research.md](review/2026-11-09-gap-research.md). The source ledger, with each URL, source date and figure, is [review/2026-11-09-experiments/gap-research-sources.json](review/2026-11-09-experiments/gap-research-sources.json).
+- Mozilla's own Human-Scale AI pages could not be read (HTTP 403). The grant facts come from two third-party summaries. Whether an individual applicant needs a US 501(c)(3) fiscal sponsor is unconfirmed. One summary says a selected team "must be able to receive funding from a U.S.-based 501(c)(3)", which Mozilla Foundation itself is. The other lists "individual" and fiscal sponsorship as separate applicant types.
+- Siliconed, read from source, widens weights to fp32 on the CPU on pre-M5 chips. Its integer paths use Metal 4 `matmul2d`. Its own source comment says `matmul2d` is slower than MPS on M1 Pro (2.36 against 3.46 TFLOP/s, formats not named). On M5 the comment gives 6.0 TFLOP/s for bf16 `matmul2d` against 2.9 for MPS fp32.
+- Siliconed's published M1 Pro times for Krea 2 Turbo at 1024 square (app 0.14, 2026-10-23, Standard) are 135.4 to 137.4 s per render with its Accelerators switch on and 144.6 to 144.9 s with it off. On M1 Pro that switch mainly means Neural Engine fp16 products. Those runs had Faster Rendering on, which runs 4 of the 8 evaluations on a half-size grid. They are not full-size renders and must not be compared per step with this repo's numbers.
+- The review's "about 18 s/step in 2.2 GB on M1 Pro" Siliconed figure was not found in Siliconed's current docs and needs re-sourcing.
+- What Radiant Canvas's "INT4 ConvRot" does internally is unconfirmed. The app is closed source and its published numbers are M5 Max only.
+- No published Draw Things, stable-diffusion.cpp or Wan per-step number on M1 or M2 was found. The independent M1 Max numbers found are bf16 on a 64 GB machine.
+- torch 2.15.0 ships a native MPS `_int_mm`. The only published timing is on M4 Pro and has no fp16 baseline, so our own M1 Max measurement ([review/2026-11-09-experiments/int-mm-2.15.json](review/2026-11-09-experiments/int-mm-2.15.json)) remains the only evidence for that verdict on M1.
+- Modal does not publish a numeric CPU or memory maximum per container. Its per-container disk write quota defaults to 512 GiB, and `ephemeral_disk` can go up to 3.0 TiB. No open Prime Intellect compute grant was found.
+
+## 2026-11-09: Per-layer weight error by format on two real checkpoints
+
+Every 2-D linear weight of two public, ungated checkpoints was quantized in six formats on Modal CPU containers (4 CPU, 8 GiB, torch 2.15.0, 64 block jobs, 2229.3 s of job time) and compared with the original weights in fp32: Qwen-Image 2.1 transformer (bf16, `Comfy-Org/Qwen-Image-2.1`, 200 layers, 7,115,112,448 parameters) and Wan 2.1 T2V 1.3B (fp32, Apache-2.0, 306 layers, 1,417,641,984 parameters). INT8, W4A8 and W6A8 use a pure-torch port of the comfy-kitchen eager quantizers, fed fp32 weights; Q8_0 and Q4_K use ggml 0.25.3 without an importance matrix. This measures weights only, not image quality.
+
+Relative Frobenius error per layer, percent (median / p95 / worst), and stored bits per weight (Qwen / Wan):
+
+| Format | Bits (Qwen / Wan) | Qwen-Image 2.1 | Wan 2.1 1.3B |
+|---|---:|---|---|
+| INT8 per row, no rotation | 8.007 / 8.016 | 1.066 / 1.489 / 1.805 | 0.852 / 1.128 / 1.950 |
+| INT8 ConvRot (shipped layout) | 8.007 / 8.016 | 0.869 / 0.956 / 1.006 | 0.811 / 0.910 / 0.914 |
+| W6A8 | 6.507 / 6.516 | 2.064 / 2.083 / 2.093 | 2.054 / 2.073 / 2.094 |
+| W4A8 | 4.507 / 4.516 | 7.307 / 7.311 / 7.312 | 7.300 / 7.310 / 7.328 |
+| GGUF Q8_0 | 8.500 / 8.500 | 0.564 / 0.629 / 0.827 | 0.541 / 0.565 / 0.929 |
+| GGUF Q4_K | 4.500 / 4.500 | 7.392 / 7.783 / 8.839 | 7.175 / 7.398 / 10.311 |
+
+- The rotation lowers the Frobenius error in 198 of 199 Qwen layers and 199 of 306 Wan layers, and mostly trims the tail (p95 1.489 % to 0.956 % on Qwen). It raises the max-abs error in most layers: ConvRot has the lower max-abs in only 63 of 199 Qwen layers and 12 of 306 Wan layers. Why was not tested.
+- W4A8 and Q4_K are level at about 4.5 bits. W4A8 is lower in 152 of 199 Qwen layers and 53 of 306 Wan layers. W4A8 has almost no spread between layers; Q4_K has a tail (worst 8.839 % and 10.311 %).
+- Worst max-abs error: W4A8 0.187 (Qwen `transformer_blocks.0.attn.to_out.0`) and 0.184 (Wan `blocks.19.cross_attn.o`); Q4_K 0.131 and 0.145; INT8 ConvRot 0.022 and 0.019.
+- Q8_0 has a lower weight error than INT8 ConvRot at 8.5 bits against about 8.01; it keeps one scale per 32 values where INT8 keeps one per row.
+- Every layer took the fixed Lloyd-Max codebook (199 of 199, 306 of 306); the fitted path never fired.
+- Check against the vendor quantizers: the port is bit-identical on three seeded CPU tensors (fixed codebook, fitted codebook, chunked rows). This was shown on macOS only; the private vendor code was not run in the container.
+- Check against the publisher: the publisher's own Qwen INT8 ConvRot file agrees with ours in all but 828 of 6,979,321,856 codes (each off by 1; largest scale difference 4.66e-10).
+- Local macOS (torch 2.14.1, ggml 0.26.0) against the Linux container (torch 2.15.0, ggml 0.25.3), same code and bit-identical inputs: per-row INT8 and Q8_0 are bit-identical. INT8 ConvRot codes are identical; one row scale of 96 differs on the heavy-tailed tensor. W4A8 fp32 channel scales differ in 54 of 96, 66 of 96 and 2689 of 4200 rows; on the 4200-row tensor (the chunked path that large real layers take) the stored W4A8 codes differ in 2 of 4200 rows and the group scales in 1 row; on the heavy-tailed tensor the fitted codebook differs in 10 of 64 bytes. W6A8 codes and group scales are identical; channel scales differ in 32 of 96, 31 of 96 and 1720 of 4200 rows. Q4_K differs in 19 and 46 of 55,296 bytes and in 137 of 4200 rows. The effect on the measured error is small: W4A8 7.2936486 % locally against 7.2936466 % in the container; Q4_K 7.05484 % against 7.05445 %, so the last printed digit of a Q4_K figure could differ by one elsewhere. The likely cause for the torch formats is BLAS summation order in the rotation; that was not isolated.
+- Limit on W4A8 and W6A8: the rotation ran in fp32. The vendor rotation runs in the dtype it is given, and the repo's on-load paths can be handed bf16 weights. That was not measured on the checkpoints. On the three seeded tensors a bf16 input moves W6A8 from 2.055 % to 2.061 %, 2.787 % to 2.793 % and 2.049 % to 2.056 %, and W4A8 from 7.292 % to 7.289 %, 7.297 % to 7.297 % and 7.294 % to 7.296 %.
+- Not measured: Qwen `img_in` (64 input columns, below the 256 group) for ConvRot, W4A8, W6A8 and Q4_K; the Wan 5-D `patch_embedding`; Krea 2.
+
+Raw: [modal/results/2026-11-09-weight-error.json](../modal/results/2026-11-09-weight-error.json), [validation](../modal/results/2026-11-09-weight-error-validation.json), [container vectors](../modal/results/2026-11-09-weight-error-selftest-container.json). Write-up: [research/2026-11-09-weight-error-by-format.md](research/2026-11-09-weight-error-by-format.md).
+
+## 2026-11-09: MPS fp16 GEMM accumulates in fp32, and the K=16384 fp16 error bound
+
+**What was run.** `bench/probe_fp16_accumulation.py` on an Apple M1 Max, macOS 27.0.1, torch 2.14.1, through `bench/with_gpu.sh` (24.4 s, about 1.04 GiB of GPU memory). Only float16 and float32 tensors are used; bf16-valued activations are emulated as 8-bit significands. Every MPS result is compared with an fp64 CPU oracle and with numpy simulations that round every addition to fp16 or to fp32 (sequential, pairwise, 2 to 16 lanes, blocks of 64 and 1024). Eleven shapes from 1 x 16 x 1 to 512 x 16384 x 512 and 8 x 32768 x 8, and three call forms: `F.linear(x, w)`, `x @ wt` with a contiguous transposed weight, and `x @ w.t()`. Raw output: [fp16-accumulation.json](review/2026-11-09-experiments/fp16-accumulation.json).
+
+**Question 1: does the fp16 GEMM accumulate in fp16?** No.
+
+- A case separates the two hypotheses when every fp16-accumulation simulation gives a wrong answer and every fp32 simulation gives the right one. That holds for 33 shape-pattern pairs, 99 MPS results. 99 of 99 equal the exactly rounded value. 0 match any fp16 simulation.
+- Which patterns separate, out of 11 shapes each: a single product above 65504 that is cancelled later (11), a product whose low bits do not fit in fp16 (11), small terms absorbed after 1.0 (6, all with K up to 4096), alternating cancellation of 2048 against 0.25 (5, all with K of 16384 or more), a partial sum above 65504 that cancels (0).
+- Separating examples at 512 x 16384 x 512: the single product above 65504 returns 3.0 with no inf or nan; the low-bits product returns 2^-20; alternating cancellation returns 2048.0, exact.
+- Two patterns do not separate at that shape and are not evidence there. Small terms after 1.0 return 5.0, which fp16 pairwise order also gives. The partial sum above 65504 returns 0.0, which fp16 accumulation in 4, 8 or 16 lanes also gives.
+- Structured inputs built to defeat fp32 accumulation: 22 pairs, 66 MPS results, only 4 exact. At 512 x 16384 x 512 one pattern returns 4.0 against an exact 7.999 (8.0 in fp16). So partial sums are held in fp32, not wider, at some stage of the reduction. This does not rule out a wider accumulator inside a block whose block sums are then combined in fp32.
+- On those patterns the results change with shape and call form. Of the 66 results, 47 match a simulated fp32 order: 19 match sequential order (64 x 1024 x 64, 512 x 512 x 512, 512 x 4096 x 512, and one call form at 3 x 1023 x 5), 28 match only a lane, pairwise or block order. 19 match no simulated order. The summation order is not identified. These patterns do not separate fp16 from fp32 (the sequential-order matches also match fp16 simulations).
+- Random data with mild cancellation, share of MPS outputs equal to the correctly rounded fp64 result: at least 0.9918 for Gaussian inputs, 0.9991 for positive uniform inputs and 0.984 for inputs in the kernel's normalized range, on every shape. At 512 x 16384 x 512 the fp16 sequential simulation is correct on 0.0117 of Gaussian outputs with a maximum error of 3273 ulp, and on none of the positive uniform outputs (maximum 904 ulp); MPS has a maximum of 0.503 ulp on positive uniform. fp16 pairwise order is 72 percent correct there (maximum 1.26 ulp), so this test rules out sequential and lane orders, and the structured cases rule out pairwise.
+- Random data with heavy cancellation (partial sums near 2^16, results of order 10): MPS is not correctly rounded here. At 512 x 16384 x 512 only 12 percent of MPS outputs equal the rounded fp64 result; the fp32 simulations range from 10 to 62 percent on the simulated corner, and the fp16 simulations reach none. That is what fp32 partial sums predict. The largest MPS error is 1.7e-7 of the sum of absolute products over all shapes. On the simulated subset at K >= 4096, MPS and the fp32 simulations have the same maximum, 8.6e-8, and the best fp16 simulation is 1.1e-6.
+
+Reading: on this stack the fp16 GEMM computes products and partial sums in fp32 and rounds once to fp16 at the end. "Rounds once" does not mean correctly rounded: the fp32 sum carries its own error, visible under heavy cancellation. The limit `_FP16_MAX_K = 65504` and the row normalization protect the final fp16 output, not the partial sums.
+
+**Question 2: the K=16384 fp16 error bound.** Shape 512 x 16384 x 512, int8 weights with per-row scales, activations normalized per row by a power of two as the kernel does. The three call forms give identical statistics.
+
+What 11 bits imply: a correctly rounded fp16 output has a relative error of at most 2^-11 = 4.88e-4 per element against the exact product of the fp16 operands, for outputs in the fp16 normal range (magnitude at least 2^-14 after normalization). Subnormal outputs are worse: the ideal rounding has a per-element maximum of 0.016 on Gaussian inputs. The measured ideal value is 4.7e-4 at p99.9, with a relative L2 of 2.07e-4.
+
+Measured, MPS GEMM alone against the exact product of the same fp16 operands (Gaussian activations): 99.16 percent of outputs are correctly rounded, 99.92 percent are within 1 ulp, the maximum is 85 ulp. Relative error median 1.7e-4, p99.9 8.0e-4, relative L2 2.07e-4.
+
+Measured, end to end against fp64 on the unrounded operands:
+
+| Arm | Activations | Relative L2 | Max error / output RMS | p99.9 error / output RMS | Per-element relative, p99.9 | Per-element relative, max |
+|---|---|---|---|---|---|---|
+| emulated | Gaussian, fp16 values | 2.94e-4 | 1.97e-3 | 1.16e-3 | 0.124 | 37.5 |
+| emulated | Gaussian, bf16 values | 2.92e-4 | 2.06e-3 | 1.14e-3 | 0.135 | 41.7 |
+| emulated | Laplace, bf16 values | 2.94e-4 | 1.83e-3 | 1.21e-3 | 0.125 | 43.8 |
+| emulated | one outlier of 16000 per row | 2.92e-4 | 2.97e-3 | 1.43e-3 | 1.90e-3 | 0.707 |
+| emulated | one outlier of 2^20 per row | 2.30e-4 | 1.79e-3 | 9.7e-4 | 0.285 | 105 |
+| kernel, no ConvRot | Gaussian | 2.94e-4 | 2.16e-3 | 1.15e-3 | 0.123 | 15.3 |
+| kernel, no ConvRot | one outlier of 16000 per row | 2.94e-4 | 2.88e-3 | 1.43e-3 | 1.96e-3 | 0.358 |
+| kernel, ConvRot 256 | Gaussian | 3.59e-4 | 2.14e-3 | 1.30e-3 | 0.171 | 66.5 |
+| kernel, ConvRot 256 | one outlier of 16000 per row | 3.30e-4 | 2.13e-3 | 1.24e-3 | 0.165 | 78.0 |
+
+The kernel rows call `int8_linear` from the vendored comfy-kitchen (commit b5dd528, clean tree). fp32 and fp16 output give identical statistics. No output is non-finite.
+
+Each inexact step alone, computed on the CPU in fp64 (emulated arm, error RMS as a share of the stated reference):
+
+| Activations | Reference | Scaling only | Activation cast only | Weight cast only | Output rounding only | All together (MPS) |
+|---|---|---|---|---|---|---|
+| Gaussian, fp16 values | whole output | 0 | 2.6e-9 | 2.07e-4 | 2.08e-4 | 2.94e-4 |
+| one outlier of 16000 per row | whole output | 0 | 8.1e-7 | 2.07e-4 | 2.07e-4 | 2.92e-4 |
+| one outlier of 16000 per row | output of the rest of the row | 0 | 1.0e-4 | 2.58e-2 | 2.59e-2 | 3.65e-2 |
+| one outlier of 2^20 per row | whole output | 0 | 4.4e-6 | 2.07e-4 | 2.08e-4 | 2.30e-4 |
+| one outlier of 2^20 per row | output of the rest of the row | 0 | 3.6e-2 | 1.70 | 1.70 | 1.88 |
+
+What it means:
+
+- The per-element relative error has no useful maximum. Outputs that cancel to near zero carry an absolute error of about 3e-4 of output RMS, so their relative error is large. The usable bound is absolute: no element is off by more than about 3e-3 of output RMS, and 99.9 percent are within about 1.4e-3.
+- The error has two equal parts: the fp16 cast of the decoded weights (it changes 98.7 percent of weight elements; relative L2 2.07e-4) and the 11-bit output rounding (2.07e-4). Together about 2.9e-4. The activation cast is not a part that matters for ordinary inputs (2.6e-9), and fp16 accumulation is not a part at all, because there is none.
+- The review caveat, with numbers. The power-of-two scaling is exact: with exact operands and an unrounded output, the error is 0 in every row. The fp16 cast of the activations after it is not exact, but it is small. With one activation of 16000 in a row of unit-scale values, 68 percent of the scaled activations fall below 2^-14 and 6.6 percent change in the cast, yet that cast costs only 1.0e-4 of the output that the rest of the row carries. At an outlier of 2^20, 96 percent of activations change, 5.0 percent flush to zero, and the cast costs 3.6e-2 of it.
+- A dominant outlier still hides the rest of the row, for a different reason. The outlier's own product dominates the output, and it is carried at fp16 precision twice: in the fp16 weight and in the 11-bit output. Each costs about 2.07e-4 of the whole output. The rest of the row is 8.0e-3 of the output at an outlier of 16000 and 1.2e-4 at 2^20, so the same absolute error is 3.65 percent of the rest-of-row signal at 16000 (3.68 percent through the kernel, 4.12 percent with ConvRot 256) and 188 percent at 2^20. At 2^20 the rest of the row is lost, while the error against the full output still reads 2.3e-4. Whole-output metrics do not show this.
+
+**Not covered.** Synthetic activations only; no checkpoint was loaded, so how often real rows have such an outlier is not measured. torch 2.14.1 and one chip (M1 Max) only. The bf16 tensor input path of the kernel was not exercised. Whether the kernel's fp32 compute path avoids the outlier loss was not measured.
+
+## 2026-11-09: Packed W4A8/W6A8 backward checked against fp64 at real Qwen widths
+
+The pre-grant review noted that the packed backward had only been checked numerically at n=67 and K up to 768. This closes that gap for single layers and for one MLP pair.
+
+**What was run.** `bench/probe_packed_backward_real_k.py`, through `bench/with_gpu.sh`, on an M1 Max (32 GB, torch 2.14.1, comfy-kitchen b5dd528). For each layer it draws a synthetic weight (normal times a log-normal mixture, log-normal row and column scales, std about 0.019, kurtosis 16 to 24), quantizes it with the repo's own eager quantizers, and calls the MPS input-gradient kernel (`int8_linear_grad_input`, `w4a8_linear_grad_input`). The reference is fp64 on CPU: the same gradient times the weight decoded in fp64 from the same packed tensors. So the numbers below are kernel arithmetic error only. Quantization error is separate and is not what this measures.
+
+- Formats: INT8 ConvRot, W6A8 (group 32), W4A8 (group 16, codebook), W4A8 asymmetric.
+- Shapes (K to N): 3072 to 3072, 3072 to 12288, 12288 to 3072, 12288 to 12288 (the review's grid), plus the three shapes in the real Qwen-Image 2.1 INT8 header: 4096 to 4096, 4096 to 24576 (`img_mlp` gate_up), 12288 to 4096 (`img_mlp` out). Only the header was read; no checkpoint weights were loaded.
+- M = 512 tokens. Gradient dtypes bf16 (scale 2e-5), fp16 (scale 1.0), fp32 (scale 2e-5). The 256 MB decode bound split the backward into 1 to 3 chunks depending on shape.
+- Largest sampled MPS driver memory 2.055 GiB (sampled at sync points). Wall time 2 minutes. No non-finite values in any of the 84 cases.
+
+**Single-layer input gradient, range over all 28 layer cases per dtype (relative L2 against fp64):**
+
+| gradient dtype | kernel | fp64 rounded to that dtype (floor) | dense matmul on MPS, same dtype | kernel with fp32 output |
+|---|---|---|---|---|
+| bf16 | 1.676e-3 to 1.691e-3 | 1.650e-3 to 1.665e-3 | 2.334e-3 to 2.362e-3 | 2.914e-4 to 2.947e-4 |
+| fp16 | 3.568e-4 to 3.600e-4 | 2.063e-4 to 2.092e-4 | 2.920e-4 to 2.948e-4 | 2.909e-4 to 2.941e-4 |
+| fp32 | 9.654e-7 to 1.625e-6 | 2.523e-8 to 2.555e-8 | not run | same as kernel |
+
+Cosine similarity rounds to 1 in every case; 1 minus cosine is at most 1.43e-6 (bf16). The worst single token row is 1.80e-3 relative L2 in bf16. The largest absolute error is 0.128 on an fp16 gradient whose reference peak is 306.9; in bf16 at training scale it is at most 1.5e-5. The autograd path returned the same tensor as the direct kernel call in every bf16 case.
+
+**MLP pair with LoRA (4096 to 24576, SwiGLU, 12288 to 4096, rank 16, M = 256).** Relative L2 of the LoRA A and B gradients of both layers against a hand-written fp64 chain:
+
+| activations | kernel path | dense MPS path, same dtype |
+|---|---|---|
+| bf16 | 5.08e-3 to 5.31e-3 | 5.62e-3 to 5.84e-3 |
+| fp32 | 1.72e-6 to 1.78e-6 | 1.73e-6 to 1.78e-6 |
+
+The input gradient of the pair is 4.81e-3 to 4.83e-3 (bf16 kernel) against 5.67e-3 to 5.70e-3 (bf16 dense).
+
+**What it means.**
+
+- The packed backward is correct at Qwen's real widths. Within this probe (K from 3072 to 12288, N up to 24576, 1 to 3 decode chunks) the error does not depend on width or chunk count in bf16 or fp16; with fp32 gradients it grows from 9.7e-7 to 1.6e-6 with N. Widths below 3072 were not rerun here. All four formats give the same error to within 1 percent of each other, so the 4-bit and 6-bit unpack adds no error of its own.
+- In bf16 the kernel sits about 1.5 percent above the best any bf16 output can do. It reads lower than the dense bf16 matmul on MPS, but that comparator stores the dequantized weight in bf16 (8 significand bits) while the kernel decodes to fp16 (11 bits), so the gap mostly reflects weight storage, not better arithmetic. The error a trainer sees is bf16 rounding of the result, not the kernel.
+- In fp16 the kernel is not at the floor: 3.57e-4 to 3.60e-4 against 2.06e-4 to 2.09e-4, and about 22 percent above a dense fp16 matmul on MPS.
+- The kernel's own contribution is the fp16 GEMM, about 2.9e-4, visible when the output is fp32. With fp32 gradients it drops to about 1e-6.
+- For scale: the quantization error of these synthetic weights (relative L2 of dequantized against source) is 0.0093 to 0.0100 for INT8, 0.0231 to 0.0233 for W6A8, and 0.071 to 0.073 for W4A8. The bf16 backward arithmetic error is 5.5 to 43 times smaller than that.
+
+**Limits.** The weights are synthetic, not Qwen's. The review's "3072" does not appear among the quantized layers in the Qwen-Image 2.1 INT8 header, whose widths are 4096 and 12288; unquantized layers were not checked. Both sets were run. This is one layer and one MLP pair. It says nothing about error accumulated through the full depth of the model, which is a separate open item. No timings were recorded because the host was under heavy load (load average 21 to 37).
+
+Raw: [review/2026-11-09-experiments/packed-backward-real-k.json](review/2026-11-09-experiments/packed-backward-real-k.json). The `command` field in that file is a fixed string, not a captured command line.
+
+## 2026-11-09: CUDA control for the wide-K slowdown (partial: T4 at two widths only)
+
+`bench/repro_mps_wide_linear.py` now takes `--device` (default `mps`), and `modal/modal_app.py` runs the same script on CUDA (`cuda_wide_k_t4`, `_a10g`, `_a100`): same eight variants, interleaved rounds, minimum over 3 rounds x 5 calls, M=4608, N=6144. Raw: [../modal/results/2026-11-09-cuda-wide-k.json](../modal/results/2026-11-09-cuda-wide-k.json). The T4 object in that file is the script's output; the underscore-prefixed keys and the not-run entries were added by hand.
+
+Only a two-width check on a Tesla T4 (torch 2.15.0+cu132) was measured. The full sweep (K up to 32768 plus 32769, on T4, A10G and A100) was refused by the session's permission layer before launch, twice, and has not run. A10G and A100 have no measurement.
+
+Milliseconds per call; ratio is `F.linear(x, w)` over `x @ wt` (contiguous). M1 Max figures are from [review/2026-11-09-experiments/wide-k-32769.json](review/2026-11-09-experiments/wide-k-32769.json), torch 2.14.1.
+
+| dtype | K | T4 F.linear | T4 x @ wt | T4 ratio | M1 Max F.linear | M1 Max x @ wt | M1 Max ratio |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| fp16 | 4096 | 9.1 | 9.8 | 0.93 | 25.3 | 26.1 | 0.97 |
+| fp16 | 8192 | 17.7 | 20.3 | 0.87 | 60.2 | 51.4 | 1.17 |
+| fp32 | 4096 | 49.4 | 51.2 | 0.96 | 44.0 | 27.7 | 1.59 |
+| fp32 | 8192 | 102.9 | 116.3 | 0.89 | 141.2 | 56.1 | 2.52 |
+
+What it means. At K=4096 and 8192 the T4 does not show the MPS effect: `F.linear` with the standard `[N, K]` weight is 4 to 13 percent faster than the pre-transposed contiguous matmul, where the M1 Max is already 1.17x slower in fp16 at K=8192 and 1.59x and 2.52x slower in fp32. On T4 the variants differ by up to 0.0039 in fp16 (0.0 at K=4096) and 2.3e-05 in fp32; on MPS they are bit-identical. The widths where the MPS gap is large (16384, 32768; 3.23x in fp16 and 7.89x in fp32 at K=32768 in the same day's M1 Max rerun) and the reroute width (32769) are not measured on CUDA, so "CUDA is about 1.0x at K=32768" remains untested.
+
+Only the ratios are meant to be compared. Absolute milliseconds vary between T4 containers (the GEMM anchor measured 16.8 ms median for fp16 `F.linear` at K=6144; this run measured 17.7 ms minimum at K=8192 with the same M and N) and are not a speed comparison against the M1 Max. The T4 fp32 rows do not record the TF32 setting (T4 has no TF32; torch's default is off); the function now records it for the full run.
+
+A wording point for the earlier anchor: its "fp16, transposed weight" column times `F.linear(x, wt.t())` with the weight stored `[K, N]`, the layout MPS runs fast. Its 1.53x on T4 at K=16384 ([../modal/results/2026-11-09-cuda-gemm-anchor.json](../modal/results/2026-11-09-cuda-gemm-anchor.json)) is a slowdown in the opposite direction from the MPS one and is not a control for it. The earlier entry is corrected in place.
+
+To finish: `modal run modal/modal_app.py --wide-k --gpus T4,A10G,A100 --out modal/results/2026-11-09-cuda-wide-k.json`.
+
+## 2026-11-09: Krea 2 Turbo four-way sweep, completed at four sizes
+
+The sweep the pre-grant review asked for (E1) ran to completion after the Colima VM and other large applications were stopped. `bench/krea_four_way.py` runs every cell in a fresh process through `bench/gpu_runner.py --monitor`, in a shuffled order, with host state recorded before each run. Krea 2 Turbo INT8 ConvRot, 8 steps, cfg 1, seed 42, text conditioning captured once per cell and reused. M1 Max 32 GB, torch 2.14.1, macOS 27.0.1.
+
+What the four cells are:
+
+- "stock" is this repo's ComfyUI fork with the Metal formats switched off (`MODE=stock`): weights are dequantized on every call and computed in bf16. It is not a separate upstream checkout.
+- "kernel" is the same fork with the comfy-kitchen mps backend (`MODE=metal`).
+- Each runs with ComfyUI's sub-quadratic attention (`ATTN=quad`) and with PyTorch SDPA (`ATTN=pytorch`). Stock with sub-quadratic attention is the closest cell to upstream's default on Apple GPUs.
+
+How a step is counted: `bench/run_krea2.py` reports the intervals between sampler callbacks, so 8 steps give 7 intervals and the first step, which includes the weight load, is never in them. The figure per run is the median of the intervals after dropping the first.
+
+Files, all under `docs/review/2026-11-09-experiments/`:
+
+- `e1-krea-four-way-pass2.jsonl`: 512 and 1024, three repeats, 24 of 24 runs completed. `--sizes 512,1024 --repeats 3 --cond-cache auto --capture --swap-growth-gib 8`.
+- `e1-krea-768-check.jsonl`: 768, two repeats, 8 of 8. Same flags with `--sizes 768 --repeats 2`.
+- `e1-krea-256-check.jsonl`: 256, two repeats, 8 of 8. Same flags with `--sizes 256 --repeats 2`.
+- `e1-krea-four-way.jsonl`: pass 1 with the default 4 GiB swap-growth cap, stopped by hand after 12 of 24 runs had started. Six completed and six were stopped by the monitor (below).
+- `e1-krea-predictions.md`: the 768 and 256 predictions, written before those runs.
+
+Seconds per step, lowest to highest run in each cell. GB is `driver_allocated_memory` read once after sampling and before VAE decode; it is not a peak and it excludes the text encoder.
+
+| Size | Stock, sub-quadratic | Stock, SDPA | Kernel, sub-quadratic | Kernel, SDPA | Speedup |
+| --- | --- | --- | --- | --- | --- |
+| 256 (n=2) | 4.27 to 4.29, 15.1 GB | 4.25 to 4.29, 15.1 GB | 1.23, 14.1 GB | 1.22, 13.1 GB | 3.5x |
+| 512 (n=3) | 8.32 to 8.57, 15.1 GB | 8.35 to 8.56, 15.1 GB | 3.75 to 3.76, 14.1 GB | 3.76 to 3.78, 14.1 GB | 2.2x to 2.3x |
+| 768 (n=2) | 15.96 to 16.17, 16.2 GB | 15.89 to 15.90, 15.2 GB | 8.41 to 8.48, 15.2 GB | 8.54 to 8.57, 14.2 GB | about 1.9x |
+| 1024 (n=3) | 27.89 to 27.92, 19.3 to 20.9 GB | 27.13 to 28.01, 16.3 GB | 16.08 to 16.12, 18.3 to 19.8 GB | 15.87 to 16.08, 15.2 GB | about 1.7x |
+
+What this shows:
+
+- **The speedup shrinks as the image grows.** The gap between stock and kernel is about 3.05 s/step at 256, 4.6 to 4.8 at 512, 7.3 to 7.8 at 768 and 11.3 to 11.8 at 1024 (the low ends pair the faster stock runs after 14:00). With M = (side/16)^2 + 46 tokens (302, 1070, 2350, 4142) that fits a fixed cost of about 2.3 to 2.4 s/step plus about 2.2 ms per token. The 2.26 s plus 2.17 ms figure in `e1-krea-predictions.md` is fitted to the after-14:00 SDPA runs at 512 and 1024 only. A fixed cost is consistent with stock dequantizing and un-rotating every weight on every call, which does not depend on image size. No profile was taken, so this is a fit, not a measured breakdown.
+- **Predictions written before the two extra sizes mostly held.** They are in `e1-krea-predictions.md`. The 768 prediction used an earlier fit to the 512 and 1024 runs (stock as a fixed 2.10 s plus a per-pixel term, text tokens ignored) and both halves held (stock 16.6 predicted, band 15.8 to 17.4; kernel 8.70, band 8.3 to 9.1). The 256 prediction used the token fit above, made after 768: stock held (3.97 predicted, band 3.6 to 4.4), the kernel missed narrowly (1.05 predicted, band 0.9 to 1.2, measured 1.22 to 1.23), and the gap came in at 3.05 s against 2.91 predicted. The alternative with no fixed cost predicted stock at 1.7 to 2.4 s/step at 256 and is ruled out.
+- **Attention mode does not change speed on Krea today.** Within each of stock and kernel the two attention modes are within about 2 percent of each other at every size, with no consistent direction. October's "24 s/step with the kernel alone, 16.5 with SDPA" at 1024 does not reproduce: kernel with sub-quadratic attention measures 16.1. The October run was probably under memory pressure; that is not proven. One confound in today's 1024 data: all six sub-quadratic runs started before 13:50 and five of the six SDPA runs started at 13:54 or later, so attention mode and time of day are partly tied together there. Stock runs late in the sweep were about 3 percent faster than early ones (512: 8.32 to 8.35 against 8.54 to 8.57; 1024 SDPA: 27.13 against 28.01); the cause is unknown.
+- **Memory.** The kernel holds about 1 GB less than stock after sampling in the like-for-like SDPA cells at 512, 768 and 1024, and 2 GB less at 256. Readings in the SDPA cells and at 256 to 768 move in steps of about 1 GB; the 1024 sub-quadratic readings move by about 0.5 and 1.5 GB between runs. Sub-quadratic attention holds 3 to 5 GB more than SDPA at 1024 on either path, and that reading is not repeatable: kernel 18.30, 19.83, 18.30 in pass 2 and 19.83, 20.37 in pass 1; stock 20.85, 20.86, 19.32.
+- **The stock 1024 figure is now clean.** "About 35 s, one run during a download" (line 36, flagged at line 45) is replaced by 27.1 to 28.0 over six runs.
+- **The kernel is slower than its October best.** Kernel with SDPA at 1024 was 14.91 s/step (line 331) and 15.02 to 15.06 (line 295) in October and is 15.87 to 16.08 today, 5 to 8 percent slower. At 512 it was 3.65 to 3.69 (line 83) and is 3.75 to 3.78 in pass 2, 2 to 4 percent slower; one pass 1 run today measured 3.69. The cause is not established. macOS went from 15.7 to 27.0.1 and the vendored ComfyUI and comfy-kitchen have commits since. The linear-layer microbenchmark has not slowed (below), so the single-layer decode and GEMM at Krea shapes are not the cause.
+
+Repeats: three per cell at 512 and 1024 and two at 256 and 768, not the five the review asked for. The ranges inside a cell are up to 1.3 percent for the kernel (1024 SDPA; under 1 percent in the other seven kernel cells) and up to about 3 percent for stock, so two more repeats would not change a headline.
+
+### The swap guard, pass 1 against pass 2
+
+Pass 1 used the monitor's default cap of 4 GiB of system swap growth and stopped six of twelve runs (return code 125, "swap growth"): 1024 stock sub-quadratic twice, 1024 stock SDPA once, 512 stock sub-quadratic twice and 512 kernel sub-quadratic once. Five of the six stops were stock runs and one was a kernel run.
+
+- Every run that started with system swap at about 2.8 to 3.9 GiB was stopped, with swap rising to about 7.5 to 8.2 GiB, except one (1024 kernel sub-quadratic at 12:21, 3.67 GiB). That is all five stock runs and one of two kernel runs.
+- Every run that started right after a stop showed 7.5 to 8.2 GiB of swap in use in the driver's reading just before launch, and completed. The monitor's own baseline is not recorded for completed runs. `gpu_runner` reads it once at start, and the previous job's swap had not been released yet, so those runs were most likely measured against a baseline that was too high. That is consistent with the stop, complete, stop alternation.
+- Host state also differed: the 1-minute load average at pass 1 starts was 5 to 21. The five completed runs that started right after a stop, with swap near 8 GiB, had far longer wall times (512 kernel SDPA 287 and 305 s against 73 to 102 s in pass 2). The one completed run that started at a normal swap level (1024 kernel sub-quadratic, 179 s at load average 19) was not slower than pass 2 (210 to 234 s). Pass 2 starts show a load average of 0.9 to 3.6 for every run but the first (12.4 at 13:06, still decaying from pass 1) and swap of 2.8 to 3.9 GiB before each run.
+- What is not known: how much swap pass 2's runs grew, because growth is recorded only for stopped runs, and so whether today's sweep would pass the 4 GiB cap on a quiet host.
+
+Changes, in effect from the 256 check onward: the driver waits for swap to stop falling before each run (`settle`, up to 90 s) and records the wait in `host_before.settle`, and it writes the swap cap, RSS cap, deadline, cond-cache mode, sizes and repeats into the header. Pass 2 and the 768 check predate this: they ran without the settle wait, and their headers do not record the 8 GiB cap, which is known only from the commands above. `gpu_runner`'s default cap is unchanged at 4 GiB. The six completed pass 1 runs are within 2 percent of pass 2 and are not in the table above: 512 kernel SDPA 3.77 to 3.78 and 512 stock SDPA 8.54 fall inside the pass 2 ranges, while kernel sub-quadratic was 1 to 2 percent faster than in pass 2 (512: 3.69 against 3.75 to 3.76; 1024: 15.93 to 15.95 against 16.08 to 16.12).
+
+### Checks run alongside
+
+- `bench/bench_int8_linear.py`, two runs, saved as `docs/review/2026-11-09-experiments/int8-linear-microbench-rerun.txt`. Milliseconds per call for bf16, fp16, ComfyUI-style dequantize per call, and the prototype kernel: K=6144, N=6144: 68.6, 37.8 to 38.6, 76.4 to 76.5, 41.2 to 42.8. K=6144, N=16384: 181.8, 101.2 to 101.7, 204.2 to 205.1, 106.5 to 107.0. K=16384, N=6144: 225.4, 200.7 to 222.6, 238.7 to 249.5, 208.9 to 213.8. These are at or below the October 2 table from the same script (lines 17 to 19): within 4 percent at K=6144 and 4 to 9 percent faster at K=16384 in three of four columns, where fp16 also varied by 11 percent between today's two runs. The 103 and 107 ms at K=16384 in the hardened table (lines 76 to 81) come from the comfy-kitchen backend path, which avoids the wide-K `F.linear` slowdown; they are a different measurement, not a regression.
+- CPU test suite: `pytest tests --ignore=tests/test_gguf_node.py`, 685 passed, 16 skipped.

@@ -35,6 +35,7 @@ M1 Max 32 GB, torch 2.14.1, fp16 (2026-10-03, original branch; not re-measured i
 | Wan 2.2 5B 704x416x33, per step | 3.33 s, 6.1 GB | 3.61 s, 8.3 GB |
 | Wan 2.2 5B 1280x704x81, per step | 37.4 s, 9.1 GB | 67.4 s, 17.2 GB (swaps) |
 | One 14B 832x480x81 self-attention (4.3e10 scores) | 3.0 s, 3.0 GB | 11.9 s, 11.0 GB |
+| Krea 2 Turbo INT8 1024x1024, per step (2026-11-09, integrated runtime with the mps backend) | 15.9 to 16.1 s, 15.2 GB | 16.1 s, 18.3 to 19.8 GB |
 
 ## What the probes showed (2026-10-09, M1 Max 32 GB, macOS 15.7)
 

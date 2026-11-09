@@ -13,9 +13,9 @@ M1 Max, 32 GB, torch 2.14.1. GPU memory figures are driver allocation after samp
 | Measurement | Result |
 | --- | --- |
 | INT8 ConvRot linear vs resident fp16 weights | Within about 2–5% of a resident fp16 GEMM, at half the memory. ComfyUI's stock path (dequantize per call, bf16 compute) is 1.2–1.9× slower than fp16 on the same shapes. |
-| Krea 2 Turbo, 512×512, per step | 8.7 s on stock ComfyUI → 3.7 s with the kernel (2.35×). |
+| Krea 2 Turbo, 512×512, per step | 8.3–8.6 s on stock ComfyUI → 3.75–3.78 s with the kernel (about 2.3×). GPU memory after sampling 15.1 GB → 14.1 GB. Six fresh-process runs each, November 9. |
 | Qwen-Image 2.1, 1024×1024, per step | 15.1 s on stock ComfyUI → 8.8 s with the kernel. GPU memory after sampling 9.1 GB in both. |
-| Krea 2 Turbo, 1024×1024, per step | About 35 s on stock ComfyUI → about 15 s with the kernel and PyTorch SDPA attention. GPU memory after sampling 21.7 GB → 15.0 GB. The stock figure is a single noisy run (29 to 50 s/step, measured during a download); rerun pending. |
+| Krea 2 Turbo, 1024×1024, per step | 27.1–28.0 s on stock ComfyUI → 15.9–16.1 s with the kernel (about 1.7×), with the same attention on both sides. GPU memory after sampling 16.3 GB → 15.2 GB with PyTorch SDPA attention. ComfyUI's default sub-quadratic attention runs at the same speed but holds 3 to 5 GB more on either path. Six fresh-process runs each, November 9. The speedup is smaller at larger sizes: 3.5× at 256, 2.3× at 512, 1.9× at 768, 1.7× at 1024. |
 | MiniMax H3, 6-bit W6A8 (16 GB) | 6.5 s/step at 480×288×22. Stock ComfyUI can't run this format on Apple GPUs at all. |
 | GGUF decode on Metal | Bit-exact against the `gguf` reference for twelve block types (Q4_0 through Q6_K, plus IQ4_NL and IQ4_XS since November 9). See [GGUF on Metal](docs/research/2026-10-03-gguf-on-metal.md). |
 | EXL3 LLM weights on Metal (prototype) | Correct on real 27B-model matrices, but 2.4–4.4× slower than llama.cpp's GGUF kernels, measured as complete-call wall time with fp16 against f32 I/O and different model lineages on the two sides. I stopped there rather than port it. See [EXL3 prototype](docs/research/2026-10-25-exl3-prototype.md). |

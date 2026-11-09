@@ -128,14 +128,14 @@ Mac Studio M1 Max (32-core GPU), 32 GB, macOS 15.7, PyTorch 2.14.1.
 - Decoding the integer weight once per call costs about 3 to 5% over a resident fp16 weight (October 3 hardening table; 4 to 9% before hardening), at half (INT8) or under a third (W4A8) of the memory.
 
 **Why fp16, not bf16.**
-- On the M1 Max the bf16 GEMM is about 1.75x slower than fp16 (70.0 against 37.8 ms at 4608x6144x6144), because bf16 is emulated.
+- On the M1 Max the bf16 GEMM is about 1.75x slower than fp16 (70.0 against 37.8 ms at 4608x6144x6144). The cause was not investigated.
 - fp16 was also more accurate here: relative error 0.0004 against 0.0029.
 - The cost of fp16 is its range, which the normalization below handles.
 
 **Why power-of-two normalization.**
 - fp16 overflows at 65504, and real activations get there. MiniMax H3's text conditioning reaches about 16,000, and the first version produced all-NaN latents.
-- Dividing rows by an exact power of two changes no value (the mantissa is untouched). It bounds every GEMM operand by 1 and every dot product by K, and the exponent comes back in integer arithmetic in the epilogue.
-- Unlike a float scale it is exact, and it holds at the dtype limits: near-max values, subnormals and zero rows.
+- Dividing rows by an exact power of two is an exact scaling. It bounds every GEMM operand by 1 and every dot product by K, and the exponent comes back in integer arithmetic in the epilogue.
+- Unlike a float scale it is exact, including for near-max values and zero rows. The fp16 cast after it keeps full precision only down to about rowmax*2^-14: smaller elements of a row become fp16 subnormals and lose bits, and the GEMM output carries fp16's 11 significand bits. For bf16 inputs the practical effect is negligible.
 
 **What M5 would need.** M5-class Apple GPUs add matrix hardware with integer support, reachable through Metal's newer tensor APIs. An activation-quantized path there would need:
 - per-row INT8 activation quantization (eager's `quantize_int8_rowwise` semantics) fused into the prologue;

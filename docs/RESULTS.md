@@ -2,16 +2,19 @@
 
 Curated 2026-11-09 from the dated log in [findings](findings.md). This page keeps only the numbers that stand on their own: a clean stock-versus-ours pair, or a format stock cannot run at all. Every row names the findings line it comes from. The full log holds the rest, with its noise and caveats. [REPRODUCING.md](REPRODUCING.md) has the commands.
 
-All numbers are from one M1 Max with 32 GB, torch 2.14.1, one process per run. "Stock" is ComfyUI as shipped, which dequantizes quantized weights on every call on Apple GPUs. "Ours" is the same ComfyUI with the quantized layers routed to the comfy-kitchen mps backend. Each number is a median or a steady-state step from one process, not a multi-process distribution. Memory is `driver_allocated_memory` after sampling unless the row says peak.
+All numbers are from one M1 Max with 32 GB, torch 2.14.1, one process per run. "Stock" is ComfyUI's own path for these files, which dequantizes quantized weights on every call on Apple GPUs. For the INT8 rows it is this repo's ComfyUI fork with the Metal formats switched off (`MODE=stock`), not a separate upstream checkout. "Ours" is the same ComfyUI with the quantized layers routed to the comfy-kitchen mps backend. Each number is a median or a steady-state step from one process, not a multi-process distribution, except the Krea rows, which give the lowest and highest of six fresh processes per side. Memory is `driver_allocated_memory` after sampling unless the row says peak.
 
 ## End to end, stock versus ours
 
 | Model and shape | Stock | Ours | Speedup | Memory | Source |
 | --- | --- | --- | --- | --- | --- |
-| Krea 2 Turbo INT8 ConvRot, 512x512, 8 steps | 8.7 s/step | 3.65 to 3.69 s/step | 2.4x | not recorded at 512 | findings.md:36 (stock), :83 (ours, after hardening) |
+| Krea 2 Turbo INT8 ConvRot, 512x512, 8 steps | 8.3 to 8.6 s/step | 3.75 to 3.78 s/step | 2.2x to 2.3x | 15.1 vs 14.1 GB | findings.md, 2026-11-09 four-way sweep |
+| Krea 2 Turbo INT8 ConvRot, 1024x1024, 8 steps | 27.1 to 28.0 s/step | 15.9 to 16.1 s/step | 1.7x | 16.3 vs 15.2 GB with SDPA attention | findings.md, 2026-11-09 four-way sweep |
 | Qwen-Image 2.1 INT8 ConvRot, 1024x1024, 25 steps | 15.1 s/step | 8.8 s/step | 1.7x | 9.1 GB both | findings.md:95-96 |
 | Qwen-Image 2.1 Q4_K_M GGUF, 512x512, 6 steps, Viggle adapter, sampling phase | 66.43 s | 39.56 s | 1.68x | 5.99 vs 4.99 GiB | findings.md:546 |
 | Wan 2.2 5B Q4_K_M GGUF, 704x416x33, 20 steps, sampling phase | 200.71 s | 145.93 s | 1.38x | not recorded | findings.md:560 |
+
+The Krea rows cover both attention modes, which run at the same speed on this model. ComfyUI's default sub-quadratic attention holds 3 to 5 GB more than SDPA at 1024 on either side. The same sweep measured 3.5x at 256 and 1.9x at 768: the speedup shrinks as the image grows. In these six runs per side the kernel is slower than its October single runs: 2 to 4 percent at 512 (3.65 to 3.69 s/step, findings.md:83; one earlier run on November 9 also measured 3.69) and 5 to 8 percent at 1024 (14.91 and 15.02 to 15.06, findings.md:331, :295). The cause is not established.
 
 The GGUF rows compare against ComfyUI-GGUF's own dequantize-per-call path, run with the same captured conditioning and seed. Outputs are close but not identical (Qwen: 27.24 dB PSNR, 0.9499 SSIM; Wan: 24.10 dB, 0.9253; findings.md:546, :560). The two paths round differently: ComfyUI-GGUF computes block scales in fp16 and then casts the weight to bf16 (research/2026-10-03-gguf-on-metal.md:71). For Qwen the adapter is also applied differently, merged on every call in stock and kept beside the layer in ours (research/2026-10-03-gguf-on-metal.md:72, :97).
 
@@ -26,11 +29,10 @@ Stock ComfyUI cannot run the W6A8 format on Apple GPUs at all (findings.md:63). 
 
 ## Ours only, no clean stock pair
 
-These are the largest recipes that complete on this machine. I either did not run stock at the same size or the stock run was too noisy to quote (the Krea 1024 stock run happened during a download and still needs a rerun, findings.md:36, :45).
+These are the largest recipes that complete on this machine. I did not run stock at the same size.
 
 | Model and shape | Ours | Memory | Source |
 | --- | --- | --- | --- |
-| Krea 2 Turbo INT8 ConvRot, 1024x1024, 8 steps, SDPA | 14.91 s/step | 15.0 GB | findings.md:331 |
 | Wan 2.2 5B Turbo INT8 ConvRot, 1280x704x81, 4 steps | 37.4 s/step | 9.1 GB sampling peak | findings.md:152 |
 | Wan 2.2 A14B INT8 ConvRot + lightx2v LoRAs, 832x480x81, 4 steps | 216 s/step | 21.2 GB sampling peak | findings.md:153 |
 
@@ -78,6 +80,6 @@ Both changes are in the ComfyUI branch and apply to stock models too.
 
 ## Not in this table, and why
 
-- Krea 2 Turbo 1024, stock 35 s/step versus 16.5 s/step. The stock number is one run during a download, and the ours number is older than the 14.91 s/step above (findings.md:36, :45, :331). It waits for a clean four-way rerun.
+- Krea 2 Turbo 1024, stock 35 s/step versus 16.5 s/step, the October pair. The stock number was one run during a download (findings.md:36, :45). The clean four-way sweep in the first table replaces both.
 - MiniMax H3 INT8, stock 38 to 74 s/step versus 8.4 to 11.8 s/step. Stock was swapping, so the ratio is a memory story, not a kernel story (findings.md:112-117).
 - The EXL3 prototype, 2.4 to 4.4x slower than the installed ggml Metal kernels. It is an LLM-weight experiment, not a diffusion result; see [the EXL3 note](research/2026-10-25-exl3-prototype.md) (:7, :72).

@@ -24,8 +24,8 @@ M1 Max 32 GB, seconds per step, stock against this change:
 
 | Model | Stock | With the mps backend |
 |---|---|---|
-| Krea 2 Turbo INT8 ConvRot, 512x512 | 8.7 | 3.7 |
-| Krea 2 Turbo INT8 ConvRot, 1024x1024 | about 35 (noisy run) | 24 |
+| Krea 2 Turbo INT8 ConvRot, 512x512 (re-measured 2026-11-09) | 8.3 to 8.6 | 3.75 to 3.78 |
+| Krea 2 Turbo INT8 ConvRot, 1024x1024 (re-measured 2026-11-09) | 27.1 to 28.0 | 15.9 to 16.1 |
 | Qwen-Image 2.1 INT8 ConvRot, 1024x1024 | 15.1 | 8.8 |
 | MiniMax H3 INT8, 480x288x22 | 38 to 74 (swapping) | 8.4 to 11.8 |
 | MiniMax H3 W6A8, 480x288x22 | does not run | 6.5 |

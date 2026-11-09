@@ -102,7 +102,15 @@ The INT8 ConvRot files are Comfy-Org's published quantizations where they exist,
 
 Every runner is configured by environment variables, listed in the docstring at the top of each file. `MODE=stock` runs ComfyUI as shipped, with INT8 compute disabled on MPS so weights are dequantized per call. `MODE=metal` routes the quantized layers to the comfy-kitchen mps backend. Each run is one process, under the GPU runner with a deadline.
 
-Krea 2 Turbo at 512, the headline pair in RESULTS (findings.md:36 and :83):
+Krea 2 Turbo, the four-way sweep behind the Krea rows in RESULTS (findings.md, 2026-11-09). It runs stock and kernel with both attention modes, each in a fresh process, in a shuffled order:
+
+```sh
+MK_ROOT=<models> .venv/bin/python bench/krea_four_way.py --out results.jsonl \
+  --sizes 512,1024 --repeats 3 --cond-cache auto --capture --swap-growth-gib 8
+.venv/bin/python bench/krea_four_way.py --summarize results.jsonl
+```
+
+One stock and kernel pair at 512 by hand (the October numbers, findings.md:36 and :83):
 
 ```sh
 MODE=stock W=512 H=512 STEPS=8 CFG=1 SEED=42 TAG=repro PYTHONPATH=vendor/comfy-kitchen \

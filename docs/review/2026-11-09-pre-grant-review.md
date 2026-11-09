@@ -24,10 +24,10 @@ Reviewed 2026-11-09. Inputs were 9 reviewers, 8 web-research lanes, a two-vote a
 **M3. Krea 1024 row (README.md:16).** There are four problems:
 - The stock "35 s" is a single run taken during a download. The log flags it for a rerun (findings.md:36, :45). Its step times are 29.3-49.9 s, median 36.9 s, and the text-encoder load took 277 s against 37 s in the other runs.
 - The 16.5 s is an older number. Later runs measure 14.91 s (findings.md:331) and 15.02-15.06 s (:295).
-- The row mixes the kernel with SDPA attention, and stock+SDPA was never measured. Kernel alone is about 24.5 s/step.
+- The row mixes the kernel with SDPA attention, and stock+SDPA was never measured. Kernel alone is about 24.5 s/step. (Not reproduced on 2026-11-09: the kernel with sub-quadratic attention measured 16.1 s/step.)
 - The "21.7 -> 15.0 GB" figures are driver_allocated_memory snapshots taken after sampling, not peaks (bench/run_krea2.py:164, :172).
 
-**Fix:** lead with Krea 512², 8.7 -> 3.7 s/step (2.35x, findings.md:36, :83, :106). That pair has no noise caveat and is the headline of PR #249. Add Qwen-Image 2.1 1024², 15.1 -> 8.8 s/step at 9.1 GB (findings.md:95-96). Label memory as "after sampling". Drop or caveat the 1024 row until the four-way rerun (E1) exists.
+**Fix:** lead with Krea 512², 8.7 -> 3.7 s/step (2.35x, findings.md:36, :83, :106). That pair has no noise caveat and is the headline of PR #249. Add Qwen-Image 2.1 1024², 15.1 -> 8.8 s/step at 9.1 GB (findings.md:95-96). Label memory as "after sampling". Drop or caveat the 1024 row until the four-way rerun (E1) exists. (E1 ran later on 2026-11-09: 8.3-8.6 -> 3.75-3.78 s/step at 512² and 27.1-28.0 -> 15.9-16.1 at 1024²; findings.md, "2026-11-09: Krea 2 Turbo four-way sweep, completed at four sizes".)
 
 **M4. INT8 overhead is stale (README.md:15).** "4-9%" comes from the table before hardening (findings.md:14-22). Later tables give 3.3-4.5% (findings.md:76-81) and 1.4-2.1% (kitchen-pr-mps-backend.md:38-41). **Fix:** "within about 2-5% of a resident fp16 GEMM at half the memory." The "about 2x faster than dense fp16" at K=16384 holds only against F.linear's slow transposed path. Against a bare GEMM the kernel is still about 4% slower. Make the same correction in kitchen-pr-mps-backend.md:74 and comfy-kitchen-mps-backend.md:110, :128, which are live in PR #249. The dequantize-per-call ratio should read 1.2-2.0x.
 
@@ -100,7 +100,7 @@ On M1-M4, independent work agrees with this repo that activation quantization do
 - [unsloth #13344](https://github.com/unslothai/unsloth/pull/13344), 2026-10-15, found `_weight_int8pack_mm` unreliable across chips.
 
 **Closest competitors.**
-- [Siliconed](https://github.com/gwenn-ha-dev/Siliconed), Oct 2026: a standalone Swift/Metal app that reads the same Comfy-Org ConvRot files and streams weights. It runs Krea 1024 at about 18 s/step in 2.2 GB on an M1 Pro. The repo runs 14.9-15.3 s/step at 15 GB on an M1 Max.
+- [Siliconed](https://github.com/gwenn-ha-dev/Siliconed), Oct 2026: a standalone Swift/Metal app that reads the same Comfy-Org ConvRot files and streams weights. It runs Krea 1024 at about 18 s/step in 2.2 GB on an M1 Pro. The repo runs 14.9-15.3 s/step at 15 GB on an M1 Max. (15.9-16.1 s/step at 15.2 GB in the 2026-11-09 sweep.)
 - [Argus minimax-h3-mac](https://github.com/Argus-AiTeam/minimax-h3-mac): runs H3 1344x768x124 at about 601 s/NFE on a 24 GB M4 Pro by streaming blocks. The repo runs 1420-1940 s/step, memory-bound.
 
 Both show that memory headroom, not packed decode, is the next lever.
@@ -144,7 +144,7 @@ Modal status: authenticated and verified on 2026-11-09, CPU and GPU (payment met
 
 | # | Experiment | Where | Closest script | Cost |
 |---|---|---|---|---|
-| E1 | Clean four-way Krea run (stock, stock+SDPA, metal, metal+SDPA) at 512 and 1024. Fresh process each, 5 repeats, randomized order. | M1 Max | bench/run_krea2.py | ~2 GPU-h |
+| E1 | Clean four-way Krea run (stock, stock+SDPA, metal, metal+SDPA) at 512 and 1024. Fresh process each, 5 repeats, randomized order. | M1 Max | bench/run_krea2.py | ~2 GPU-h. Done 2026-11-09 with 3 repeats (2 at 256 and 768) |
 | E2 | torch 2.15.0 `_int_mm` vs weight-only kernel vs fp16 F.linear. No public M1-M4 number exists, so the repo can be first. | M1 Max | bench/bench_ck01_int8.py | hours |
 | E3 | Quality vs bitwidth against bf16. Qwen bf16 runs on the Mac. The H3 and Wan14B bf16 references need an A100-80GB. Add LPIPS/CLIP. | Split: Mac + Modal | run_h3.py, run_qwen21.py, img_similarity.py | ~$15-25 Modal |
 | E4 | CUDA GEMM anchor at the same shapes (T4 then L4) | Modal | modal_app.py::cuda_gemm_bench | <$1 |
@@ -197,7 +197,7 @@ Not a fit now:
 | ComfyUI-GGUF (stock) | M1 Max 64 GB | Wan 14B 832x480x33 Q4_K_S | ~240 | n/a | 2026-05-20 |
 | This repo | M1 Max | Qwen-Image 2.1 1024² INT8 | 8.8 | 9.1 GB | Oct 2026 |
 | mflux 8-bit | M4 Max 64 GB | Qwen-Image 2.1 1024² | 6.0 | ~30 GB | 2026 |
-| This repo | M1 Max | Krea 2 Turbo 1024² INT8 | ~15 | 15.0 GB (after sampling) | Oct 2026 |
+| This repo | M1 Max | Krea 2 Turbo 1024² INT8 | ~15 (15.9-16.1 at 15.2 GB on 2026-11-09) | 15.0 GB (after sampling) | Oct 2026 |
 | Siliconed | M1 Pro 16 GB | Krea 2 Turbo 1024² ConvRot | ~18 | 2.2 GB | Oct 2026 |
 | Argus | M4 Pro 24 GB | H3 1344x768x124 bf16, streamed | 601 /NFE | 15.8 GB | 2026 |
 | This repo | M1 Max | H3 1344x768x124 W4A8 | 1420-1940 | 30.1 GB, swapping | Oct 2026 |

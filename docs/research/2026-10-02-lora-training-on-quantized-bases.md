@@ -44,7 +44,7 @@ The unknown is attention backward: **MPS SDPA has no dedicated backward**; it us
 | Wan 5B 704x416x33 | 2574 | 5.1 | 1.3 | 0.9 | 1.3 | ~9 | yes |
 | Wan 5B 1280x704x81 | 18480 | 5.1 | 1.3 | 4 | 16 per tensor | n/a | needs flash backward |
 
-Step time [I]: forward is measured (`docs/findings.md`: Krea 2 3.65 s at 512, 16.5 s at 1024; Qwen 2.4 s and 8.8 s; Wan 5B 3.3 s). Checkpointed training is about 3× forward. Estimates: **Krea 2 512 11 to 14 s/step, 1024 50 to 60 s; Qwen 512 7 to 9 s, 1024 27 to 32 s; Wan 5B 10 to 12 s.**
+Step time [I]: forward is measured (`docs/findings.md`: Krea 2 3.65 s at 512, 16.5 s at 1024; Qwen 2.4 s and 8.8 s; Wan 5B 3.3 s). Checkpointed training is about 3× forward. Estimates: **Krea 2 512 11 to 14 s/step, 1024 50 to 60 s; Qwen 512 7 to 9 s, 1024 27 to 32 s; Wan 5B 10 to 12 s.** (2026-11-09 rerun: Krea 2 forward is 3.75 to 3.78 s at 512 and 15.9 to 16.1 s at 1024; the estimates were not recomputed.)
 
 ## Loss recipes to copy [V]
 
@@ -56,7 +56,7 @@ All use flow matching: `x_t = (1-σ)x0 + σε`, target `ε - x0`, unweighted MSE
 
 ## 3. MPS traps
 
-- **bf16 is emulated on M1.** Measured: GEMM 1.75× slower than fp16, conv3d 13× (`findings.md`). Diffusers' Krea 2 script raises on bf16 under MPS (`:1160, 1318`); SimpleTuner force-overrides it (`trainer.py:1262`). ai-toolkit #925 [S]: bf16 + convrot8 + automagic on MPS gave NaN loss and all-zero `lora_B`; fp32 + AdamW worked. Plan: fp16 compute, fp32 LoRA masters.
+- **bf16 is slow on this M1 Max.** Measured: GEMM 1.75× slower than fp16, conv3d 13×; whether that is emulation was not established (`findings.md`). Diffusers' Krea 2 script raises on bf16 under MPS (`:1160, 1318`); SimpleTuner force-overrides it (`trainer.py:1262`). ai-toolkit #925 [S]: bf16 + convrot8 + automagic on MPS gave NaN loss and all-zero `lora_B`; fp32 + AdamW worked. Plan: fp16 compute, fp32 LoRA masters.
 - **fp16 range.** Forward is hardened; backward needs the same row scaling (§1) plus dynamic loss scaling. [V] On torch 2.14.1 `GradScaler("mps")`, `autocast("mps")` in fp16 and bf16, fused AdamW and `torch.optim.Adafactor` all run.
 - **mflux lessons** [V, #739, #740]: zero-init B (their step 0 differed from base by ~3% and showed an 8 px grid); cast LoRA factors to activation dtype inside forward, or the net silently runs fp32 (74 s vs 9.5 s per step).
 - **Checkpointing** works in non-reentrant mode. **torch.compile**: a trivial inductor elementwise compile ran on MPS; ai-toolkit wraps its MPS fusion in a fallback (`convrot_quant.py:1236-1260`). Do not depend on it.

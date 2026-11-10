@@ -1235,3 +1235,20 @@ Thread experiment A ([the decode thread](research/program/threads/mps-decode.md)
 - **Equivalence.** Teacher-forced logits on 16 sequences of 96 tokens against a float32 run of the same model: stock fp16 max error 0.262, mean 0.0038, top-1 agreement with float32 99.22%; fused normalisation 0.230, 0.0036, 99.35%; both fused 0.230, 0.0036, 99.02% (3 positions of 1,536 fewer than stock). Greedy decoding with both fused diverged from stock once at batch 1; at that step stock's top two tokens were 0.016 logits apart, about one fp16 step, and the two models' logits never differed by more than 0.055 over 32 steps. That is a tie flip, not a loss. Random-token prompts make near-ties common; a real-text set would give a sharper check.
 
 Prediction written before the run (thread document): batch 1 at 16 ms or less. Measured 16.8 ms, so the prediction missed narrowly. After both changes about 3,700 aten calls remain per step; the next candidates are merged projections (query, key and value in one matrix; gate and up in one) and a fused gated activation.
+
+## 2026-11-10: torch.compile with a static cache, 1.6x Qwen3-1.7B decode on MPS and more accurate than eager
+
+Same model and settings as the entry above. `bench/bench_decode_compile.py`: the decode step wrapped in `torch.compile(dynamic=False)` with a `StaticCache` sized to prompt plus new tokens, against the same step eager with the same cache. Results in `docs/review/2026-11-10-experiments/decode-compile-*.json` and `equivalence-fp32-with-compile-2.15.0.json`.
+
+| ms per decode step | Eager, static cache | Compiled | Speed-up | Greedy agreement |
+|---|---|---|---|---|
+| Batch 1 | 25.2 | 15.8 | 1.60x | 100% |
+| Batch 4 | 29.5 | 22.9 | 1.29x | 91% |
+| Batch 16 | 42.5 | 38.2 | 1.11x | 95% |
+
+- First compiled pass about 15 to 17 s, once per shape. With the default dynamic cache, eager is a little faster (23.5 ms at batch 1 in the entry above), so against the default eager setup the batch-1 gain is about 1.5x.
+- **The compiled model is closer to float32 than eager.** Teacher-forced logits, 16 sequences of 96 tokens, against float32: compiled max error 0.097, mean 0.0027, 99.9th percentile 0.023, top-1 agreement 99.28%; eager fp16 0.262, 0.0038, 0.054, 99.22%. Inductor computes the fused elementwise chains in float32. The greedy disagreements at batches 4 and 16 are tie flips on the more accurate side.
+- Compile beats the hand-written fusions at batch 1 (15.8 against 16.8 ms) and needs no custom kernel. Its gain shrinks with batch because the time moves into the 2 to 16 row matrix kernels, which compile does not replace. The multi-row kernel (thread experiment B) targets exactly that.
+- **Merged projections** (query, key and value in one matrix, gate and up in one; `decode-fusions-merged-projections-2.15.0.json`) gave identical tokens and logits to stock and almost no speed: 1.02x at batch 1, 0.97x at batch 4, 1.07x at batch 16. At batch 1 the linears are bandwidth-bound and fewer calls do not help.
+
+Not yet checked: whether this recipe is documented for MPS (it is the standard recipe on CUDA), other models, long contexts, and memory overhead of the static cache.

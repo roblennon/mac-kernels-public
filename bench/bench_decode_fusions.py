@@ -18,6 +18,40 @@ def _rope(q, k, cos, sin, unsqueeze_dim=1):
         return fused_rope.apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim)
     return _orig_rope(q, k, cos, sin, unsqueeze_dim)
 q3.apply_rotary_pos_emb = _rope
+
+# Experiment C: merged projections. One matmul for query, key and value; one for gate and up.
+# Each output element is the same dot product as before; only the kernel's summation order can change.
+MERGED = {"on": False}
+_orig_mlp = q3.Qwen3MLP.forward
+def _mlp(self, x):
+    if not MERGED["on"]:
+        return _orig_mlp(self, x)
+    g, u = F.linear(x, self.gu_w).split(self.gate_proj.out_features, dim=-1)
+    return self.down_proj(self.act_fn(g) * u)
+q3.Qwen3MLP.forward = _mlp
+
+def merge_projections(model):
+    for mod in model.modules():
+        if isinstance(mod, q3.Qwen3MLP):
+            mod.gu_w = torch.cat([mod.gate_proj.weight, mod.up_proj.weight]).contiguous()
+        if isinstance(mod, q3.Qwen3Attention):
+            mod.qkv_w = torch.cat([mod.q_proj.weight, mod.k_proj.weight, mod.v_proj.weight]).contiguous()
+            sizes = [mod.q_proj.out_features, mod.k_proj.out_features, mod.v_proj.out_features]
+            stash = {}
+            oq, ok, ov = mod.q_proj.forward, mod.k_proj.forward, mod.v_proj.forward
+            def fq(x, mod=mod, sizes=sizes, stash=stash, oq=oq):
+                if not MERGED["on"]:
+                    return oq(x)
+                q, k, v = F.linear(x, mod.qkv_w).split(sizes, dim=-1)
+                stash["x"], stash["k"], stash["v"] = x, k, v
+                return q
+            def fk(x, stash=stash, ok=ok):
+                return stash["k"] if MERGED["on"] and stash.get("x") is x else ok(x)
+            def fv(x, stash=stash, ov=ov):
+                if MERGED["on"] and stash.get("x") is x:
+                    v = stash["v"]; stash.clear(); return v
+                return ov(x)
+            mod.q_proj.forward, mod.k_proj.forward, mod.v_proj.forward = fq, fk, fv
 _orig = q3.Qwen3RMSNorm.forward
 def _norm(self, x):
     if not FUSED["on"]:
@@ -51,18 +85,19 @@ def main():
     ap.add_argument("--batches", default="1,4,16"); ap.add_argument("--reps", type=int, default=3)
     a = ap.parse_args()
     model = AutoModelForCausalLM.from_pretrained(REPO, revision=REV, dtype=torch.float16).to("mps").eval()
-    arms = {"stock": (False, False, False, False), "fused_norm": (True, False, False, False),
-            "fused_rope": (False, False, False, True), "norm_and_rope": (True, False, False, True)}
+    merge_projections(model)
+    arms = {"stock": (False, False, False, False, False), "norm_and_rope": (True, False, False, True, False),
+            "merged_only": (False, False, False, False, True), "norm_rope_merged": (True, False, False, True, True)}
     res = {"torch": torch.__version__, "arms": list(arms), "cells": []}
-    for name, (f, s, e, r) in arms.items():
-        FUSED["on"], FUSED["exact"], FUSED["rope"] = f, e, r; run(model, 1, 8, 4, s, 0)
+    for name, (f, s, e, r, mg) in arms.items():
+        FUSED["on"], FUSED["exact"], FUSED["rope"], MERGED["on"] = f, e, r, mg; run(model, 1, 8, 4, s, 0)
     for B in [int(b) for b in a.batches.split(",")]:
         cell = {"batch": B, "ms": {k: [] for k in arms}}
         ref_toks = ref_logits = None; checks = {}
         for r in range(a.reps):
             order = list(arms) if r % 2 == 0 else list(reversed(arms))
             for name in order:
-                f, s, e, rp = arms[name]; FUSED["on"], FUSED["exact"], FUSED["rope"] = f, e, rp
+                f, s, e, rp, mg = arms[name]; FUSED["on"], FUSED["exact"], FUSED["rope"], MERGED["on"] = f, e, rp, mg
                 dt, toks, logits = run(model, B, 32, 32, s, seed=100 + B)
                 cell["ms"][name].append(dt * 1e3)
                 if r == 0:

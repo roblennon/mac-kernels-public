@@ -28,17 +28,20 @@ ids = torch.randint(1000, 30000, (16, 96), generator=g)
 dt = torch.float32 if a.mode == "ref" else torch.float16
 model = AutoModelForCausalLM.from_pretrained(REPO, revision=REV, dtype=dt).to("mps").eval()
 @torch.no_grad()
-def logits():
+def logits(fn=None):
+    fn = fn or (lambda x: model(x).logits)
     out = []
     for i in range(0, 16, 4):
-        out.append(model(ids[i:i + 4].to("mps")).logits.float().cpu())
+        out.append(fn(ids[i:i + 4].to("mps")).float().cpu())
     return torch.cat(out)
 if a.mode == "ref":
     torch.save(logits(), a.ref); print("ref saved")
 else:
     ref = torch.load(a.ref); res = {}
-    for v in ("stock", "fused_fp16", "fused_fp16_rope"):
-        MODE["v"] = v; L = logits(); err = (L - ref).abs()
+    compiled = torch.compile(lambda x: model(x).logits, dynamic=False)
+    for v in ("stock", "fused_fp16", "fused_fp16_rope", "compiled"):
+        MODE["v"] = "stock" if v == "compiled" else v
+        L = logits(compiled if v == "compiled" else None); err = (L - ref).abs()
         res[v] = {"max_abs": float(err.max()), "mean_abs": float(err.mean()), "p999_abs": float(err.flatten().kthvalue(int(err.numel() * 0.999)).values),
                   "top1_agree_with_fp32": float((L.argmax(-1) == ref.argmax(-1)).float().mean())}
         print(v, {k: round(x, 4) for k, x in res[v].items()}, flush=True)

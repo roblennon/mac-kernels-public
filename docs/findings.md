@@ -1318,3 +1318,40 @@ Speculative decoding verifies k drafted tokens with one forward of k + 1 tokens,
 Round 2 of the multi-row kernel (`docs/review/2026-11-10-experiments/multirow/round2/`, `README.md` and `REVIEW.md`): a fragment order that makes each weight fragment one word a GPU lane already loads removed most of the non-multiply overhead at 9 to 16 rows. The kernel alone takes Qwen3-1.7B fp16 decode at batch 16 from about 41 to 28 ms per step (1.47x to 1.49x, three processes, both noise arms within 1%), batch 12 1.50x, batch 8 1.33x to 1.37x. The 197 linears at batch 16 came in at 15 ms or less in 7 of 10 samples, and the kernel is now limited by streaming weights at about 280 GB/s. Correct in about 70,000 more runs with 18 planted bugs caught. The review found the tuning could not be rerun from the code and that several per-cell choices were noise; those are being fixed.
 
 **Provisional:** the verification-cost entry and the two prompt-lookup series above (and the compile-plus-kernel table) were measured while the round-2 builder was editing the kernel and its tuning table in the same working tree, so which kernel version they used is not known. The reviewer's rerun of verification cost with the round-2 table gave higher absolute times in both arms (for example 23.1 against 18.6 ms at T = 2 with the kernel) while the kernel still helped. All of these will be rerun on the final table, and this entry will say so.
+
+## 2026-11-10: Final numbers on the final kernel table (replaces the provisional entries above)
+
+Every benchmark that uses the multi-row kernel, rerun in one labelled batch on the final tuning table (commit 1f0649e), Qwen3-1.7B fp16, M1 Max, torch 2.15.0, with the machine otherwise quiet (the lab held its GPU and CPU work for the hour). Raw results and the batch script in `docs/review/2026-11-10-experiments/final-kernel-rerun/`. These supersede the compile-plus-kernel, verify-cost and prompt-lookup numbers recorded earlier today, which were measured while the kernel was being edited.
+
+**Decode, compile plus the multi-row kernel:**
+
+| ms per step | Eager, static cache | Compiled | Compiled + kernel | Speed-up |
+|---|---|---|---|---|
+| Batch 4 | 28.3 | 22.2 | 17.3 | 1.64x |
+| Batch 8 | 38.4 | 31.3 | 19.0 | 2.02x |
+| Batch 16 | 42.2 | 36.9 | 19.8 | 2.13x (about 810 tokens per second) |
+
+Batch 1 is unchanged: compile alone, 1.67x (entry above).
+
+**Verifying drafted tokens** (one forward of T tokens on a 256-token context, ms):
+
+| T | 1 | 2 | 3 | 5 | 9 | 13 | 17 |
+|---|---|---|---|---|---|---|---|
+| Eager | 23.1 | 27.4 | 27.9 | 31.4 | 43.9 | 48.2 | 52.8 |
+| Compiled | 16.1 | 30.7 | 25.0 | 29.4 | 40.7 | 43.9 | 50.0 |
+| Compiled + kernel | 16.0 | 19.4 | 18.8 | 19.0 | 23.0 | 24.3 | 52.1 |
+
+With the kernel, verifying 4 drafted tokens costs 1.19x a single step and 12 drafts 1.52x. Compiled without it, 1 draft costs 1.9x. At 17 rows the kernel is off.
+
+**Prompt-lookup speculative decoding** (160 tokens, greedy, ms per token against plain compiled decoding):
+
+| | Plain | Speculation | Speculation + kernel |
+|---|---|---|---|
+| Code edit, always draft | 17.6 | 6.70 (2.62x) | 5.01 (3.51x) |
+| Code edit, adaptive | 17.6 | 7.70 (2.28x) | 5.39 (3.26x) |
+| Free writing, always draft | 14.1 | 29.2 (0.48x) | 20.0 (0.70x) |
+| Free writing, adaptive | 14.1 | 16.4 (0.86x) | 14.4 (0.98x) |
+
+- Output identical to plain greedy in every run but one: adaptive with the kernel on free writing differs at token 34, where the top two candidates are 0.0156 logits apart (one fp16 step) and it is the plain run that departs from the model's own full-forward choice. Tie flip, checked with `bench/check_spec_divergence.py`.
+- Adaptive drafting no longer fully protects free writing without the kernel (0.86x, against 0.97x earlier). Likely the per-step scan of the whole context for matches, in Python; not measured.
+- **Equivalence at batch 16, decode path, against float32:** compiled plus kernel mean error 0.0030 and 99.9th percentile 0.022, against eager's 0.0040 and 0.032; max 0.104 against eager's 0.100; top-1 agreement 99.61% against 99.80% (one position of 512). Comparable to eager, better on mean and tail, a hair worse on max.

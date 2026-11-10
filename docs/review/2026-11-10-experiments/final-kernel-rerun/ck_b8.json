@@ -1,0 +1,18 @@
+{
+ "torch": "2.15.0",
+ "batch": 8,
+ "ms": {
+  "eager": 38.438958988990635,
+  "compiled": 31.30345797399059,
+  "compiled_kernel": 19.0257920185104
+ },
+ "token_agreement_vs_eager": {
+  "eager": 1.0,
+  "compiled": 1.0,
+  "compiled_kernel": 1.0
+ },
+ "compile_s": {
+  "compiled": 6.702481666987296,
+  "compiled_kernel": 5.805454957997426
+ }
+}

@@ -23,7 +23,9 @@ for name, prompt in tasks(tok).items():
         print(name, arm, "tokens that are not the model's own argmax in one full forward:",
               [(i, round(float(margin[i]), 4)) for i in off[:6]], "| count", len(off))
     ref, sp = d["plain"]["tasks"][name]["tokens"], d["spec_kernel"]["tasks"][name]["tokens"]
-    i = next(i for i, (x, y) in enumerate(zip(ref, sp)) if x != y)
+    i = next((i for i, (x, y) in enumerate(zip(ref, sp)) if x != y), None)
+    if i is None:
+        print(name, "speculative output identical to plain greedy"); continue
     with torch.no_grad():
         L = model(torch.cat([prompt, torch.tensor([ref[:i]])], 1).to("mps") if i else prompt.to("mps")).logits[0, -1].float().cpu()
     v, ix = L.topk(2)

@@ -2,9 +2,9 @@
 
 The running list for the programme framed in `FRAME.md`. One line per item. Decisions and their reasons go at the bottom so the next reader can see why, not only what. Lessons for card writers are in `LESSONS.md`.
 
-## Now: paused for reorientation (2026-11-10)
+## Now: gate batch 1 (2026-11-10)
 
-Rob paused this session and the lab on 2026-11-10. Nothing new goes to the lab until he has read the reorientation report (`reorientation-2026-11-10.md`).
+Rob read the reorientation report and chose "Measure the gates first". The subject gates had a cross-family review (`reviews/2026-11-10-gate-review-sol.md`) and were revised. The first batch is in `GATE-BATCH.md`: the role-swap check, then three cheap training gates. It goes to the lab, which runs it once Rob sets device time.
 
 ## Waiting on Rob
 
@@ -21,9 +21,9 @@ Rob paused this session and the lab on 2026-11-10. Nothing new goes to the lab u
 
 ## Open, ours
 
-- [ ] copies-as-evidence: the role-swap arm in T2 stayed on format (53 of 60) where every other arm failed (6 to 16 of 60). Check whether the control's cut-off filler sentence caused T2's collapse before the T2 wording change is trusted (one forward-only process, about 5 GPU-minutes).
+- [ ] copies-as-evidence role-swap check: R and RS differ only in the system prompt's last sentence (a 15-token fragment against a complete sentence), and T2 format went from 13 to 53 of 60. First item of gate batch 1, prediction written in the card.
 - [ ] copies-as-evidence: the redesign's last cold read found blocking gaps that were fixed but not re-read. Re-read before it goes to the lab.
-- [ ] The 27 new subject gates were designed, not measured, and none has had the different-family review that blocking gates get. Review them for needless slowness before the lab adopts them; consider running the cheapest gates as one batch.
+- [x] Subject gates reviewed by Sol for needless slowness and weakness; 141 changes applied across 23 cards, 20 points rejected with reasons
 - [ ] Parked cards owe searches: self-training-37, nested-bitplanes (paired-metric-floor's park was confirmed by a second reader).
 - [ ] Cards named but not written: card B for copies-as-evidence's loop-share question; a divergence-law card; an attention-hint card split from train-scaffolds.
 - [ ] Candidate new card: a one-row `nn.Linear` slow path on MPS (from the lab's Q003), with a search gate first.
@@ -44,6 +44,8 @@ Rob paused this session and the lab on 2026-11-10. Nothing new goes to the lab u
 - [x] Reorientation sweep: stale docs, learnings, process, new avenues (`raw/reorient_*.md`)
 
 ## Decisions
+
+- 2026-11-10: measure the gates first (Rob). A small first batch, not thirty harnesses; other cards read their gate from their own first run.
 
 - 2026-11-10: every card has a subject gate before its hypothesis test. A planted-effect check tests the instrument, not the subject.
 - 2026-11-10: copies-as-evidence step 2 is a fresh test, never pooled with step 1a.

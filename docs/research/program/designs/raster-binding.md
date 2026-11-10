@@ -57,7 +57,7 @@ Each version is asked about X and about Y, balancing which object comes first. E
 
 **Decisive metric.** Per base scene, Δ_scene = mean L over the two close versions − mean L over the two far versions. Δ is the mean over scenes, with a 95% bootstrap interval (10,000 resamples). Distances are pooled; per-distance splits are descriptive.
 
-**Calibration and power, before the committed run.** On 40 base scenes (320 passes), arm A only, this gate must pass before any step 1 pass: accuracy at least 30% (chance is 12.5%) and at most 95%; swap rate (answer is the partner's colour) between 5% and 40%; and swaps at least twice as frequent as the mean rate of each of the other six wrong colours, so the partner pull exists in clean scenes and is not random error. If it fails, adjust object size and shape similarity (at most two rounds), then try the fallback with the same bar. If neither model passes, park the card: step 1 does not run. Cost: 320 passes per round; pass speed not measured, so time 20 passes first and shard to stay under 300 s per process and 30 GPU-minutes in all. From the spread of Δ_scene, simulate the interval half-width for 100 to 1,000 scenes and choose n for a half-width of at most 0.08. Time 20 passes. If n does not fit in about 20 minutes, split it across two attended slices or ask Rob; never shrink n.
+**Subject gate, before the committed run.** On 40 base scenes (320 passes), arm A only, this gate must pass before any step 1 pass. Capability: accuracy at least 30% (chance is 12.5%). Partner pull, read in the logits rather than from argmax swaps: per trial, P = logit(partner colour) − mean logit of the six other wrong colours, and the mean of P over base scenes must have a 95% bootstrap interval entirely above 0, so the partner pull exists in clean scenes and is not random error. There is no accuracy ceiling and no minimum swap rate, because Δ is read in L, which keeps room to move when most argmax answers are right; accuracy and swap rate are recorded as secondary. If capability or partner pull fails, adjust object size and shape similarity (at most two rounds), then try the fallback with the same bar. If neither model passes, park the card: step 1 does not run. Cost: 320 passes per round; pass speed not measured, so time 20 passes first and shard to stay under 300 s per process and 30 GPU-minutes in all. Resolution, read from the same 320 passes: from the spread of Δ_scene, simulate the interval half-width for 100 to 1,000 scenes and choose n for a half-width of at most 0.08. If n does not fit in about 20 minutes, split it across two attended slices or ask Rob; never shrink n.
 
 **Speed.** Cache encoder and projector outputs per image. Use fp16 after checking on CPU, for 5 scenes, that colour logits match bf16 within a tolerance set first. Shards under 300 s, resumable from a per-trial CSV.
 
@@ -73,7 +73,7 @@ Each version is asked about X and about Y, balancing which object comes first. E
 - Zero check: hand over rows bottom to top, each left to right. String distances are unchanged, so its D against raster should read zero. Null: paired bootstrap of D.
 - Descriptive: set R against Cui et al.'s vertical advantage, which their Table 11 shows varies by model. Same-column neighbours sit a grid width apart in the string, so a vertical advantage argues against plain string distance.
 
-Step 2 also replicates on stimulus seed 1 and adds `llava-hf/llava-1.5-7b-hf` (about 14 GB fp16, over the 8 GiB cap and near the disk floor; Rob approves a raised cap or a 4-bit route, and a 4-bit result is about that quantized model). Campbell et al. found LLaVA-1.5 binds poorly on crowded scenes, so the 7B model must pass the same calibration gate on these two-object scenes before its Δ is read. Step 3, optional: read Assouel et al.'s ID heads.
+Step 2 also replicates on stimulus seed 1 and adds `llava-hf/llava-1.5-7b-hf` (about 14 GB fp16, over the 8 GiB cap and near the disk floor; Rob approves a raised cap or a 4-bit route, and a 4-bit result is about that quantized model). Campbell et al. found LLaVA-1.5 binds poorly on crowded scenes, so the 7B model must pass the same subject gate on these two-object scenes before its Δ is read. Step 3, optional: read Assouel et al.'s ID heads.
 
 ## Checks before believing anything
 
@@ -99,7 +99,7 @@ Encoder asymmetry posing as a string effect. Close and far versions differ by a 
 
 ## Kill criterion
 
-- The calibration gate fails on both models: park; the hypothesis was not tested.
+- The subject gate fails on both models: park; the hypothesis was not tested.
 - A twice differs, A0 differs from A, or a plant is not recovered: fix the code, read nothing.
 - The interval of Δ lies within −0.18 to 0.18: write up a bounded null. Step 2 runs only if S shows the model uses order.
 - The interval spans 0 and 0.18: a failed experiment from low power. Do not build step 2 on it.
@@ -136,3 +136,5 @@ Verdict: not scooped; gate cleared. No released dataset fits the wrap design. Ne
 Hostile review, 2026-11-09, "queue after fixes". All five must-fixes applied (mechanism-free plants, powered continuous readout, explicit 2x2 replacing arm C, one directional prediction, wrap pairs first); should-fixes agreed (recency splits, matched noise floors, 7B replication). Partly agreed: the probe was added, but a good probe does not make the null foregone, since position in the tokens and string-distance decay in attention are separate questions. The reviewer's own searches were refused; the Search gate replaces them.
 
 Base-task gate check, 2026-11-10. The card already had a calibration gate before step 1 (accuracy above chance, swap rate 5% to 40%) but no numeric accuracy bar, no stop if the fallback also failed, and a swap bar that random wrong answers could pass. Tightened: accuracy 30% to 95%, swaps at least twice the rate of each other wrong colour, two adjustment rounds, park if neither model passes; added to the kill criterion. Prompted by the copies-as-evidence step 1a result, where the model got no greedy base-task answer right (one template inaccurate, the other off-format).
+
+2026-11-10, cross-family gate review (Sol): the 95% accuracy ceiling and the 5% to 40% swap-rate band were dropped, since Δ is read in L and keeps room to move at high accuracy. Partner pull is now shown in the logits (partner colour above the other wrong colours, 95% interval above 0) instead of in argmax swap counts.

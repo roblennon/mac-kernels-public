@@ -1,5 +1,10 @@
 # Gap research for the pre-grant review (2026-11-09)
 
+> Superseded in part on 2026-11-09 by [2026-11-09-funder-research.md](2026-11-09-funder-research.md).
+> Mozilla's pages were later read directly: six evaluation criteria are published, and a fiscal
+> sponsor is recommended, not required. The Mozilla statements below are kept as the record of
+> what was known before that read.
+
 This page answers the open questions in Section 9 of
 [2026-11-09-pre-grant-review.md](2026-11-09-pre-grant-review.md) by web research only.
 

@@ -16,6 +16,9 @@ The running list for the programme framed in `FRAME.md`. One line per item. Deci
 - [x] Checkpoint and commit (`checkpoint-2026-11-09.md`)
 - [ ] After the goal: try the lab on the top of the queue, as Rob authorised once the lab's milestone message arrived (it has; on 2026-11-09 the lab also ran its first autonomous question end to end)
 
+- [x] Lab case 002 ran copies-as-evidence step 1a (2026-11-10): void, the model was at chance on the base task
+- [ ] Redesign copies-as-evidence around a capability step; add capability gates to the other queued cards where missing
+
 ## Parked (real, not now)
 
 - 2026-11-09 night: the lab's showrunner sent its milestone message. Case 001 is a 3.2M-parameter character transformer on tinyshakespeare (PyTorch on MPS), measured as charged seconds to reach validation loss 1.70, with a measured noise floor (about 2 percent same-trajectory, 5 percent trajectory-changing) and look-ahead checks. Device work goes through this repository's gpu_runner lock. Testing in the lab starts once the goal in `FRAME.md` is met. Earlier note: first experiments wait for word from the agent building the research lab project. Rob has told it to message this session at a milestone, and has cleared this session to test the lab and start extracting findings once that message arrives and the goal in `FRAME.md` is met.

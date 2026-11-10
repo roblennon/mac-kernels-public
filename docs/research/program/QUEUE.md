@@ -19,7 +19,7 @@ The lab's only case so far measures seconds to a target loss on a small characte
 ## The queue
 
 1. **[Copies in context counted as evidence: does a replayed error hurt fresh answers more than a summary of it?](designs/copies-as-evidence.md)**  
-   Status: queued, 2026-11-09. Designed, not run; no code exists. Search gate passed; revised after a hostile review and five cold-planning reviews. The loop-share question moves to card B, not yet written.  
+   Status: ran step 1a in the lab on 2026-11-10 (case 002); it decided nothing. The 1.7B model with thinking off was at chance on the base task, and the count probe failed, so the hypothesis was not tested. Being redesigned with a task the model can do; see "Result of step 1a" at the end. Earlier status: queued, 2026-11-09. Designed, not run; no code exists. Search gate passed; revised after a hostile review and five cold-planning reviews. The loop-share question moves to card B, not yet written.  
    Why here: Forward passes only on a public 1.7B model, one decisive contrast with a planted effect, and a practical consequence: whether agent harnesses should collapse repeated failures into one copy and a count. It is also the cheapest test of the question the whole-notebook critic named for a year of work, how much long-horizon decline comes from the decoding loop rather than the model. Its search gate came back clean, and a cross-family reviewer put it in its own top three.
 
 2. **[How do Apple's stock GEMMs add? A summation-order and accumulator census on the M1 Max](designs/cross-stack-numerics.md)**  

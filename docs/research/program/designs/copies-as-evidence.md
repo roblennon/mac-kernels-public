@@ -1,6 +1,6 @@
 # Copies in context counted as evidence: does a replayed error hurt fresh answers more than a summary of it?
 
-Status: queued, 2026-11-09. Designed, not run; no code exists. Search gate passed; revised after a hostile review and five cold-planning reviews. The loop-share question moves to card B, not yet written.
+Status: ran step 1a in the lab on 2026-11-10 (case 002); it decided nothing. The 1.7B model with thinking off was at chance on the base task, and the count probe failed, so the hypothesis was not tested. Being redesigned with a task the model can do; see "Result of step 1a" at the end. Earlier status: queued, 2026-11-09. Designed, not run; no code exists. Search gate passed; revised after a hostile review and five cold-planning reviews. The loop-share question moves to card B, not yet written.
 
 Sinha et al. showed that errors visible in earlier turns lower later accuracy, and harnesses usually show history verbatim. If a model treats each copy of an error as fresh evidence that it errs, a replayed error should hurt more than one error plus a note saying how often it appeared, and collapsing repeats in agent history is a cheap fix.
 
@@ -197,3 +197,14 @@ All wording is a default, the researcher's to change before the run, not after.
 - 2026-11-10: generation-prompt tokens count as forced positions; the 3-position minimum is per template across the pilot, a short scenario is reported as unchecked rather than stopping the run (lab question before the pilot; T1 measured at 8 confident positions, largest gap 0.016 nats; a wrong-end crop showed 17 nats).
 - 2026-11-10, after the second pilot (all four scenarios, stopped by the library-reference check): identity passed (T1 17 and T2 6 confident positions, largest gap 0.020 nats; digit path noise mean 0.06, sd 0.13). The three reference failures were bf16 rounding at p near 0.5 against the scorer's fp32 head; the reference's confidence floor is raised to 0.9, stated as a post-pilot change. Memory cap raised to 10 GiB by Rob.
 - 2026-11-10: corrected the quoted agreement figure above p 0.9 to 0.0064 nats, from the lab's replay. Text only; no rule changed, so plans bound to 57e40c3 stay valid.
+
+## Result of step 1a, 2026-11-10
+
+The lab ran step 1a as its case 002 (the outcome record is in the lab repository at `research/case-002/outcomes/step1a-2026-11-10.md`; GPT-6 Astra reproduced the decision from raw records with no corrections). Step 1 decides nothing, by this card's first rule.
+
+- The count probe was unavailable in both templates. Shown C's history and asked how many times the error appeared, the model chose 4 in 1 of 60 T1 scenarios and 21 of 60 T2 scenarios, against the 40 of 60 the card requires. R, which shows all four copies, chose 4 in 1 of 60 and 0 of 60. The model seems to count what is visible, or not to count at all, at this size.
+- The error-harm gate failed on its own: pooled D0 − D was −0.004 nats, interval −0.076 to 0.068.
+- Every arm got 0 of 1,080 greedy answers right, including the correct-history controls. Mean log P(correct) was about −7 nats in T1 and −11 in T2. About −7 over three digits is −2.4 per digit, against −2.3 for a uniform guess among ten digits, so with thinking off the model was at chance on the sum itself. In T2 it often gave no three-digit answer.
+- Every measurement check passed: identity, library reference at 0.9, span, wording, and the plant (recovered within 0.0000017 nats of its 0.522-nat expected shift). Determinism was not bit-exact: 68 of 312 comparisons differed, by up to 0.438 nats, reported as the floor.
+
+What it means: the instrument works, and the assay does not. The hypothesis is neither supported nor refuted. The design failure is ours: the card tested an effect on accuracy without first checking that the model had any accuracy to lose. Four review passes and four cold reads checked the measurement and never asked whether the base task was within the model's reach. The redesign starts from a capability pilot that picks a task and a model on which the correct-history arms are clearly above chance.

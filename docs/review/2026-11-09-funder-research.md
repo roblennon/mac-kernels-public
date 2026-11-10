@@ -116,6 +116,17 @@ attention is a remaining lever on Krea.
 - The Fellowship is the best structural fit. The Incubator is a long shot for a one-person
   project without users. Open Intelligence Foundation is a small, uncertain, low-effort ask.
 
+## Decisions, 2026-11-09
+
+- No application is submitted today, to any programme.
+- The Mozilla Fellowship Letter of Intent (due 2026-12-17) is the date to plan around. The other
+  options stay on record: the Incubator (due 2026-11-20, long shot without users) and Open
+  Intelligence Foundation (short form, one hardware item, may be dormant).
+- Before any application, widen the research: look for new findings beyond porting CUDA ideas to
+  Metal, testable on one M1 Max, one 2017-era gaming PC and free cloud tiers. The idea search and
+  its prior-art checks are in
+  [../research/2026-11-09-research-directions.md](../research/2026-11-09-research-directions.md).
+
 ## Not read
 
 Mozilla Fellowship LOI questions after "Primary Project Output(s)"; Emergent Ventures cohort

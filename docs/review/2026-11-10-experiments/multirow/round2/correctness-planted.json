@@ -1,0 +1,441 @@
+{
+ "torch": "2.15.0",
+ "criterion": "per config: max over elements of |y - ref| / (sum_k |x||w| + |b|) <= the same for F.linear + (u_out + K * 2^-24), and rel-L2 <= 1.25 * F.linear's + sqrt(K) * 2^-24",
+ "cases": [],
+ "planted_bug": [
+  {
+   "variant": "dev_r2_u1_s4",
+   "M": 8,
+   "mutation": [
+    "for (uint k = lane; k < K8;",
+    "for (uint k = lane + 32; k < K8;"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.47911303706345e-05,
+    "rel_l2": 0.00020773021679910394
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "dev_r2_u1_s4": {
+     "max_norm_err": 0.04619014064478181,
+     "rel_l2": 0.35423892405779556,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "tg_r2_u1_s4",
+   "M": 8,
+   "mutation": [
+    "for (uint k0 = 0; k0 < K8;",
+    "for (uint k0 = TILE; k0 < K8;"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.5407711195662246e-05,
+    "rel_l2": 0.0002058617817913971
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "tg_r2_u1_s4": {
+     "max_norm_err": 0.04221143417724174,
+     "rel_l2": 0.35163702845772876,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mma_r1_u1_s4",
+   "M": 8,
+   "mutation": [
+    "for (uint k0 = kb; k0 < ke; k0 += KC)",
+    "for (uint k0 = kb + KC; k0 < ke; k0 += KC)"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.453632366843231e-05,
+    "rel_l2": 0.00020954040770729498
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mma_r1_u1_s4": {
+     "max_norm_err": 0.02886910337221461,
+     "rel_l2": 0.20836125872761987,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmr_r1_u1_s4",
+   "M": 8,
+   "mutation": [
+    "for (uint k = kb; k < ke; k += 32 * U)",
+    "for (uint k = kb + 32 * U; k < ke; k += 32 * U)"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.471001897488542e-05,
+    "rel_l2": 0.00020722508683903798
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmr_r1_u1_s4": {
+     "max_norm_err": 0.017507659086303334,
+     "rel_l2": 0.12170929267473496,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmh_r2_u1_s4_h1",
+   "M": 8,
+   "mutation": [
+    "uint k8 = kb8 + sg * 4 * U;",
+    "uint k8 = kb8 + sg * 4 * U + STEP8;"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.5424027862338696e-05,
+    "rel_l2": 0.00020453224309689428
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmh_r2_u1_s4_h1": {
+     "max_norm_err": 0.03514871435379237,
+     "rel_l2": 0.2558472621590159,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmh_r2_u1_s4_h1",
+   "M": 16,
+   "mutation": [
+    "uint k8 = kb8 + sg * 4 * U;",
+    "uint k8 = kb8 + sg * 4 * U + STEP8;"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.519074759637552e-05,
+    "rel_l2": 0.00020735363479294222
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmh_r2_u1_s4_h1": {
+     "max_norm_err": 0.037161702072842834,
+     "rel_l2": 0.24635595649007808,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmh_r2_u1_s4",
+   "M": 8,
+   "mutation": [
+    "for (int s2 = 0; s2 < S; ++s2)",
+    "for (int s2 = 1; s2 < S; ++s2)"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.392378676502273e-05,
+    "rel_l2": 0.00020557123748935803
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmh_r2_u1_s4": {
+     "max_norm_err": 0.06196079198852222,
+     "rel_l2": 0.5090175630558114,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmh_r2_u1_s4",
+   "M": 16,
+   "mutation": [
+    "for (int s2 = 0; s2 < S; ++s2)",
+    "for (int s2 = 1; s2 < S; ++s2)"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 5.9393145549495943e-05,
+    "rel_l2": 0.00020971140302569074
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmh_r2_u1_s4": {
+     "max_norm_err": 0.06448863587075676,
+     "rel_l2": 0.511087447204991,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmh_r2_u1_s4_h1",
+   "M": 8,
+   "mutation": [
+    "return half2(hi ? ha.y : ha.x, hi ? hb.y : hb.x);",
+    "return half2(hi ? ha.x : ha.y, hi ? hb.x : hb.y);"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.3877015694316995e-05,
+    "rel_l2": 0.00020565122396548112
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmh_r2_u1_s4_h1": {
+     "max_norm_err": 0.17796298970182164,
+     "rel_l2": 1.3884923708745733,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmh_r2_u1_s4_h1",
+   "M": 16,
+   "mutation": [
+    "return half2(hi ? ha.y : ha.x, hi ? hb.y : hb.x);",
+    "return half2(hi ? ha.x : ha.y, hi ? hb.x : hb.y);"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 5.086663144868327e-05,
+    "rel_l2": 0.0002073949780541139
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmh_r2_u1_s4_h1": {
+     "max_norm_err": 0.2046272147343784,
+     "rel_l2": 1.4123563705860407,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmp_r2_u1_s4_h1",
+   "M": 8,
+   "mutation": [
+    "const uint kbase = blk * 32 + 8 * (fm / 2) + (fm & 1);",
+    "const uint kbase = blk * 32 + 8 * (fm / 2);"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.51955249820176e-05,
+    "rel_l2": 0.0002049276319262974
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmp_r2_u1_s4_h1": {
+     "max_norm_err": 0.1323820578938926,
+     "rel_l2": 1.0074666014446716,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmp_r2_u1_s4_h1",
+   "M": 16,
+   "mutation": [
+    "const uint kbase = blk * 32 + 8 * (fm / 2) + (fm & 1);",
+    "const uint kbase = blk * 32 + 8 * (fm / 2);"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 5.647065732497748e-05,
+    "rel_l2": 0.00020733764782359052
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmp_r2_u1_s4_h1": {
+     "max_norm_err": 0.13231432233250862,
+     "rel_l2": 0.9994372137624058,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmt_r2_u1_s4_h1",
+   "M": 8,
+   "mutation": [
+    "for (uint t = 0; t < ntiles; ++t) {",
+    "for (uint t = 1; t < ntiles; ++t) {"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.465717492752755e-05,
+    "rel_l2": 0.0002094153104721698
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmt_r2_u1_s4_h1": {
+     "max_norm_err": NaN,
+     "rel_l2": NaN,
+     "finite": false,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmt_r2_u1_s4_h1",
+   "M": 16,
+   "mutation": [
+    "for (uint t = 0; t < ntiles; ++t) {",
+    "for (uint t = 1; t < ntiles; ++t) {"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.443993024962531e-05,
+    "rel_l2": 0.00020920715874521605
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmt_r2_u1_s4_h1": {
+     "max_norm_err": NaN,
+     "rel_l2": NaN,
+     "finite": false,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmh_r2_u1_s4_h1",
+   "M": 8,
+   "mutation": [
+    "if (k8 < ke8) {  // at most one partial chunk per simdgroup",
+    "if (false) {"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.5000710245749234e-05,
+    "rel_l2": 0.00020481972246238204
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmh_r2_u1_s4_h1": {
+     "max_norm_err": 0.007529436786343909,
+     "rel_l2": 0.05338439064419669,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmh_r2_u1_s4_h1",
+   "M": 16,
+   "mutation": [
+    "if (k8 < ke8) {  // at most one partial chunk per simdgroup",
+    "if (false) {"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 5.408723902693014e-05,
+    "rel_l2": 0.00020874545085287078
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmh_r2_u1_s4_h1": {
+     "max_norm_err": 0.013532356750688368,
+     "rel_l2": 0.060784692629263455,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmp_r2_u1_s4_h1",
+   "M": 8,
+   "mutation": [
+    "const uint lo = (m0 < uint(M) && k < K)",
+    "const uint lo = (m0 < uint(M) && k + 8 < K)"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.332886801763004e-05,
+    "rel_l2": 0.0002033921716983436
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmp_r2_u1_s4_h1": {
+     "max_norm_err": 0.009054465501733513,
+     "rel_l2": 0.04201982099509149,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmp_r2_u1_s4_h1",
+   "M": 16,
+   "mutation": [
+    "const uint lo = (m0 < uint(M) && k < K)",
+    "const uint lo = (m0 < uint(M) && k + 8 < K)"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 6.156417011645534e-05,
+    "rel_l2": 0.00021019767673394966
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmp_r2_u1_s4_h1": {
+     "max_norm_err": 0.009374141494339074,
+     "rel_l2": 0.04345883970000424,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  }
+ ],
+ "failures": 0,
+ "seconds": 1.3025259971618652
+}

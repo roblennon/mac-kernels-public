@@ -12,7 +12,11 @@ from bench import multirow_linear as mrl
 pytestmark = pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs MPS")
 
 FAMILIES = [mrl.Config("dev", 2, 1, 4), mrl.Config("tg", 1, 2, 8), mrl.Config("mma", 1, 1, 4, 4),
-            mrl.Config("mmr", 2, 1, 4, 3, 1), mrl.Config("mmr", 2, 1, 4, 1, 0, 1)]
+            mrl.Config("mmr", 2, 1, 4, 3, 1), mrl.Config("mmr", 2, 1, 4, 1, 0, 1),
+            # Round 2: in-threadgroup K split with half operands; one simdgroup with a K split
+            # and prefetch; packed x; threadgroup-staged weight.
+            mrl.Config("mmh", 2, 1, 4, 1, 0, 1), mrl.Config("mmh", 1, 2, 1, 3, 1),
+            mrl.Config("mmp", 2, 1, 4, 1, 0, 1), mrl.Config("mmt", 2, 1, 4, 3, 0, 1)]
 UNIT = {torch.float16: 2.0 ** -11, torch.bfloat16: 2.0 ** -8}
 
 
@@ -59,6 +63,32 @@ def test_planted_bug_is_caught():
     w = (torch.randn(1027, 2056) / 45).half()
     # Act / Assert
     assert not within_linear_error(x, w, None, mrl.Config("dev", 2, 1, 4), lib=lib)
+
+
+@pytest.mark.parametrize("old, new", [
+    ("uint k8 = kb8 + sg * 4 * U;", "uint k8 = kb8 + sg * 4 * U + STEP8;"),              # skip a K chunk
+    ("if (k8 < ke8) {  // at most one partial chunk per simdgroup", "if (false) {"),   # drop the last 8 of K
+])
+def test_planted_bug_is_caught_in_round2_kernel(old, new):
+    # Arrange: mutate mrl_mmh; 16 rows, K = 2056 (a partial last chunk).
+    src = mrl.SOURCE_PATH.read_text()
+    assert src.count(old) == 1
+    lib = mrl._Library(src.replace(old, new))
+    x = torch.randn(16, 2056).half()
+    w = (torch.randn(1027, 2056) / 45).half()
+    # Act / Assert
+    assert not within_linear_error(x, w, None, mrl.Config("mmh", 2, 1, 4, 1, 0, 1), lib=lib)
+
+
+def test_table_can_route_a_cell_to_linear(monkeypatch):
+    # Arrange: a table entry of "linear" means F.linear is used for that cell.
+    monkeypatch.setitem(mrl.TUNED, "float16", {(64, 40): {4: mrl.LINEAR, 8: "mmh_r1_u1_s4_h1"}})
+    x = torch.randn(4, 64, device="mps", dtype=torch.float16)
+    w = torch.randn(40, 64, device="mps", dtype=torch.float16)
+    # Act / Assert
+    assert mrl.pick_config(4, 64, 40) is None
+    assert torch.equal(mrl.multirow_linear(x, w), F.linear(x, w))
+    assert mrl.pick_config(17, 64, 40).name() == "mmh_r1_u1_s4_h1"  # no 3-tile entry: nearest overall
 
 
 def test_unsupported_inputs_are_refused():

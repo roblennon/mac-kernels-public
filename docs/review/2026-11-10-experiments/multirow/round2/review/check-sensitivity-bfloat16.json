@@ -1,0 +1,25 @@
+{
+ "torch": "2.15.0",
+ "part": "sensitivity",
+ "dtype": "bfloat16",
+ "sensitivity": {
+  "mmt_xcheck": {
+   "caught": 6,
+   "cases": 6
+  },
+  "mmh_bias_twice": {
+   "caught": 6,
+   "cases": 6
+  },
+  "x2_bf16_swap": {
+   "caught": 6,
+   "cases": 6
+  },
+  "mmh_drop_last8": {
+   "caught": 12,
+   "cases": 12
+  },
+  "bitwise_equal_share": 0.4057971014492754
+ },
+ "seconds": 1.2259488105773926
+}

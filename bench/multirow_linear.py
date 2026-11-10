@@ -31,8 +31,14 @@ class Config:
     R: weight rows per simdgroup (dev, tg) or 8-row weight tiles per simdgroup (mma, mmr).
     U: K chunks of 256 elements per lane per step (dev, tg) or K step of 32*U elements (mma, mmr).
     S: simdgroups per threadgroup.  P: K splits (mma, mmr; P > 1 adds a reduce kernel).
-    F: 1 = load the next K step into registers before computing this one (mmr only).
-    H: 1 = half-precision fragment operands with fp32 accumulation (mmr, fp16 only)."""
+    xsrc "mmh": register-fed 8x8 fragments in a k order that makes each weight fragment one
+                32-bit word; S simdgroups share the same R*8 weight rows and split K inside the
+                threadgroup (round 2, aimed at 9 to 16 rows).
+    xsrc "mmp": mmh with x first repacked into fragment order by a small extra kernel.
+    xsrc "mmt": weight staged through threadgroup memory (16-bit, double-buffered); S simdgroups
+                own different weight rows; x fragments from device memory.
+    F: 1 = load the next K step into registers before computing this one (mmr, mmh, mmp).
+    H: 1 = half-precision fragment operands with fp32 accumulation (mmr, mmh, mmp, mmt; fp16 only)."""
     xsrc: str = "dev"
     R: int = 2
     U: int = 1
@@ -52,9 +58,16 @@ class Config:
         return cls(parts[0], vals["r"], vals["u"], vals["s"], vals.get("p", 1), vals.get("f", 0), vals.get("h", 0))
 
     def rows_per_group(self):
-        return self.S * self.R * (8 if self.xsrc in ("mma", "mmr") else 1)
+        if self.xsrc in ("mmh", "mmp"):
+            return self.R * 8
+        return self.S * self.R * (8 if self.xsrc in ("mma", "mmr", "mmt") else 1)
 
     def threadgroup_bytes(self, M):
+        mp = -(-M // 8) * 8
+        if self.xsrc in ("mmh", "mmp"):
+            return self.S * self.R * 8 * mp * 4 if self.S > 1 else 0
+        if self.xsrc == "mmt":
+            return 2 * self.S * self.R * 8 * (4 * self.U + 1) * 16
         if self.xsrc == "mma":
             ld = 32 * self.U + 4
             return (self.rows_per_group() + -(-M // 8) * 8) * ld * 4
@@ -64,28 +77,33 @@ class Config:
         return self.threadgroup_bytes(M) <= 32768
 
 
-# The fastest variant per shape and row count in the tuning sweep (3 interleaved repeats,
-# docs/review/2026-11-10-experiments/multirow/tune-*.json):
-# {dtype name: {(K, N): {M: config name}}}. Shapes not listed use default_config(); row
-# counts not listed use the nearest tuned row count.
+LINEAR = "linear"  # a TUNED entry meaning: this kernel is not faster here, use F.linear
+
+# The fastest variant per shape and row count. Rows 2 to 16: the round-2 sweep (bench_multirow.py
+# tune --grid round2, 3 interleaved repeats; docs/review/2026-11-10-experiments/multirow/round2/
+# tune-*.json), then checked against F.linear in two separate layer runs; "linear" marks cells
+# where the kernel was not faster beyond the noise arms there. Rows 1, 24 and 32: round 1
+# (docs/review/2026-11-10-experiments/multirow/tune-*.json).
+# {dtype name: {(K, N): {M: config name}}}. Shapes not listed use default_config(); row counts
+# not listed use the nearest tuned row count with the same number of 8-row tiles.
 TUNED: dict[str, dict[tuple[int, int], dict[int, str]]] = {
     "bfloat16": {
-        (2048, 1024): {1: "dev_r4_u1_s8", 2: "tg_r1_u2_s4", 4: "dev_r2_u1_s4", 8: "mmr_r1_u1_s4_p4_f1", 12: "tg_r1_u2_s8", 16: "mma_r1_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4_p4"},
-        (2048, 2048): {1: "tg_r4_u1_s8", 2: "tg_r2_u2_s4", 4: "dev_r2_u2_s4", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4_p4", 16: "mmr_r2_u1_s4_p4", 24: "mma_r2_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
-        (2048, 6144): {1: "tg_r1_u2_s4", 2: "dev_r1_u1_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4", 16: "mma_r1_u1_s4", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
-        (2048, 151936): {1: "tg_r2_u2_s8", 2: "tg_r1_u1_s4", 4: "tg_r2_u1_s8", 8: "mmr_r1_u1_s4_f1", 12: "mma_r1_u1_s4", 16: "mma_r1_u1_s4", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
-        (2560, 9728): {1: "tg_r1_u2_s4", 2: "dev_r2_u1_s4", 4: "dev_r2_u1_s8", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4_p4", 16: "mmr_r2_u1_s4", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4_p4"},
-        (4096, 11008): {1: "tg_r1_u2_s8", 2: "dev_r1_u1_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4_p4", 16: "mma_r1_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4"},
-        (6144, 2048): {1: "dev_r1_u2_s4", 2: "dev_r2_u1_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4_p4", 16: "mma_r1_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
+        (2048, 1024): {1: "dev_r4_u1_s8", 2: "dev_r1_u1_s8", 3: "dev_r2_u1_s8", 4: "dev_r2_u1_s4", 5: "dev_r2_u1_s8", 6: "mmh_r1_u1_s4", 7: "mmh_r2_u1_s8", 8: "mmh_r2_u1_s8", 9: "mmh_r1_u1_s4", 10: "mmh_r2_u1_s8", 11: "mmh_r2_u1_s8", 12: "mmh_r2_u1_s8_f1", 13: "mmh_r1_u1_s8", 14: "mmh_r2_u1_s8_f1", 15: "mmh_r2_u1_s8", 16: "mmh_r1_u1_s8", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4_p4"},
+        (2048, 2048): {1: "tg_r4_u1_s8", 2: "dev_r2_u1_s8", 3: "dev_r1_u1_s8", 4: "mmh_r2_u1_s4", 5: "mmh_r2_u2_s4", 6: "mmh_r1_u1_s8", 7: "mmh_r1_u1_s4", 8: "mmh_r2_u1_s4_f1", 9: "mmh_r2_u1_s8_f1", 10: "mmh_r2_u2_s4", 11: "mmh_r2_u1_s4", 12: "mmp_r2_u1_s4", 13: "mmh_r2_u1_s4_f1", 14: "mmh_r2_u1_s8", 15: "mmh_r1_u1_s4", 16: "mmh_r2_u1_s4_f1", 24: "mma_r2_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
+        (2048, 6144): {1: "tg_r1_u2_s4", 2: "mmh_r2_u1_s4", 3: "mmh_r2_u1_s2", 4: "mmh_r1_u1_s4", 5: LINEAR, 6: "mmh_r2_u1_s2", 7: "mmh_r2_u1_s4", 8: "mmh_r1_u1_s8", 9: "mmh_r2_u1_s2", 10: "mmh_r2_u1_s4", 11: "mmh_r2_u1_s4", 12: "mmh_r2_u1_s8", 13: "mmh_r2_u1_s8", 14: "mmh_r2_u1_s4", 15: "mmh_r2_u1_s4", 16: "mmh_r2_u1_s8", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (2048, 151936): {1: "tg_r2_u2_s8", 2: "mmh_r2_u1_s8_f1", 3: "mmh_r2_u1_s8_f1", 4: "mmh_r2_u2_s4", 5: "mmh_r2_u2_s4", 6: "mmh_r1_u1_s8", 7: "mmh_r2_u1_s8_f1", 8: "mmh_r2_u1_s4_f1", 9: "mmh_r2_u1_s8", 10: "mmh_r2_u1_s4", 11: "mmp_r1_u1_s8", 12: "mmp_r1_u1_s8", 13: "mmp_r1_u1_s8", 14: "mmh_r2_u1_s8", 15: "mmp_r1_u1_s8", 16: "mmh_r2_u1_s8", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (2560, 9728): {1: "tg_r1_u2_s4", 2: "mmh_r1_u1_s8", 3: "mmh_r2_u1_s8_f1", 4: "mmh_r2_u1_s4", 5: "mmh_r1_u1_s4", 6: "mmh_r1_u1_s8", 7: "mmh_r2_u1_s8", 8: "mmh_r2_u1_s2", 9: "mmh_r2_u1_s8", 10: "mmh_r2_u1_s8", 11: "mmh_r2_u1_s4", 12: "mmh_r2_u1_s8", 13: "mmh_r2_u1_s8", 14: "mmh_r2_u1_s8", 15: "mmp_r2_u1_s4", 16: "mmh_r2_u1_s8", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4_p4"},
+        (4096, 11008): {1: "tg_r1_u2_s8", 2: "mmh_r2_u1_s8_f1", 3: "mmh_r1_u1_s8_f1", 4: "mmh_r2_u1_s8", 5: "mmh_r1_u1_s4", 6: "mmh_r1_u1_s8", 7: "mmh_r2_u1_s8_f1", 8: "mmh_r2_u1_s4", 9: "mmh_r2_u1_s8_f1", 10: "mmh_r2_u1_s8", 11: "mmp_r1_u1_s8", 12: "mmh_r2_u1_s8", 13: "mmp_r1_u1_s8", 14: "mmp_r1_u1_s8", 15: "mmh_r2_u1_s4", 16: "mmh_r2_u1_s4", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4"},
+        (6144, 2048): {1: "dev_r1_u2_s4", 2: "mmh_r2_u1_s4", 3: "mmh_r1_u1_s8", 4: "mmh_r1_u1_s8", 5: "mmh_r1_u1_s8", 6: "mmh_r2_u1_s8_f1", 7: "mmh_r1_u1_s4", 8: "mmh_r1_u1_s4_f1", 9: "mmh_r1_u1_s8", 10: "mmh_r2_u1_s4", 11: "mmh_r1_u1_s4", 12: "mmh_r2_u1_s8_f1", 13: "mmh_r2_u1_s4", 14: "mmh_r2_u1_s8_f1", 15: "mmh_r2_u1_s4_f1", 16: "mmh_r2_u1_s4_f1", 24: "mma_r1_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
     },
     "float16": {
-        (2048, 1024): {1: "tg_r1_u2_s4", 2: "dev_r4_u1_s8", 4: "dev_r1_u1_s8", 8: "tg_r1_u1_s4", 12: "tg_r1_u1_s8", 16: "tg_r1_u1_s8", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4_p4"},
-        (2048, 2048): {1: "tg_r2_u1_s4", 2: "tg_r1_u2_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "tg_r1_u1_s8", 16: "mmr_r2_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
-        (2048, 6144): {1: "tg_r1_u2_s4", 2: "tg_r1_u2_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mmr_r2_u1_s4_p2", 16: "mma_r1_u1_s4", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
-        (2048, 151936): {1: "dev_r4_u1_s8", 2: "mmr_r1_u1_s4_f1", 4: "dev_r2_u1_s4", 8: "mmr_r1_u1_s4", 12: "mmr_r2_u1_s4", 16: "mmr_r2_u1_s4", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
-        (2560, 9728): {1: "dev_r1_u1_s8", 2: "dev_r2_u1_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mmr_r2_u1_s4", 16: "mmr_r2_u1_s4_p2", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
-        (4096, 11008): {1: "dev_r2_u1_s4", 2: "dev_r2_u2_s8", 4: "tg_r2_u2_s4", 8: "mmr_r1_u2_s4_f1", 12: "mmr_r2_u1_s4_p2", 16: "mmr_r2_u1_s4", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4"},
-        (6144, 2048): {1: "dev_r4_u1_s4", 2: "tg_r4_u1_s4", 4: "dev_r4_u1_s4", 8: "mmr_r2_u2_s4_p4", 12: "mma_r1_u1_s4_p4", 16: "mmr_r2_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
+        (2048, 1024): {1: "tg_r1_u2_s4", 2: "dev_r2_u1_s8", 3: "dev_r2_u1_s8", 4: "dev_r2_u1_s4", 5: "mmh_r1_u1_s8_f1", 6: "mmh_r1_u1_s8_f1", 7: "mmh_r1_u1_s8_f1", 8: "mmh_r1_u1_s8_f1_h1", 9: "mmh_r2_u1_s8", 10: "mmh_r1_u1_s8", 11: "mmh_r2_u1_s8", 12: "mmh_r1_u1_s8", 13: "mmh_r2_u1_s8", 14: "mmh_r2_u1_s8_h1", 15: "mmh_r2_u1_s8_f1", 16: "mmh_r1_u1_s8_h1", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4_p4"},
+        (2048, 2048): {1: "tg_r2_u1_s4", 2: "tg_r1_u2_s4", 3: "mmh_r1_u1_s4_f1", 4: "dev_r2_u1_s4", 5: "mmh_r1_u1_s8_f1_h1", 6: "mmh_r1_u1_s4_h1", 7: "mmh_r1_u1_s8", 8: "mmh_r1_u1_s8_h1", 9: "mmh_r1_u1_s8_h1", 10: "mmh_r2_u1_s8", 11: "mmh_r1_u1_s8", 12: "mmh_r1_u1_s4", 13: "mmh_r2_u1_s4", 14: "mmh_r1_u1_s4_h1", 15: "mmh_r1_u1_s8_h1", 16: "mmh_r1_u1_s4_h1", 24: "mma_r1_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
+        (2048, 6144): {1: "tg_r1_u2_s4", 2: LINEAR, 3: LINEAR, 4: "mmh_r2_u1_s4_f1_h1", 5: "mmh_r1_u1_s4_h1", 6: "mmh_r2_u1_s4", 7: "mmh_r2_u1_s2", 8: "mmh_r2_u1_s8_f1", 9: "mmh_r1_u1_s8_h1", 10: "mmh_r2_u1_s4_f1", 11: LINEAR, 12: "mmh_r2_u1_s8", 13: "mmh_r2_u1_s8_h1", 14: "mmh_r2_u1_s8_h1", 15: "mmh_r2_u1_s8", 16: "mmh_r1_u1_s4_h1", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (2048, 151936): {1: "dev_r4_u1_s8", 2: LINEAR, 3: "mmh_r1_u1_s8_f1", 4: "mmh_r1_u1_s8", 5: "mmh_r2_u2_s4_h1", 6: "mmh_r1_u1_s8_f1_h1", 7: "mmh_r2_u2_s4", 8: "mmh_r1_u1_s8_f1_h1", 9: "mmh_r2_u1_s8_h1", 10: "mmh_r2_u1_s2", 11: "mmh_r2_u1_s8_h1", 12: "mmh_r1_u1_s4", 13: "mmh_r2_u1_s8", 14: "mmh_r2_u1_s8_h1", 15: "mmh_r2_u1_s8_f1_h1", 16: "mmp_r1_u1_s8", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (2560, 9728): {1: "dev_r1_u1_s8", 2: "dev_r2_u1_s8", 3: "mmh_r1_u1_s8_h1", 4: "mmh_r2_u1_s8_f1_h1", 5: "mmh_r1_u1_s8_h1", 6: "mmh_r2_u1_s8_f1_h1", 7: "mmh_r2_u1_s2", 8: "mmh_r1_u1_s8_f1_h1", 9: "mmh_r2_u1_s8_f1", 10: "mmh_r2_u1_s8_h1", 11: "mmh_r1_u1_s8", 12: "mmh_r2_u1_s2", 13: "mmh_r1_u1_s4", 14: "mmh_r2_u1_s8_h1", 15: "mmh_r2_u1_s8_f1", 16: "mmh_r2_u1_s4_h1", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (4096, 11008): {1: "dev_r2_u1_s4", 2: "mmh_r1_u1_s8", 3: "mmh_r1_u1_s8_f1_h1", 4: "mmh_r1_u1_s4_h1", 5: "mmh_r2_u1_s8_h1", 6: "mmh_r2_u1_s8", 7: "mmh_r2_u1_s4_h1", 8: "mmh_r2_u1_s8_f1", 9: "mmh_r2_u1_s8_h1", 10: "mmh_r2_u1_s8", 11: "mmh_r2_u1_s8_f1_h1", 12: "mmh_r2_u1_s8_f1_h1", 13: "mmh_r1_u1_s4", 14: "mmh_r1_u1_s8_h1", 15: "mmh_r2_u1_s8_h1", 16: "mmh_r2_u1_s8_f1", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4"},
+        (6144, 2048): {1: "dev_r4_u1_s4", 2: LINEAR, 3: "mmh_r1_u1_s4_h1", 4: "mmh_r1_u1_s4", 5: "mmh_r1_u1_s8", 6: "mmh_r2_u1_s4", 7: "mmh_r1_u1_s8_f1_h1", 8: "mmh_r2_u1_s8_f1", 9: "mmh_r1_u1_s8", 10: "mmh_r2_u1_s8_f1_h1", 11: "mmh_r2_u1_s8_f1_h1", 12: "mmp_r2_u1_s4_h1", 13: "mmh_r2_u1_s4", 14: "mmh_r1_u1_s8_h1", 15: "mmh_r1_u1_s8_h1", 16: "mmh_r2_u1_s8_f1_h1", 24: "mma_r1_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
     },
 }
 
@@ -95,14 +113,21 @@ def default_config(M, K, N):
         return Config("dev", 2, 1, 4)
     if M <= 8:
         return Config("mmr", 1, 2, 4, 1, 1)
+    if M <= 16:
+        return Config("mmh", 2, 1, 4)
     return Config("mma", 1, 1, 4, 4)
 
 
+
 def pick_config(M, K, N, dtype=torch.float16):
+    """The tuned config for this shape and row count, or None where F.linear is the faster choice.
+    Row counts not in the table use the nearest tuned row count with the same number of 8-row
+    tiles when there is one (a 16-row choice is not reused at 17 rows, where it needs a third tile)."""
     table = TUNED.get(str(dtype).split(".")[-1], {}).get((K, N))
     if table:
-        best = min(table, key=lambda m: (abs(m - M), -m))
-        return Config.parse(table[best])
+        same = [m for m in table if -(-m // 8) == -(-M // 8)] or list(table)
+        best = min(same, key=lambda m: (abs(m - M), -m))
+        return None if table[best] == LINEAR else Config.parse(table[best])
     return default_config(M, K, N)
 
 
@@ -122,7 +147,24 @@ class _Library:
         codec = CODEC[dtype]
         common = ("device const uint4*, device const uint4*, device const ushort*, device ushort*, "
                   "constant long&, constant long&, constant long&")
-        if cfg.xsrc == "mmr":
+        if cfg.xsrc in ("mmh", "mmp", "mmt"):
+            if cfg.H and codec == "F16":
+                codec = "F16H"
+            sig = ("(device const uint4*, device const uint4*, device const ushort*, device ushort*, "
+                   "constant long&, constant long&, constant long&, device float*, constant long&, "
+                   "constant long&, uint2, uint, uint);")
+            if cfg.xsrc == "mmt":
+                key = (dtype, M, "mmt", cfg.R, cfg.U, cfg.S, cfg.H)
+                host = f"mrl_mmt_{codec}_m{M}_r{cfg.R}_u{cfg.U}_s{cfg.S}"
+                inst = (f"template [[host_name(\"{host}\")]] kernel void mrl_mmt<{codec}, {M}, {cfg.R}, {cfg.U}, "
+                        f"{cfg.S}>" + sig)
+            else:
+                pk = cfg.xsrc == "mmp"
+                key = (dtype, M, cfg.xsrc, cfg.R, cfg.U, cfg.S, cfg.F, cfg.H)
+                host = f"mrl_{cfg.xsrc}_{codec}_m{M}_r{cfg.R}_u{cfg.U}_s{cfg.S}_f{cfg.F}"
+                inst = (f"template [[host_name(\"{host}\")]] kernel void mrl_mmh<{codec}, {M}, {cfg.R}, {cfg.U}, "
+                        f"{cfg.S}, {'true' if cfg.F else 'false'}, {'true' if pk else 'false'}>" + sig)
+        elif cfg.xsrc == "mmr":
             if cfg.H and codec == "F16":
                 codec = "F16H"
             key = (dtype, M, "mmr", cfg.R, cfg.U, cfg.F, cfg.H)
@@ -144,6 +186,12 @@ class _Library:
             inst = (f"template [[host_name(\"{host}\")]] kernel void mrl_{cfg.xsrc}<{codec}, {M}, {cfg.R}, "
                     f"{cfg.U}>({common}, uint, uint, uint, uint{extra});")
         return self._compile(key, host, inst)
+
+    def xpack(self, M):
+        host = f"mrl_xpack_m{M}"
+        inst = (f"template [[host_name(\"{host}\")]] kernel void mrl_xpack<{M}>(device const ushort*, "
+                "device uint4*, constant long&, uint);")
+        return self._compile(("xpack", M), host, inst)
 
     def reduce(self, dtype):
         codec = CODEC[dtype]
@@ -190,6 +238,8 @@ def multirow_linear(x, weight, bias=None, config=None, lib=None):
     M, K = x.shape
     N = weight.shape[0]
     cfg = config or pick_config(M, K, N, x.dtype)
+    if cfg is None:
+        return torch.nn.functional.linear(x, weight, bias)
     lib = lib or library()
     fn = lib.kernel(x.dtype, M, cfg)
     y = torch.empty((M, N), dtype=x.dtype, device=x.device)
@@ -204,6 +254,11 @@ def multirow_linear(x, weight, bias=None, config=None, lib=None):
     klen = -(-K // (cfg.P * kt)) * kt          # K range per split, a multiple of the K tile
     splits = -(-K // klen)
     part = torch.empty((splits, M, N), dtype=torch.float32, device=x.device) if splits > 1 else y
+    if cfg.xsrc == "mmp":
+        mt, nblk = -(-M // 8), -(-K // 32)
+        xp = torch.empty((nblk * mt * 32 * 8,), dtype=x.dtype, device=x.device)
+        lib.xpack(M)(x, xp, K, threads=nblk * mt * 32, group_size=256)
+        x = xp
     fn(x, weight, b, y, K, N, hb, part, klen, splits,
        threads=(groups * 32 * cfg.S, splits), group_size=(32 * cfg.S, 1))
     if splits > 1:

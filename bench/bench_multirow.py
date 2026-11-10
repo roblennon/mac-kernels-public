@@ -3,10 +3,14 @@
 Subcommands (run every one through the GPU lock):
   correctness  float64 CPU reference against the kernel and F.linear, random and real weights,
                plus a planted bug (a source mutation) that the check must catch
-  tune         time every kernel variant per shape and row count, fp16 or bf16
-  layers       F.linear, mm on a pre-transposed weight, the kernel, and an A/A arm,
-               weights rotated through copies larger than the on-die cache
-  model        Qwen3-1.7B fp16 decode, stock against patched, interleaved in one process
+  tune         time every kernel variant per shape and row count, fp16 or bf16 (--grid round2
+               adds the round-2 families mmh, mmp, mmt)
+  layers       F.linear, the kernel, and two noise arms (F.linear against itself, the kernel
+               against itself), weights rotated through copies larger than the on-die cache
+  model        Qwen3-1.7B fp16 decode, stock against patched, interleaved in one process (round 1)
+  decode       round 2's end-to-end run: nn.Linear's own forward against the patch, per-row logits
+  probe        diagnosis: kernels with loads made cache-resident, loads removed, or multiplies
+               removed (round 2)
 
 python3 bench/gpu_runner.py --monitor --seconds 280 --rss-gib 10 -- <python> bench/bench_multirow.py layers --out f.json
 Model runs need HF_HOME pointing at a cache holding Qwen/Qwen3-1.7B and HF_HUB_OFFLINE=1.
@@ -105,7 +109,19 @@ def all_variants(S=(4,)):
     out += [mrl.Config("mmr", R, U, s, P, F) for R in (1, 2, 4) for U in (1, 2) for P in (1, 3) for F in (0, 1)
             for s in S]
     out += [mrl.Config("mmr", 2, 1, s, 1, 0, 1) for s in S]  # half-precision fragments
+    if S == (4,):
+        out += [mrl.Config.parse(c) for c in ROUND2_VARIANTS]
+        out += sorted({mrl.Config.parse(c) for t in mrl.TUNED.values() for row in t.values() for c in row.values()
+                       if c != mrl.LINEAR} - set(out), key=lambda c: c.name())
     return out
+
+
+# Round-2 families: every code path (S = 1 and S > 1, prefetch, K split, half and fp32 operands,
+# U = 1 and 2, NS = 1 to 3) at least once.
+ROUND2_VARIANTS = ["mmh_r1_u1_s1", "mmh_r2_u1_s4_h1", "mmh_r2_u2_s8_f1_h1", "mmh_r1_u2_s2_p3_f1",
+                   "mmh_r2_u1_s4_p3_h1", "mmh_r3_u1_s2_h1", "mmh_r2_u1_s8_f1", "mmh_r1_u1_s8_h1", "mmh_r2_u2_s4",
+                   "mmp_r2_u1_s4_h1", "mmp_r1_u2_s2_p3_f1", "mmp_r2_u1_s1",
+                   "mmt_r2_u1_s4_h1", "mmt_r1_u2_s8_h1", "mmt_r2_u1_s4_p3"]
 
 
 def real_weights():
@@ -180,8 +196,10 @@ def cmd_correctness(a):
                     for bias in ((False, True) if key == "q17_kv" else (False,)):
                         x = torch.randn(M, K).to(dt)
                         b = (torch.randn(N) * 0.1).to(dt) if bias else None
-                        tuned = mrl.pick_config(M, K, N, dt)
-                        cfgs = [tuned] if key == "q17_head" else variants + [c for c in [tuned] if c not in variants]
+                        tuned = [c for c in [mrl.pick_config(M, K, N, dt)] if c is not None]  # None: F.linear
+                        if key == "q17_head" and not tuned:
+                            continue
+                        cfgs = tuned if key == "q17_head" else variants + [c for c in tuned if c not in variants]
                         record("qwen3-1.7b:" + key, dt, M, K, N, bias, check_case(x, w, b, cfgs, ref_rows=rows))
         emit(event="real_done", seconds=time.time() - started)
     planted = []
@@ -193,15 +211,30 @@ def cmd_correctness(a):
             (mrl.Config("tg", 2, 1, 4), "for (uint k0 = 0; k0 < K8;", "for (uint k0 = TILE; k0 < K8;"),
             (mrl.Config("mma", 1, 1, 4), "for (uint k0 = kb; k0 < ke; k0 += KC)", "for (uint k0 = kb + KC; k0 < ke; k0 += KC)"),
             (mrl.Config("mmr", 1, 1, 4), "for (uint k = kb; k < ke; k += 32 * U)", "for (uint k = kb + 32 * U; k < ke; k += 32 * U)"),
+            # Round 2. Gross: skip a chunk, a tile, or a simdgroup's partial sum; swap x halves.
+            (mrl.Config("mmh", 2, 1, 4, 1, 0, 1), "uint k8 = kb8 + sg * 4 * U;", "uint k8 = kb8 + sg * 4 * U + STEP8;"),
+            (mrl.Config("mmh", 2, 1, 4), "for (int s2 = 0; s2 < S; ++s2)", "for (int s2 = 1; s2 < S; ++s2)"),
+            (mrl.Config("mmh", 2, 1, 4, 1, 0, 1), "return half2(hi ? ha.y : ha.x, hi ? hb.y : hb.x);",
+             "return half2(hi ? ha.x : ha.y, hi ? hb.x : hb.y);"),
+            (mrl.Config("mmp", 2, 1, 4, 1, 0, 1), "const uint kbase = blk * 32 + 8 * (fm / 2) + (fm & 1);",
+             "const uint kbase = blk * 32 + 8 * (fm / 2);"),
+            (mrl.Config("mmt", 2, 1, 4, 1, 0, 1), "for (uint t = 0; t < ntiles; ++t) {", "for (uint t = 1; t < ntiles; ++t) {"),
+            # Subtle: drop the last partial chunk (8 of 2056 K elements here), drop the last
+            # 8 elements of every x row in the packed layout.
+            (mrl.Config("mmh", 2, 1, 4, 1, 0, 1), "if (k8 < ke8) {  // at most one partial chunk per simdgroup",
+             "if (false) {"),
+            (mrl.Config("mmp", 2, 1, 4, 1, 0, 1), "const uint lo = (m0 < uint(M) && k < K)", "const uint lo = (m0 < uint(M) && k + 8 < K)"),
         ]
         for cfg, old, new in mutations:
             assert src.count(old) == 1, old
             lib = mrl._Library(src.replace(old, new))
-            x = torch.randn(8, 2056).to(torch.float16); w = (torch.randn(1027, 2056) / 45).to(torch.float16)
-            out = check_case(x, w, None, [cfg], lib=lib)
-            planted.append({"variant": cfg.name(), "mutation": [old, new], "caught": not out["pass"], **out})
-            emit(event="planted_bug", variant=cfg.name(), caught=not out["pass"],
-                 err=list(out["configs"].values())[0]["max_norm_err"], allow=out["allowance"])
+            for M in ((8,) if cfg.xsrc in ("dev", "tg", "mma", "mmr") else (8, 16)):
+                x = torch.randn(M, 2056).to(torch.float16); w = (torch.randn(1027, 2056) / 45).to(torch.float16)
+                out = check_case(x, w, None, [cfg], lib=lib)
+                planted.append({"variant": cfg.name(), "M": M, "mutation": [old, new], "caught": not out["pass"], **out})
+                emit(event="planted_bug", variant=cfg.name(), M=M, caught=not out["pass"],
+                     err=list(out["configs"].values())[0]["max_norm_err"],
+                     rel=list(out["configs"].values())[0]["rel_l2"], allow=out["allowance"])
     res["planted_bug"] = planted
     res["failures"] = failures
     res["seconds"] = time.time() - started
@@ -256,11 +289,36 @@ def tune_grid():
     return grid
 
 
+def tune_grid_round2(dtype):
+    """Round 2: every config the round-1 table chose for 2 to 16 rows, plus the round-2 families
+    at the settings that were competitive in the first 16-row sweeps."""
+    names = {c for t in ROUND1_TUNED.values() for row in t.values() for m, c in row.items() if 2 <= m <= 16}
+    hs = (0, 1) if dtype == "float16" else (0,)
+    for R in (1, 2):
+        for S in (4, 8):
+            for F in (0, 1):
+                for H in hs:
+                    names.add(mrl.Config("mmh", R, 1, S, 1, F, H).name())
+    for H in hs:
+        names |= {mrl.Config("mmh", 2, 2, 4, 1, 0, H).name(), mrl.Config("mmh", 2, 1, 2, 1, 0, H).name(),
+                  mrl.Config("mmh", 2, 1, 4, 2, 0, H).name(), mrl.Config("mmh", 1, 1, 8, 2, 0, H).name(),
+                  mrl.Config("mmp", 2, 1, 4, 1, 0, H).name(), mrl.Config("mmp", 1, 1, 8, 1, 0, H).name(),
+                  mrl.Config("mmt", 1, 2, 8, 1, 0, H).name(), mrl.Config("mmt", 2, 2, 4, 1, 0, H).name()}
+    return [mrl.Config.parse(n) for n in sorted(names)]
+
+
+# The round-1 table, kept so the round-2 grid includes every config round 1 chose.
+ROUND1_TUNED = {dt: {k: dict(v) for k, v in t.items()} for dt, t in mrl.TUNED.items()}
+
+
 def cmd_tune(a):
     dt = DTYPES[a.dtype]
     rng = random.Random(7)
     torch.manual_seed(7)
-    configs = tune_grid()
+    if a.configs:
+        configs = [mrl.Config.parse(c) for c in a.configs.split(",")]
+    else:
+        configs = tune_grid_round2(a.dtype) if a.grid == "round2" else tune_grid()
     res = {"torch": torch.__version__, "dtype": a.dtype, "reps": a.reps, "configs": [c.name() for c in configs],
            "rows": []}
     started = time.time()
@@ -290,41 +348,141 @@ def cmd_tune(a):
 
 
 def cmd_layers(a):
-    rng = random.Random(11)
-    torch.manual_seed(11)
-    res = {"torch": torch.__version__, "reps": a.reps, "tuned": {dt: {f"{K}x{N}": v for (K, N), v in t.items()} for dt, t in mrl.TUNED.items()},
+    """Per layer shape and row count: F.linear, the kernel with its tuned variant, and two noise
+    arms (F.linear against itself, the kernel against itself). Where the table routes a cell to
+    F.linear, the kernel arm times the config given by --candidates (if any) instead."""
+    rng = random.Random(a.seed)
+    torch.manual_seed(a.seed)
+    cand = json.loads(Path(a.candidates).read_text()) if a.candidates else {}
+    rows_list = [int(m) for m in a.rows.split(",")]
+    res = {"torch": torch.__version__, "reps": a.reps, "seed": a.seed,
+           "tuned": {dt: {f"{K}x{N}": v for (K, N), v in t.items()} for dt, t in mrl.TUNED.items()},
            "rows": []}
     started = time.time()
     for dname in a.dtypes.split(","):
         dt = DTYPES[dname]
         for name in a.shapes.split(","):
             K, N = SHAPES[name]
-            ws, wts = weight_copies(K, N, dt, pre_t=True)
+            ws, wts = weight_copies(K, N, dt, pre_t=a.pre_t)
             iters = iters_for(K, N, len(ws), a.target_bytes)
-            for M in ROWS:
+            for M in rows_list:
                 x = torch.randn(M, K, device="mps", dtype=dt)
                 cfg = mrl.pick_config(M, K, N, dt)
+                routed = cfg is not None
+                if cfg is None and cand.get(dname, {}).get(name, {}).get(str(M)):
+                    cfg = mrl.Config.parse(cand[dname][name][str(M)])
+                if cfg is None:
+                    continue
                 arms = {"F.linear": lambda i: F.linear(x, ws[i]),
                         "F.linear_again": lambda i: F.linear(x, ws[i]),
-                        "mm_pre_t": lambda i: torch.mm(x, wts[i]),
-                        "multirow": lambda i: mrl.multirow_linear(x, ws[i], config=cfg)}
+                        "multirow": lambda i: mrl.multirow_linear(x, ws[i], config=cfg),
+                        "multirow_again": lambda i: mrl.multirow_linear(x, ws[i], config=cfg)}
+                if a.pre_t:
+                    arms["mm_pre_t"] = lambda i: torch.mm(x, wts[i])
                 samples = interleaved(arms, len(ws), iters, a.reps, rng)
                 med = {k: statistics.median(v) for k, v in samples.items()}
+                flop = 2 * M * N * K
                 row = {"dtype": dname, "shape": name, "K": K, "N": N, "M": M, "config": cfg.name(),
+                       "table_routes_to_kernel": routed,
                        "copies": len(ws), "weight_MB_total": len(ws) * K * N * 2 / 1e6, "iters": iters,
                        "median_us": med, "samples_us": samples,
                        "GBps": {k: K * N * 2 / v / 1e3 for k, v in med.items()},
+                       "TFLOPS": {k: flop / v / 1e6 for k, v in med.items()},
                        "linear_over_multirow": med["F.linear"] / med["multirow"],
-                       "mm_pre_t_over_multirow": med["mm_pre_t"] / med["multirow"],
-                       "aa_ratio": med["F.linear_again"] / med["F.linear"]}
+                       "aa_ratio": med["F.linear_again"] / med["F.linear"],
+                       "bb_ratio": med["multirow_again"] / med["multirow"]}
                 res["rows"].append(row)
                 emit(event="layer", dtype=dname, shape=name, M=M, cfg=cfg.name(),
                      us={k: round(v, 1) for k, v in med.items()},
                      speedup=round(row["linear_over_multirow"], 2), aa=round(row["aa_ratio"], 2),
-                     GBps=round(row["GBps"]["multirow"]), t=round(time.time() - started))
+                     bb=round(row["bb_ratio"], 2), GBps=round(row["GBps"]["multirow"]),
+                     TFLOPS=round(row["TFLOPS"]["multirow"], 2), t=round(time.time() - started))
             del ws, wts
             torch.mps.empty_cache()
             dump(a.out, res)
+    dump(a.out, res)
+
+
+# ---------------------------------------------------------------- probe (round 2 diagnosis)
+
+def _edits(*pairs):
+    def f(src):
+        for old, new in pairs:
+            assert src.count(old) == 1, old
+            src = src.replace(old, new)
+        return src
+    return f
+
+
+def _unroll_mmr(src):
+    """Force full unrolling of every constant loop in the mmr variant (mmr_load and mrl_mmr)."""
+    i = src.index("template <int M, int NS, int U>\ninline void mmr_load")
+    return src[:i] + src[i:].replace("for (int ", "_Pragma(\"unroll\") for (int ")
+
+
+_L1W = ("wrow[ns][kw / 8]", "wrow[ns][(kw / 8) & 7]")
+_L1X = ("(xrow[mt][j] + kx)", "(xrow[mt][j] + (kx & 63))")
+_NOMMA = ("++mt) simdgroup_multiply_accumulate(acc[ns][mt], A[ns], B[mt], acc[ns][mt]);",
+          "++mt) acc[ns][mt].thread_elements()[0] += A[ns].thread_elements()[0] * B[mt].thread_elements()[1];")
+MMR_PROBES = {  # name: source transformation of mrl_mmr
+    "base": lambda s: s,
+    "l1": _edits(_L1W, _L1X),           # weight and x loads both confined to a cache-resident 64-element window
+    "l1w": _edits(_L1W),                # weight only
+    "l1x": _edits(_L1X),                # x only
+    "nomma": _edits(_NOMMA),            # each 8x8x8 multiply replaced by one FMA
+    "l1_nomma": _edits(_L1W, _L1X, _NOMMA),
+    "l1x_nomma": _edits(_L1X, _NOMMA),
+    "unroll": _unroll_mmr,
+}
+# The same probes on the round-2 register-fed families (mmh, mmp), applied to frag_load / frag_mma.
+_HL1W = ("wq[u][ns] = wok ? wrow[ns][kk] : uint4(0);", "wq[u][ns] = wok ? wrow[ns][kk & 3] : uint4(0);")
+_HL1X = ("xq[u][mt][j] = xok ? xrow[mt][j][kk] : uint4(0);", "xq[u][mt][j] = xok ? xrow[mt][j][kk & 3] : uint4(0);")
+_HNOMMA = ("                simdgroup_multiply_accumulate(acc[ns][mt], A[ns], B[mt], acc[ns][mt]);\n    }\n}",
+           "                acc[ns][mt].thread_elements()[0] += float(A[ns].thread_elements()[0] * B[mt].thread_elements()[1]);\n    }\n}")
+_HNOX = ("xq[u][mt][j] = xok ? xrow[mt][j][kk] : uint4(0);", "xq[u][mt][j] = uint4(kk + j);")
+_HNOW = ("wq[u][ns] = wok ? wrow[ns][kk] : uint4(0);", "wq[u][ns] = uint4(kk + ns);")
+MMH_PROBES = {"base": lambda s: s, "l1": _edits(_HL1W, _HL1X), "l1w": _edits(_HL1W), "nomma": _edits(_HNOMMA),
+              "l1_nomma": _edits(_HL1W, _HL1X, _HNOMMA),
+              "nox_nomma": _edits(_HNOX, _HNOMMA),   # weight stream only: no x loads, no multiplies
+              "now_nomma": _edits(_HNOW, _HNOMMA)}   # x loads only
+
+
+def cmd_probe(a):
+    """Where does the 16-row time go? The mmr / mmh kernels with their loads made cache-resident
+    (l1), their matrix multiplies replaced by one FMA (nomma), or loads removed (nox, now)."""
+    rng = random.Random(13)
+    torch.manual_seed(13)
+    res = {"torch": torch.__version__, "reps": a.reps, "rows": []}
+    # mmr / mmh probes on the large MLP shapes (the peak multiply rate is round2/peak_mma.py).
+    # 2. mmr probes on the large MLP shapes.
+    src = mrl.SOURCE_PATH.read_text()
+    libs = {name: mrl._Library(MMR_PROBES[name](src)) for name in a.probes.split(",") if name in MMR_PROBES}
+    hlibs = {name: mrl._Library(MMH_PROBES[name](src)) for name in a.probes.split(",") if name in MMH_PROBES}
+    dt = DTYPES[a.dtype]
+    for shape in a.shapes.split(","):
+        K, N = SHAPES[shape]
+        ws, _ = weight_copies(K, N, dt)
+        iters = iters_for(K, N, len(ws), a.target_bytes)
+        for M in [int(m) for m in a.rows.split(",")]:
+            x = torch.randn(M, K, device="mps", dtype=dt)
+            arms = {"F.linear": lambda i: F.linear(x, ws[i])}
+            for cname in a.configs.split(","):
+                cfg = mrl.Config.parse(cname)
+                for pname, lib in (hlibs if cfg.xsrc in ("mmh", "mmp") else libs).items():
+                    if cfg.xsrc not in ("mmr", "mmh", "mmp") and pname != "base":
+                        continue
+                    arms[f"{cname}|{pname}"] = lambda i, c=cfg, l=lib: mrl.multirow_linear(x, ws[i], config=c, lib=l)
+            samples = interleaved(arms, len(ws), iters, a.reps, rng)
+            med = {k: statistics.median(v) for k, v in samples.items()}
+            flop = 2 * M * N * K
+            row = {"dtype": a.dtype, "shape": shape, "K": K, "N": N, "M": M, "copies": len(ws), "iters": iters,
+                   "median_us": med, "samples_us": samples, "TFLOPS": {k: flop / v / 1e6 for k, v in med.items()},
+                   "GBps": {k: K * N * 2 / v / 1e3 for k, v in med.items()}}
+            res["rows"].append(row)
+            emit(event="probe", shape=shape, M=M, us={k: round(v, 1) for k, v in med.items()})
+            dump(a.out, res)
+        del ws
+        torch.mps.empty_cache()
     dump(a.out, res)
 
 
@@ -343,8 +501,10 @@ def patch_linears(model):
             if Patch.enabled:
                 x2 = x.reshape(-1, x.shape[-1])
                 if 2 <= x2.shape[0] <= 16 and mrl.supports(x2, m.weight, m.bias):
-                    Patch.calls += 1
-                    return mrl.multirow_linear(x2, m.weight, m.bias).view(*x.shape[:-1], m.out_features)
+                    cfg = mrl.pick_config(x2.shape[0], m.in_features, m.out_features, x2.dtype)
+                    if cfg is not None:  # None: the tuned table routes this cell to F.linear
+                        Patch.calls += 1
+                        return mrl.multirow_linear(x2, m.weight, m.bias, config=cfg).view(*x.shape[:-1], m.out_features)
             return F.linear(x, m.weight, m.bias)
         m.forward = forward
     return lins
@@ -514,6 +674,95 @@ def cmd_model(a):
     dump(a.out, res)
 
 
+def cmd_decode(a):
+    """Round 2 end to end: nn.Linear's own forward ("stock") against the patch, interleaved and
+    shuffled; greedy token agreement; teacher-forced logits per row against stock at the same batch
+    size and against stock at batch 1 (stock's own difference between batch sizes); the linears
+    alone in model order."""
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    dt = torch.float16
+    rng = random.Random(a.seed)
+    tok = AutoTokenizer.from_pretrained(REPO, revision=REV)
+    model = AutoModelForCausalLM.from_pretrained(REPO, revision=REV, dtype=dt).to("mps").eval()
+    lins = patch_linears(model)
+    saved = [m.forward for m in lins]
+
+    def set_arm(arm):
+        for m, f in zip(lins, saved):
+            if arm == "stock":
+                m.__dict__.pop("forward", None)
+            else:
+                m.forward = f
+        Patch.enabled = arm == "patched"
+
+    res = {"torch": torch.__version__, "model": REPO, "revision": REV, "dtype": "float16", "seed": a.seed,
+           "n_linears": len(lins), "prompt_len": 32, "new_tokens": a.steps, "reps": a.reps,
+           "tuned": {d: {f"{K}x{N}": v for (K, N), v in t.items()} for d, t in mrl.TUNED.items()}, "batches": []}
+    started = time.time()
+    for B in [int(b) for b in a.batches.split(",")]:
+        ids = prompts(tok, B).to("mps")
+        for arm in ("stock", "patched"):
+            set_arm(arm)
+            generate(model, ids, 4)
+        ms, toks, calls = {"stock": [], "patched": []}, {}, 0
+        for _ in range(a.reps):
+            order = ["stock", "patched"]
+            rng.shuffle(order)
+            for arm in order:
+                set_arm(arm)
+                Patch.calls = 0
+                t, _, m = generate(model, ids, a.steps)
+                ms[arm].append(m)
+                toks.setdefault(arm, []).append(t)
+                if arm == "patched":
+                    calls = Patch.calls
+        T = toks["stock"][0]
+        row = {"batch": B, "ms_per_step": ms, "median_ms_per_step": {k: statistics.median(v) for k, v in ms.items()},
+               "range_ms_per_step": {k: [min(v), max(v)] for k, v in ms.items()},
+               "kernel_calls_per_generate": calls,
+               "stock_tokens_repeat": all(torch.equal(t, T) for t in toks["stock"]),
+               "token_agreement_patched_vs_stock": [(t == T).float().mean().item() for t in toks["patched"]]}
+        # Free-running divergence: where each row first differs, with stock's top-2 gap there.
+        div = []
+        for i in range(B):
+            neq = (toks["patched"][0][i] != T[i]).nonzero()
+            if len(neq):
+                div.append({"row": i, "step": int(neq[0])})
+        # Teacher-forced on stock's tokens.
+        set_arm("stock")
+        _, LB, _ = generate(model, ids, a.steps, forced=T)
+        set_arm("patched")
+        _, PB, _ = generate(model, ids, a.steps, forced=T)
+        for d in div:
+            top = LB[d["row"], d["step"]].topk(2).values
+            d["stock_top2_gap"] = (top[0] - top[1]).item()
+        row["first_divergence"] = div
+        per_row = []
+        set_arm("stock")
+        for i in range(B):
+            r = {"row": i, "patchedB_vs_stockB": (PB[i] - LB[i]).abs().max().item()}
+            if B > 1:
+                _, L1, _ = generate(model, ids[i:i + 1], a.steps, forced=T[i:i + 1])
+                r["stockB_vs_stock1"] = (LB[i] - L1[0]).abs().max().item()
+                r["patchedB_vs_stock1"] = (PB[i] - L1[0]).abs().max().item()
+            per_row.append(r)
+        row["logit_rows"] = per_row
+        row["logit_max"] = {k: max(r[k] for r in per_row) for k in per_row[0] if k != "row"}
+        row["logit_abs_max"] = LB.abs().max().item()
+        lin = {"stock": [], "patched": []}
+        for arm in ("stock", "patched", "stock", "patched"):
+            set_arm(arm)
+            lin[arm].append(linears_ms(lins, B, dt))
+        row["linears_only_ms"] = lin
+        set_arm("stock")
+        res["batches"].append(row)
+        emit(event="decode", B=B, ms={k: [round(x, 2) for x in v] for k, v in ms.items()}, calls=calls,
+             agree=row["token_agreement_patched_vs_stock"], logit_max=row["logit_max"], div=div,
+             lin={k: [round(x, 2) for x in v] for k, v in lin.items()}, t=round(time.time() - started))
+        dump(a.out, res)
+    dump(a.out, res)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -523,15 +772,30 @@ def main():
     t.add_argument("--dtype", default="float16"); t.add_argument("--shapes", default=",".join(SHAPES))
     t.add_argument("--rows", default=",".join(map(str, ROWS)))
     t.add_argument("--reps", type=int, default=3); t.add_argument("--target-bytes", type=float, default=1.5e9)
+    t.add_argument("--configs", default="", help="comma-separated config names (default: the --grid)")
+    t.add_argument("--grid", default="round1", choices=("round1", "round2"))
     l = sub.add_parser("layers"); l.add_argument("--out", required=True)
     l.add_argument("--dtypes", default="float16,bfloat16"); l.add_argument("--shapes", default=",".join(SHAPES))
     l.add_argument("--reps", type=int, default=7); l.add_argument("--target-bytes", type=float, default=3e9)
+    l.add_argument("--rows", default=",".join(map(str, list(range(1, 17)) + [24, 32])))
+    l.add_argument("--seed", type=int, default=11); l.add_argument("--pre-t", type=int, default=0)
+    l.add_argument("--candidates", default="", help="JSON {dtype: {shape: {M: config}}} for cells routed to F.linear")
+    pr = sub.add_parser("probe"); pr.add_argument("--out", required=True)
+    pr.add_argument("--dtype", default="float16"); pr.add_argument("--shapes", default="q17_up,q17_down")
+    pr.add_argument("--rows", default="16"); pr.add_argument("--reps", type=int, default=5)
+    pr.add_argument("--target-bytes", type=float, default=1.5e9)
+    pr.add_argument("--probes", default=",".join(MMR_PROBES));
+    pr.add_argument("--configs", default="mmr_r2_u1_s4,mmr_r2_u1_s4_p4,mmr_r4_u1_s4_p4,mma_r1_u1_s4")
+    dc = sub.add_parser("decode"); dc.add_argument("--out", required=True)
+    dc.add_argument("--batches", default="1,4,8,12,16"); dc.add_argument("--steps", type=int, default=32)
+    dc.add_argument("--reps", type=int, default=4); dc.add_argument("--seed", type=int, default=3)
     m = sub.add_parser("model"); m.add_argument("--out", required=True)
     m.add_argument("--batches", default="1,4,8,16"); m.add_argument("--steps", type=int, default=32)
     m.add_argument("--reps", type=int, default=3)
     a = ap.parse_args()
     torch.set_num_threads(4)
-    {"correctness": cmd_correctness, "tune": cmd_tune, "layers": cmd_layers, "model": cmd_model}[a.cmd](a)
+    {"correctness": cmd_correctness, "tune": cmd_tune, "layers": cmd_layers, "model": cmd_model,
+     "probe": cmd_probe, "decode": cmd_decode}[a.cmd](a)
 
 
 if __name__ == "__main__":

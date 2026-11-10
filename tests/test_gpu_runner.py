@@ -291,5 +291,51 @@ class GPUOwnershipTests(unittest.TestCase):
         self.assertIn('"reason": "process-group RSS"', result.stdout)
 
 
+    def run_labelled(self, label, code, seconds="20"):
+        env = {**self.env, "MK_GPU_LABEL": label}
+        return subprocess.Popen([sys.executable, str(RUNNER), "--grace-seconds", "0.15", "--seconds", seconds, "--",
+                                 sys.executable, "-c", code], env=env, stdout=subprocess.PIPE,
+                                stderr=subprocess.DEVNULL, text=True, start_new_session=True)
+
+    @staticmethod
+    def gpu_run_record(stdout):
+        lines = [line for line in stdout.splitlines() if line.startswith("GPU_RUN ")]
+        return json.loads(lines[-1][len("GPU_RUN "):])
+
+    def test_label_is_recorded_in_lock_and_run_record(self):
+        holder = self.run_labelled("side-a:1", "import time; time.sleep(0.6)")
+        self.children.append(holder)
+        wait_for(lambda: self.lock.exists() and '"side-a:1"' in self.lock.read_text() and '"released": false' in self.lock.read_text())
+        out, _ = holder.communicate(timeout=10)
+        record = self.gpu_run_record(out)
+        self.assertEqual(record["label"], "side-a:1")
+        self.assertIsNone(record["lock_prior_label"])
+        self.assertLess(record["lock_wait_seconds"], 0.5)
+        held = json.loads(self.lock.read_text())
+        self.assertEqual((held["label"], held["released"]), ("side-a:1", True))
+
+    def test_waiter_records_who_it_waited_behind(self):
+        holder = self.run_labelled("side-a:2", "import time; time.sleep(1.0)")
+        self.children.append(holder)
+        wait_for(lambda: self.lock.exists() and '"released": false' in self.lock.read_text())
+        waiter = self.run_labelled("side-b:7", "pass")
+        self.children.append(waiter)
+        out, _ = waiter.communicate(timeout=15)
+        holder.communicate(timeout=10)
+        record = self.gpu_run_record(out)
+        self.assertEqual(record["label"], "side-b:7")
+        self.assertEqual(record["lock_prior_label"], "side-a:2")
+        self.assertEqual(record["lock_last_label"], "side-a:2")
+        self.assertGreater(record["lock_wait_seconds"], 0.3)
+
+    def test_unlabelled_run_records_nulls(self):
+        env = {k: v for k, v in self.env.items() if k != "MK_GPU_LABEL"}
+        done = subprocess.run([sys.executable, str(RUNNER), "--seconds", "20", "--", sys.executable, "-c", "pass"],
+                              env=env, capture_output=True, text=True, timeout=20)
+        record = self.gpu_run_record(done.stdout)
+        self.assertIsNone(record["label"])
+        self.assertIsNone(record["lock_prior_label"])
+
+
 if __name__ == "__main__":
     unittest.main()

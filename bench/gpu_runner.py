@@ -56,12 +56,29 @@ def pid_alive(pid):
         return True
 
 
-def record_lock(fd, group=None):
-    payload = (json.dumps({"owner_pid": os.getpid(), "group": group}) + "\n").encode()
+def label():
+    """Optional free-text run label (MK_GPU_LABEL), so sessions sharing the lock can tell their runs apart."""
+    return os.environ.get("MK_GPU_LABEL") or None
+
+
+def read_label(fd):
+    try:
+        text = os.pread(fd, 4096, 0).decode().strip()
+        return json.loads(text).get("label") if text.startswith("{") else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def record_lock(fd, group=None, released=False):
+    payload = (json.dumps({"owner_pid": os.getpid(), "group": group, "label": label(),
+                           "released": released}) + "\n").encode()
     os.lseek(fd, 0, os.SEEK_SET)
     os.ftruncate(fd, 0)
     if os.write(fd, payload) != len(payload):
         raise OSError("Incomplete GPU ownership record")
+
+
+WAIT = {"lock_wait_seconds": None, "lock_prior_label": None, "lock_last_label": None}
 
 
 def acquire(path, cancelled):
@@ -98,10 +115,13 @@ def acquire(path, cancelled):
         except (FileNotFoundError, NotADirectoryError):
             pass
     fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
+    started, waited, prior = time.monotonic(), False, None
     try:
         while not cancelled():
             try:
                 fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                WAIT.update(lock_wait_seconds=round(time.monotonic() - started, 3),
+                            lock_prior_label=prior if waited else None, lock_last_label=read_label(fd))
                 previous = os.read(fd, 4096).decode().strip()
                 group = json.loads(previous).get("group") if previous.startswith("{") else None
                 if group is not None:
@@ -117,6 +137,8 @@ def acquire(path, cancelled):
                 record_lock(fd)
                 return fd
             except BlockingIOError:
+                if not waited:
+                    waited, prior = True, read_label(fd)
                 time.sleep(0.1)
     except BaseException:
         os.close(fd)
@@ -321,7 +343,7 @@ def guard(args, command, fd, owner_pipe):
             warning_seconds += time.monotonic() - warning_started
         if child is not None:
             stop_group(child, args.grace_seconds, pgid=pgid, exclude_pid=os.getpid())
-        record_lock(fd)
+        record_lock(fd, released=True)
         # Never unlink: waiters may already have opened this exact inode.
         os.close(fd)
         os.close(owner_pipe)
@@ -331,7 +353,8 @@ def guard(args, command, fd, owner_pipe):
                   "initial_memory": initial, "peak_swap_gib": peak_swap,
                   "last_sample": last_sample, "recent_samples": list(samples),
                   "warning_periods": warning_periods, "warning_seconds": round(warning_seconds, 3),
-                  "memory_limits": {name: getattr(args, name) for name in MEMORY_DEFAULTS}}), flush=True)
+                  "memory_limits": {name: getattr(args, name) for name in MEMORY_DEFAULTS},
+                  "label": label(), **json.loads(os.environ.get("MK_GPU_WAIT") or "{}")}), flush=True)
     if caught[0]:
         return 128 + caught[0]
     if reason:
@@ -358,7 +381,7 @@ def main():
             return 128 + caught[0]
         child = subprocess.Popen(
             [sys.executable, str(Path(__file__).resolve()), "--_guard", str(fd), str(reader), *argv],
-            start_new_session=True, pass_fds=(fd, reader))
+            start_new_session=True, pass_fds=(fd, reader), env={**os.environ, "MK_GPU_WAIT": json.dumps(WAIT)})
         os.close(reader)
         reader = None
         while child.poll() is None:
@@ -375,7 +398,7 @@ def main():
             # If the guard itself crashes, its known group is still ours to
             # clean. Keep the parent's flock until every member has stopped.
             stop_group(child, args.grace_seconds)
-        record_lock(fd)
+        record_lock(fd, released=True)
         os.close(fd)
     if caught[0]:
         return 128 + caught[0]

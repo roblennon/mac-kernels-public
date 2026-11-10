@@ -131,7 +131,7 @@ The shard reads a monotonic clock at the top of its script and adds 3 s for inte
 
 ### Checks, with thresholds
 
-Checks 1 to 5 are go or no-go for 1b.
+Checks 1 to 5 and 11 are go or no-go for 1b.
 
 1. Identity, token for token. A0 through `padarm` equals stock `generate` from a second, eager instance in the same process on all 40 (the hook, not cross-process determinism). On the first 10 pilot clips by sorted `id`, two items must reproduce A0: the masked code path with an empty key set (the bias tensor built and added, all zeros), which A0 skips; and the clip's own pad swapped back. A0' equals A0 on all 40.
 2. Hook bites. In every masked decode, logged weight on masked keys is at most 1e-6 per row, with no NaN or infinity. A unit test masking all keys but one returns that key's value. For M and the swaps, the encoder output passed to `generate` differs from A0's at the edited positions and is bit-equal elsewhere.
@@ -148,6 +148,7 @@ Checks 6 to 10 feed 1b:
 8. C feasibility: capped share per model from C's own decodes (A4); over 10 percent makes C infeasible there.
 9. Pad mass: mean and median per-row pad weight in A0, overall and per layer and head; Rob's call 2 applies.
 10. M coverage: per stratum, the share of each target's first 25 pad positions that M replaced, and the count of targets with at least 95 percent of P replaced.
+11. Base task in reach (go or no-go; tests the model, not the instrument). Per model, from 1a's 40 A0 decodes, read before any other arm's numbers: corpus WER at most 10 percent, at most 2 of 40 decodes flagged by any overrun rule, at most 2 of 40 early stops. The bars are stated choices; published test-clean WER for these checkpoints is not checked. Check 1 cannot catch a front-end fault, since stock `generate` receives the same features; this check can. On a miss, compare the 10 CPU fp32 decodes: a pipeline fault is fixed by amendment and 1a's A0 rerun; a model that still misses is parked, since a baseline that already overruns or stops early leaves no room for M's ±2 or A2's rise to show. Both parked: 1b does not run. Cost: none beyond 1a's planned decodes; WER and flags are CPU arithmetic on saved transcripts.
 
 ### Outputs and receipts
 
@@ -232,5 +233,7 @@ Step 0 is done: twelve queries (padding sinks, `audio_ctx` repetition, training-
 - 2026-11-09: hostile review, cross-family review (Sol, `reviews/2026-11-09-queue-review-sol.md`, section 1), cold planning pass and cold read round 2; all must-fix items addressed.
 - Cold read round 3, 2026-11-09: pass rules, floor, C criterion, interval levels, prediction scoring, seeds, M-pool shrink and reading, deadline kills fixed.
 - Cold read round 4, 2026-11-09: peak normalisation moved into Step 1; check 5 power given a pass line; C row on Newcombe; C kill needs the interval wholly below zero, with inconclusive outcomes named; plant candidates, coverage d, early-stop arms, orderings, file layout, MPS cap and prior-work pause rule set; disk floor (about 19 GiB), check 1's masked path, kind-1 claim, state size and 1c count corrected; repetition cut.
+
+- 2026-11-10: subject-property gate review, after copies-as-evidence 1a ran a model at chance on its base task. Pad mass (call 2, check 9, 1 percent bar) and pad-content sensitivity (check 3) were already gated; base-task competence at A0 was not. Added check 11 (WER, overrun and early-stop bars on 1a's A0, go or no-go, no extra decodes). Risk the test would have been void without it: low, since Whisper on test-clean is expected to be in reach, but a front-end fault would have passed checks 1 to 5.
 
 Not done in any pass: no command was run against a model, and every timing remains unmeasured.

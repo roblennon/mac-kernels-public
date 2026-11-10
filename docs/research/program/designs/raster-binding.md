@@ -57,7 +57,7 @@ Each version is asked about X and about Y, balancing which object comes first. E
 
 **Decisive metric.** Per base scene, Δ_scene = mean L over the two close versions − mean L over the two far versions. Δ is the mean over scenes, with a 95% bootstrap interval (10,000 resamples). Distances are pooled; per-distance splits are descriptive.
 
-**Calibration and power, before the committed run.** On 40 base scenes (320 passes), accuracy must beat chance and the swap rate sit between 5% and 40%; otherwise adjust object size and shape similarity, then try the fallback. From the spread of Δ_scene, simulate the interval half-width for 100 to 1,000 scenes and choose n for a half-width of at most 0.08. Time 20 passes. If n does not fit in about 20 minutes, split it across two attended slices or ask Rob; never shrink n.
+**Calibration and power, before the committed run.** On 40 base scenes (320 passes), arm A only, this gate must pass before any step 1 pass: accuracy at least 30% (chance is 12.5%) and at most 95%; swap rate (answer is the partner's colour) between 5% and 40%; and swaps at least twice as frequent as the mean rate of each of the other six wrong colours, so the partner pull exists in clean scenes and is not random error. If it fails, adjust object size and shape similarity (at most two rounds), then try the fallback with the same bar. If neither model passes, park the card: step 1 does not run. Cost: 320 passes per round; pass speed not measured, so time 20 passes first and shard to stay under 300 s per process and 30 GPU-minutes in all. From the spread of Δ_scene, simulate the interval half-width for 100 to 1,000 scenes and choose n for a half-width of at most 0.08. Time 20 passes. If n does not fit in about 20 minutes, split it across two attended slices or ask Rob; never shrink n.
 
 **Speed.** Cache encoder and projector outputs per image. Use fp16 after checking on CPU, for 5 scenes, that colour logits match bf16 within a tolerance set first. Shards under 300 s, resumable from a per-trial CSV.
 
@@ -99,6 +99,7 @@ Encoder asymmetry posing as a string effect. Close and far versions differ by a 
 
 ## Kill criterion
 
+- The calibration gate fails on both models: park; the hypothesis was not tested.
 - A twice differs, A0 differs from A, or a plant is not recovered: fix the code, read nothing.
 - The interval of Δ lies within −0.18 to 0.18: write up a bounded null. Step 2 runs only if S shows the model uses order.
 - The interval spans 0 and 0.18: a failed experiment from low power. Do not build step 2 on it.
@@ -133,3 +134,5 @@ Verdict: not scooped; gate cleared. No released dataset fits the wrap design. Ne
 ## Review record
 
 Hostile review, 2026-11-09, "queue after fixes". All five must-fixes applied (mechanism-free plants, powered continuous readout, explicit 2x2 replacing arm C, one directional prediction, wrap pairs first); should-fixes agreed (recency splits, matched noise floors, 7B replication). Partly agreed: the probe was added, but a good probe does not make the null foregone, since position in the tokens and string-distance decay in attention are separate questions. The reviewer's own searches were refused; the Search gate replaces them.
+
+Base-task gate check, 2026-11-10. The card already had a calibration gate before step 1 (accuracy above chance, swap rate 5% to 40%) but no numeric accuracy bar, no stop if the fallback also failed, and a swap bar that random wrong answers could pass. Tightened: accuracy 30% to 95%, swaps at least twice the rate of each other wrong colour, two adjustment rounds, park if neither model passes; added to the kill criterion. Prompted by the copies-as-evidence step 1a result, where the model was at chance on the base task.

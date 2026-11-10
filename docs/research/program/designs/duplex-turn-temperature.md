@@ -54,6 +54,8 @@ Open: the per-transfer start distribution read from the logits, especially in th
 
 **Step 1a (one slice, TTS voice A).** Moshi speaks a greeting, sampled once; the KV cache after it is checkpointed (or re-prefilled, with that time counted). The user turn plays. Moshi's text is forced to PAD; its audio is sampled by the depth transformer at the deployed audio temperature. Save text logits from 2 s before to 3 s after each end. Compute the per-frame start probability for T ∈ {0.5, 0.7, 0.85, 1.0}, each with no truncation, top-k 25 and top-p 0.95, and turn each into a start distribution by survival products. On 10 turns, also run digital-silence audio codes and the planted delay below.
 
+**Gate (start of step 1a, before the other turns).** The test needs Moshi to take the floor under this harness, with a hazard that is neither absent nor instant. Forcing text to PAD through the greeting and user turn may push it off-distribution, and nothing so far shows q4 Moshi starts after TTS turns at all. On the first 10 turns, measure: (a) free run at default MLX decoding, one seed per turn: does a word (EPAD then text) start within 3 s after the turn end? (b) From the saved T=1 logits: cumulative start probability by 3 s after the end, and the share of start mass before the end. Bar: (a) at least 8 of 10 turns start; (b) cumulative T=1 start probability at least 0.5 by 3 s on at least 8 of 10 turns, so the median exists inside the window, and under 0.5 of start mass falls before the end on at least 8 of 10. Also report peak per-frame h; if it exceeds 0.5 on most turns, the hazard is sharp, the temperature arms are expected to read null (see Theory), and the card says so before step 1b. If (a) or (b) fails: stop. Check the forced-PAD prefix against free run first, then try a longer window or a different greeting. If it still fails, park the card; a model that does not take the turn cannot test the sampler. Cost: inside the step 1a slice (10 turns plus 10 free runs, under 30 GPU-minutes, each process under 300 s, peak under 7 GiB). Per-turn frame time not checked yet.
+
 **Step 1b (two to four slices).** Voice B, human and model-generated arms, arms interleaved by turn. Free-run check: 20 turns × 5 seeds at T=1.
 
 **Metric that decides:** median T=1 implied offset on human turns, bootstrap 95% interval over turns.
@@ -116,5 +118,7 @@ Still open: DyaFDB's full text; whether the Candor segments are downloadable; NV
 ## Review record
 
 Hostile review 2026-11-09, verdict queue-after-fixes. Must-fixes, all made: Table 9 anticipates Moshi; 170 ms card latency against self-play; no content metric; pre-end metric unlike the paper's; planted effects tested only arithmetic. Five should-fixes and three minor points, all addressed.
+
+Base-task gate review 2026-11-10, after copies-as-evidence step 1a ran at chance: the card checked the instrument (planted delay, EPAD sanity) but never whether q4 Moshi takes the turn under forced PAD. Added a gate at the start of step 1a: free-run starts in at least 8 of 10 turns, a T=1 median inside the 3 s window, and most start mass after the end; stop or park otherwise. Risk without it: medium.
 
 Scooping search: the first six queries were refused (budget spent); all were rerun on 2026-11-09 with sixteen more, see the search gate.

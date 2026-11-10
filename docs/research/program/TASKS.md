@@ -16,8 +16,9 @@ The running list for the programme framed in `FRAME.md`. One line per item. Deci
 - [x] Checkpoint and commit (`checkpoint-2026-11-09.md`)
 - [ ] After the goal: try the lab on the top of the queue, as Rob authorised once the lab's milestone message arrived (it has; on 2026-11-09 the lab also ran its first autonomous question end to end)
 
-- [x] Lab case 002 ran copies-as-evidence step 1a (2026-11-10): void, the model was at chance on the base task
-- [ ] Redesign copies-as-evidence around a capability step; add capability gates to the other queued cards where missing
+- [x] Lab case 002 ran copies-as-evidence step 1a (2026-11-10): void: no greedy answer right (one template inaccurate, the other off-format), count probe failed
+- [x] Redesign copies-as-evidence around a capability step (attacked; last cold read's gaps fixed, not re-read); capability gates added to 27 of the 29 other queued cards
+- [ ] Rob: download Qwen3-4B (about 8 GB) for copies-as-evidence's second ladder? Needed only if the Qwen3-1.7B ladder finds no task
 
 ## Parked (real, not now)
 

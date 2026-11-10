@@ -62,7 +62,15 @@ One Whisper `EnglishTextNormalizer` for everything. Greedy, temperature 0, no pr
 
 **Step 0c: power pilot.** On 50 Seed-TTS utterances, run the Emilia model's two seeds through the full analysis and read the SE of I. Size N to resolve 0.5 absolute points. If that needs every utterance, keep two seeds for the Emilia model only and one for the LibriTTS model, rather than shrink N. Time each judge including model load.
 
-**Step 1, one to three slices by measured timing.** Seed-TTS test-en at that N, then test-clean if time remains. Sources: human, ZipVoice-Emilia, ZipVoice-LibriTTS, interleaved within each judge pass. One process per judge per shard, under 300 s and 8 GiB.
+**Step 0d: base-task gate, on 0c's pilot.** The plants test the instrument; this tests the subjects. On the 0c clips plus the 50 human recordings, before step 1:
+- Each ZipVoice checkpoint has WER under 15% under every deciding judge (large-v3 and each outside judge), and fewer than 3 of 50 clips at 50% WER or worse under all judges. Above that, generation failures swamp label habits.
+- Each outside judge's WER on the human recordings is under 10% and at most 3× large-v3's. A judge that cannot transcribe clean Common Voice audio cannot show a Whisper-specific advantage.
+- Error mass: the pilot error rate, extrapolated to step 1's N, gives at least 100 substitution-plus-deletion errors per model under large-v3. Fewer, and a 0.3 to 1.0 point I is a handful of words.
+- Resolution: 0c's SE gives a 95% half-width on absolute I of 0.5 points or less at an N that fits three slices.
+
+If a checkpoint fails, recheck prompt text, NFE and sampler once, then park step 1. If an outside judge fails, drop it; with no outside judge left, park, since the panel decides. If error mass or resolution fails, park step 1 and record it as unable to test, not null. Cost: none beyond 0c's slice, since it reuses 0c's clips and judge passes; the human recordings add one pass per judge on 50 clips, inside the 300 s, 8 GiB per-process limits. Bars are set before the pilot; no TTS or judge WER on Seed-TTS has been measured here.
+
+**Step 1, one to three slices by measured timing. Runs only if 0d passes.** Seed-TTS test-en at that N, then test-clean if time remains. Sources: human, ZipVoice-Emilia, ZipVoice-LibriTTS, interleaved within each judge pass. One process per judge per shard, under 300 s and 8 GiB.
 
 **Step 2, device only.** Full sets, extra TTS models, word-frequency bins, adjudication as in the verifier's-floor paper, and whether any pairwise ranking flips across judges.
 
@@ -88,7 +96,7 @@ The outside panel on Seed-TTS test-en. If the LibriTTS model shows the same Whis
 
 ## Kill criterion
 
-Stop after 0a if prior work answers it. Stop after step 1 if both label plants are recovered at the right sign and size, I_log sits inside the noise floor, and Whisper and outside rungs do not separate. Stop after step 3 if the label-swap I is below 0.2 points or covers zero across seeds and no ranking flips in step 2. Then the protocol is fair in this respect, and that is the paper.
+Stop after 0a if prior work answers it. Park, not stop, if step 0d fails. Stop after step 1 if both label plants are recovered at the right sign and size, I_log sits inside the noise floor, and Whisper and outside rungs do not separate. Stop after step 3 if the label-swap I is below 0.2 points or covers zero across seeds and no ranking flips in step 2. Then the protocol is fair in this respect, and that is the paper.
 
 ## Cost on this hardware
 
@@ -129,5 +137,6 @@ Still open: citers of Wirth and Peinl (Semantic Scholar rate-limited); the train
 - Must-fix, all addressed: neutral panel; the real protocol; planted-effect sign, plus an acoustic plant; scale artifact (log-odds I_log decides); cost (generation is step 0b); no search (step 0a, done 2026-11-09).
 - Should-fix, all addressed: pilot-sized N; matched NFE and sampler, token type named; ground-truth prompt text; human-side selection left to step 3; four-rung dose ordering.
 - Minor: step 3 split into 3a and 3b; "grows with" dropped; seed pair is the noise floor.
+- 2026-11-10, base-task gate pass (after copies-as-evidence step 1a ran a model at chance on its base task): no subject-side gate existed; 0c measured SE but had no bar or stop, and nothing checked TTS intelligibility, outside-judge competence on Common Voice audio, or error mass. Added step 0d with bars and a park rule. Risk the step 1 test was void without it: medium.
 
 The reviewer's four searches were refused for budget; its fetches are folded into "What is already known".

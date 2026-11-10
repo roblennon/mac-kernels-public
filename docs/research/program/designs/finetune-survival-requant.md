@@ -52,11 +52,19 @@ Anything between a predicted value and its kill line is labelled inconclusive in
 
 ## Design
 
+**Step 0 (subject gate; one MPS slice, before slice 2a; step 1 does not depend on it).** Step 1's gates test the instrument. This tests whether the subject has the property step 2 ranks: a forgetting effect that trains, and a retained fraction R that is neither always kept nor always lost. It runs step 2's pilot (below) as written, then trains two probe edits, rank-1 LoRA and full-matrix Adam, with one seed outside step 2's three, under step 2's loss, layers and stop rule, one process each. Each probe is quantized with RTN 4-bit group 64, re-derived scales, and evaluated at α = 1 and α = 0.25, with each bf16 evaluation run twice. Probe points are never pooled into step 2. Bars, all required:
+- Base task: the pilot's minimums (50 forget, 100 retain, 50 paraphrased forget, correct in bf16 and under all three quantizers). On failure, take the pilot's fallback; if the fallback also fails, park step 2.
+- Effect trains: both probes reach bf16 forget accuracy ≤ 10% with retain ≥ 90% of base inside one process (300 s with load). On failure, stop and re-plan training before slice 2a.
+- Effect resolvable: at α = 1 the bf16 effect is at least 3 times the twice-run MPS spread for both probes.
+- Room for R: of the four probe points, at least two report R (bf16 effect ≥ 3 times spread), and at least one reported R lies between 0.1 and 0.9, or two reported R differ by 0.3 or more. If every reported R is ≥ 0.9 or every one ≤ 0.1, Spearman would rank noise: stop and re-plan step 2's quantizer or α range before slice 2a; do not train the 12 runs.
+
+Record the bars, the values and the decision in the slice plan before slice 2a starts. Cost estimate (not measured): pilot about 5 minutes, two training processes under 300 s each, evaluation about 5 minutes; about 15 MPS minutes, inside one 30-minute slice, under step 2's 4 GiB per process (memory fit not checked).
+
 **Step 1 (one slice, CPU).** 1a tests the instrument on planted effects; 1b runs Rob's W6A8 and W4A8 requantize on real Qwen weights. See "Step 1, exactly".
 
 **Step 2 (headline; two MPS slices).** Same model, unless the pilot fails.
 
-Pilot (about 5 minutes). Commit a country-to-capital list, about 300 pairs from a public list with source and licence, before any model sees it. Keep facts the base answers correctly in bf16 and under every quantizer below; minimum 50 forget, 100 retain, 50 paraphrased forget. Otherwise switch to `Qwen/Qwen2.5-1.5B-Instruct` (memory fit not checked) or another fact type.
+Pilot (about 5 minutes; runs inside step 0). Commit a country-to-capital list, about 300 pairs from a public list with source and licence, before any model sees it. Keep facts the base answers correctly in bf16 and under every quantizer below; minimum 50 forget, 100 retain, 50 paraphrased forget. Otherwise switch to `Qwen/Qwen2.5-1.5B-Instruct` (memory fit not checked) or another fact type.
 
 Training (slice 2a). Edit down_proj of layers 8 to 11 with gradient-difference loss, stopped at bf16 forget accuracy ≤ 10% with retain ≥ 90% of base. Four arms: rank-1 LoRA (Adam), rank-8 LoRA (Adam), full-matrix SGD, full-matrix Adam. LoRA is two hand-written factor matrices (no peft). Three seeds, one process per run. Each delta's singular spectrum and effective rank, (Σσ²)²/Σσ⁴, not its arm label, is the predictor.
 
@@ -165,6 +173,7 @@ Crossing fraction and the other rivals, scored on the same trained points. If an
 
 Estimates, not measurements.
 
+- Step 0: about 15 MPS minutes, one slice (see step 0).
 - Step 1: a 1 GB download (33 GiB free on 2026-11-09), then seven CPU processes under 2 GiB each, capped at 60 s + 6 × 300 s, about 31 minutes plus launch overhead (stage 1 at most about 21, stage 2 about 10).
 - Step 2: slice 2a, pilot plus 12 training runs, about 25 MPS minutes; slice 2b, about 20 minutes. Under 4 GiB per process.
 - Step 3a: about 20 CPU minutes; files assumed present. 3b: 11 conditions × 32 images at about 30 s (`docs/findings.md`) is about 3 GPU hours, 6 or more slices, via the Krea server (`docs/how-to-run.md`). Keep free disk above 15 GB.
@@ -189,6 +198,8 @@ Hostile review, 2026-11-09, queue-after-fixes: all points fixed (1a as unit test
 Cold reads 1 to 3, 2026-11-09: from not plannable to runnable cold; fixed layers, SR path and merge dtype (S16 judged), strata, P-1a withdrawn, bracket convention, predictions moved into "Step 1, exactly", timing, tolerances, download, backend and checks.
 
 Cold read 4 fixes, 2026-11-09: no blocks; four result-changing decisions made. T̃ drives Δ⁰, f⁰, Δ', f' at every D (stored levels only for Δ̄); P-1c judged per D on the mean of per-seed ratios; C3's bar widens with seed spread; layer 12 gets fresh seeds; kill-side values inside the seed spread are inconclusive, per the frame. Also fixed: timing projection, arm order, API calls, backend record, 1a flags and basis, ratio-of-means S_x, energy columns, K = 896 list, cost (about 31 minutes, two stages).
+
+Subject-gate check, 2026-11-10, after case 002 (copies-as-evidence 1a ran at chance): step 2's pilot already gated base-task ability with counts and a fallback, but nothing confirmed that forgetting trains or that R has room to vary before the 12 training runs. Added step 0: pilot, two probe edits, R at two α under RTN 4-bit, with bars and stops. Step 3 was already gated (3a gates 3b). Risk without the gate: medium.
 
 ## Appendix A1: step 1 sources and reasons
 

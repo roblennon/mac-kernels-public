@@ -63,8 +63,9 @@ Workers exit before 280 seconds; a resume file records progress.
 3. Measure the longest clip one process can generate. If under about 1,500 words, build a save-and-resume harness (KV cache and RNG state to disk). It passes only if resumed tokens match an uninterrupted run exactly.
 4. Detector validation: identity, planted skips and repeats, real-speech false alarms by position.
 5. A pilot on 5 passages, never reused: slip rate per type under the shipped sampler and at T = 1.15 with top_k 50 kept.
+6. Base-task gate, before any sizing. The hazard test assumes the model, as run here on MPS, speaks the text correctly most of the time, so that a slip is a rare departure from good output and not the normal state. Measure, under the shipped sampler, detector WER on 40 pieces of about 25 words from the pilot passages, beside the detector's WER on LibriSpeech test-clean. Bar: piece WER at most 10 percent and at most 3 times the real-speech WER (LACI reports 2.7 percent for this checkpoint under 500 words; the slack is for detector and device differences), and fewer than half of the pilot's long clips slip in their first third. If piece WER fails, listen to 5 pieces: broken audio parks the card as an MPS port problem; intelligible audio the detector misreads sends the card back to detector validation. If the first-third bar fails, the long clips leave no room for a last-third hazard to show; Step 1 uses the longest length at which it passes, or the card parks. Cost: about 1,000 words, roughly 7 audio minutes, inside Step 0's slice if generation is near real time (not checked); otherwise a second 30-minute slice.
 
-Its outputs (throughput, maximum length, detector recovery, false alarms, pilot rates) size Steps 1 to 3.
+Its outputs (throughput, maximum length, detector recovery, false alarms, base-task gate, pilot rates) size Steps 1 to 3. Nothing is sized until item 6 passes.
 
 **Power, worked out before any run.** For a hazard ratio near 1 to have a 95 percent interval inside [0.67, 1.5], the standard error of its log must be about 0.2. Poisson counts give that with about 50 events in each compared group. This is arithmetic, not a measurement. Each step runs slices until it reaches its event target, and whether that target is affordable is settled by the stop rule in "What each step decides, and the stop rule" below.
 
@@ -143,6 +144,7 @@ Reviewer's notes: the model card confirms "Aiden", with CUDA code and nothing on
   - No affordable path to the event target, with attrition, ASR and listening cost: accepted; the floor is 338 long generations, not 100. Added the generation and device-minute formula from Step 0's quantities (Appendix A), with detector time and a 2-hour listening budget.
   - Step 0 decides nothing scientific: accepted. What Step 1 decides alone is now stated.
   - Added a stop rule at 300 device-minutes per step, two cheaper designs (all slips; T = 1.15 with its sampler link as part of the claim), and a park-and-report outcome. Search gate moved to Appendix B.
+- 2026-11-10, base-task gate check (lesson from copies-as-evidence case 002, where the model was at chance and the test was void): the stop rule already gated slip rate against budget, but nothing confirmed the model produces correct speech on MPS before slips are counted, nor that long clips leave room in the last third. Added Step 0 item 6 with a WER bar, a first-third bar and park or redirect outcomes. Risk without it: medium.
 
 ## Appendix A: sizing arithmetic
 

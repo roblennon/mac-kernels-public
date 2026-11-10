@@ -60,6 +60,11 @@ What each outcome means, fixed now:
 
 A 2,000-step pilot at lambda 0 logs the trigger-row norms of kept facts as an estimate of w_need. It feeds step 0, which then fixes lr, lambda and run length.
 
+**Gate 1a: can the model keep a fact, and does G95 lose some (added 2026-11-10).** Step 0 and the planted checks test the arithmetic and the pipeline, not whether this network learns T to Y or whether decay removes facts inside the ladder. Two bars, read before any other arm runs:
+- Pilot (lambda 0): median r at least 0.8 on rungs k = 16 to 64 (72 facts). If not, the model cannot learn the base task: stop, raise lr or width once, else park.
+- G95 seed 0 runs first, at step 0's settings. Rung means must reach at least 0.8 at the frequent end and at most 0.2 at the rare end, with the 0.5 crossing at least two rungs from either end. If not, the cutoff is off the ladder: re-run step 0 with lambda or run length moved by the miss, retry once, else park. No other arm starts until this passes.
+Cost: the pilot is already planned; the gate adds only the reordering. Both fit one slice if the timing probe shows a run under 300 s; not measured.
+
 Arms, interleaved: G95, G99, G999 at seed 0; G95 seed 0 rerun; seed 1 of the three; X95 (embeddings exempt from decay); TRD (per-row decay scaled by touch rate, beta2 0.95); seed 2 of the three; L95 and L999 (lazy moments, below). Processes checkpoint to stay under 300 s. Arms that do not fit move to the next slice.
 
 **Lazy-moment arms (added 2026-11-09, from the search).** Sparse embedding optimizers (torch SparseAdam, LazyAdam) update moments only on touched rows, so there is no momentum tail and v does not decay between touches: the kick is about lr, with no 1/sqrt(1-beta2). L95 and L999 use masked moments plus the same every-step decay. The balance account predicts Delta(L95, L999) near 0, and a gap between dense and lazy at the same beta2 of log10 K: about 0.77 decades at 0.95 and 1.50 at 0.999 (hand arithmetic; step 0 simulates both and replaces these). Pinto's static account predicts no dense-lazy gap, so this pair separates the accounts at one lr. Step 0 runs the lazy recurrence too.
@@ -132,3 +137,4 @@ Still open, none blocking step 0: McClendon's full text, Kunstner et al., AdamAR
 - Must-fix, all agreed: 0.999 cannot be sparse and balanced at tau 3,333 (window conditions, step 0 picks settings, "design failed" outcome, GPT moved to step 2); 0.85 ignored momentum (0.74 by hand, step 0 commits the value); gap between kill and band now assigned, dilution allowance 0.25; prior-art search made gate 0 (passed in the second pass, not scooped, lazy arms added); LLM relevance narrowed to sparse regimes, Pythia step replaced by a desk count.
 - Should-fix: three-seed floor plus bootstrap (agreed); beta2-sized plant runs on curves with known Delta (partly agreed); scalar, bigram, GPT order (agreed).
 - Minor: timing probe counts evaluation; same-seed rerun added; TinyStories size and Pythia's settings still unchecked.
+- 2026-11-10, base-task check: no step confirmed that the bigram model learns T to Y or that G95 loses facts inside the ladder; only the scalar simulation and planted checks on the pipeline. Added gate 1a (pilot r at least 0.8 on k 16 to 64; G95 seed 0 first, crossing two rungs inside the ladder; retry once, else park). Risk of a void test without it: medium.

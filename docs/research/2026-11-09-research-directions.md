@@ -4,7 +4,7 @@ This is the map of an idea search run on 2026-11-09, before any experiment. It s
 
 ## What needs Rob
 
-Nothing here needs a decision before the lab can start. The queue is ordered so its first experiments run inside the lab's current limits, on the Mac, with no login and no spend.
+Update, 2026-11-10: the lab ran the first card and it decided nothing, because the model could not do the base task; the card was redesigned and every queued card now has a subject gate. The decisions now waiting on Rob are listed in [the tracker](program/TASKS.md#waiting-on-rob). The original line follows. Nothing here needs a decision before the lab can start. The queue is ordered so its first experiments run inside the lab's current limits, on the Mac, with no login and no spend.
 
 Three things only Rob can give will open up later parts of the queue. The gaming PC's GPU model decides whether any CUDA control runs at home. A Kaggle or Colab login decides whether the training-from-scratch steps run on free T4s or stay small. And several speech cards end in a listening test, where Rob's own ears are the instrument; the cards say where.
 
@@ -130,7 +130,7 @@ Spread across the thirty:
 | vision-language | [raster-binding](program/designs/raster-binding.md) (22) | measurement |
 | Mac systems and numerics | [cross-stack-numerics](program/designs/cross-stack-numerics.md) (2), [content-energy](program/designs/content-energy.md) (29) | measurement |
 
-Every card has a first step sized to one lab slice. Most first steps need nothing but the Mac. The ones that need Rob say so in their status line: semantic-latent-memorization needs a licence click, duplex-turn-temperature's open half needs him to record speech, and several later steps need cloud time or a longer unattended run.
+Every card had a first step sized to one lab slice when the queue was written; the redesigned first card now needs two allowances, a capability step and then its test. Most first steps need nothing but the Mac. The ones that need Rob say so in their status line: semantic-latent-memorization needs a licence click, duplex-turn-temperature's open half needs him to record speech, and several later steps need cloud time or a longer unattended run.
 
 ## What was set aside, and why
 
@@ -151,4 +151,4 @@ The funder research is in [the funder notes](../review/2026-11-09-funder-researc
 
 ## Source and inference
 
-Statements about what a paper shows are agents' reports from their reading, with the link given so a person can check. The threads and the critic's essay are interpretation. Nothing in this document is an experimental result; no experiment ran in this pass.
+Statements about what a paper shows are agents' reports from their reading, with the link given so a person can check. The threads and the critic's essay are interpretation. Nothing in this document is an experimental result; no experiment ran in this pass. One experiment has run since, in the lab: the first card's step 1a on 2026-11-10, which decided nothing; its card holds the result.

@@ -137,6 +137,6 @@ Still open: citers of Wirth and Peinl (Semantic Scholar rate-limited); the train
 - Must-fix, all addressed: neutral panel; the real protocol; planted-effect sign, plus an acoustic plant; scale artifact (log-odds I_log decides); cost (generation is step 0b); no search (step 0a, done 2026-11-09).
 - Should-fix, all addressed: pilot-sized N; matched NFE and sampler, token type named; ground-truth prompt text; human-side selection left to step 3; four-rung dose ordering.
 - Minor: step 3 split into 3a and 3b; "grows with" dropped; seed pair is the noise floor.
-- 2026-11-10, base-task gate pass (after copies-as-evidence step 1a ran a model at chance on its base task): no subject-side gate existed; 0c measured SE but had no bar or stop, and nothing checked TTS intelligibility, outside-judge competence on Common Voice audio, or error mass. Added step 0d with bars and a park rule. Risk the step 1 test was void without it: medium.
+- 2026-11-10, base-task gate pass (after copies-as-evidence step 1a ran a model that got no greedy base-task answer right: one template inaccurate, the other off-format): no subject-side gate existed; 0c measured SE but had no bar or stop, and nothing checked TTS intelligibility, outside-judge competence on Common Voice audio, or error mass. Added step 0d with bars and a park rule. Risk the step 1 test was void without it: medium.
 
 The reviewer's four searches were refused for budget; its fetches are folded into "What is already known".

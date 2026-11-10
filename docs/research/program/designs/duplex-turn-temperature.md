@@ -119,6 +119,6 @@ Still open: DyaFDB's full text; whether the Candor segments are downloadable; NV
 
 Hostile review 2026-11-09, verdict queue-after-fixes. Must-fixes, all made: Table 9 anticipates Moshi; 170 ms card latency against self-play; no content metric; pre-end metric unlike the paper's; planted effects tested only arithmetic. Five should-fixes and three minor points, all addressed.
 
-Base-task gate review 2026-11-10, after copies-as-evidence step 1a ran at chance: the card checked the instrument (planted delay, EPAD sanity) but never whether q4 Moshi takes the turn under forced PAD. Added a gate at the start of step 1a: free-run starts in at least 8 of 10 turns, a T=1 median inside the 3 s window, and most start mass after the end; stop or park otherwise. Risk without it: medium.
+Base-task gate review 2026-11-10, after copies-as-evidence step 1a's model got no greedy answer right (one template inaccurate, the other off-format): the card checked the instrument (planted delay, EPAD sanity) but never whether q4 Moshi takes the turn under forced PAD. Added a gate at the start of step 1a: free-run starts in at least 8 of 10 turns, a T=1 median inside the 3 s window, and most start mass after the end; stop or park otherwise. Risk without it: medium.
 
 Scooping search: the first six queries were refused (budget spent); all were rerun on 2026-11-09 with sixteen more, see the search gate.

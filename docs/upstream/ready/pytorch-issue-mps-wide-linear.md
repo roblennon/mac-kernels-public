@@ -1,6 +1,6 @@
 # PyTorch issue: transposed-weight matmul on MPS at wide K
 
-Destination: https://github.com/pytorch/pytorch/issues/new (Bug Report form; suggested labels `module: mps`, `module: performance`). Not filed. The repro is inline, so no gist is needed.
+Destination: https://github.com/pytorch/pytorch/issues/new (Bug Report form; suggested labels `module: mps`, `module: performance`). Filed as pytorch/pytorch#200782 (this note predates filing). The repro is inline, so no gist is needed.
 
 ## Title
 

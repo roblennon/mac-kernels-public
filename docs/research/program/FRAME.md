@@ -42,6 +42,10 @@ The goal: finish this end. That means the directions document covering every rou
 
 After the goal, and only once the lab's agent has sent word of a milestone: try the lab on real work, starting from the top of the queue, and begin extracting findings. That message is the trigger Rob set, so it starts the work he described and nothing wider. What the lab's own files say about how to use it governs how experiments run there. If the goal is met and no message has come, this session reports and waits.
 
+### Where the goal stands (2026-11-10)
+
+The goal was met at commit c51d8a1 on the night of 2026-11-09, and the lab's milestone message had already arrived, so the trigger fired. The lab ran the first queued card as its case 002 on 2026-11-10. It decided nothing, because the model could not do the base task; see the card's result section. Rob then paused both sessions for a reorientation. The phase after the goal, handing cards to the lab and reading results, has no budget or stop of its own yet; that is Rob's to set.
+
 ## How the ask is read
 
 Rob asked for ideas worth publishing, checked against what already exists, and sized to hardware he owns. He did not ask for an application, and he did not ask for a product. Running a cheap first experiment is read as inside the ask, because "testable with what we have" is the selection rule he gave and "Run it" is in the loop he described. New kernels are part of what he asked for, and they come later in the sequence: a kernel is worth writing once a measurement says what it should do. A paper draft or a new subsystem waits for him. Those get proposed in the report, not started.
@@ -53,6 +57,8 @@ The second handover message reads as written for a consolidation project (it tal
 Personal research before any publication. Nobody is waiting on it and nothing here can break a user. The cost of a mistake is wasted days, or worse, a finding Rob repeats in public that turns out to be an artifact. So the proof that matters is the scientific kind: a prediction written down before the run, a control that could embarrass the result, and a reviewer told to break it.
 
 ## Done
+
+*Superseded on 2026-11-09 evening by the amendment above; kept for the record. Not a live rule.*
 
 Three things Rob can open when he is back.
 
@@ -66,6 +72,8 @@ A thread killed by its own first experiment counts as done. A null result writte
 
 ## Budget
 
+*Superseded on 2026-11-09 evening by the amendment above; kept for the record. Not a live rule.*
+
 This is an unattended run, so these limits are stops, not suggestions.
 
 - Two idea-search rounds in total. The second is running. No third round without Rob.
@@ -77,13 +85,15 @@ This is an unattended run, so these limits are stops, not suggestions.
 
 ## Neighbours
 
-Rob's separate research lab project (a sibling checkout named `model-research-lab`) is being built in another session. It will be the long-term home for experiments like these. This programme does not write there. What it produces is meant to be picked up there: the directions document is a list of candidate research questions, and each slice file is written so a cold reader can rerun it. That project's own rule is worth borrowing here: a measurement counts only with its receipt, and a result inside the session's own noise is called inconclusive.
+Rob's separate research lab project (a sibling checkout named `model-research-lab`) exists and has run questions on its case 001 and this programme's first card as case 002 (updated 2026-11-10). Ownership: this repository owns the cards; the lab owns plans, runs and outcome records, and asks Rob directly for downloads, new case types and device time. It will be the long-term home for experiments like these. This programme does not write there. What it produces is meant to be picked up there: the directions document is a list of candidate research questions, and each slice file is written so a cold reader can rerun it. That project's own rule is worth borrowing here: a measurement counts only with its receipt, and a result inside the session's own noise is called inconclusive.
 
 ## Undo
 
 Everything is a new file in git or a model in the Hugging Face cache. Reverting the commits and deleting the downloaded models undoes all of it. Nothing is pushed.
 
 ## Plan
+
+*Superseded on 2026-11-09 evening by the amendment above; kept for the record. Not a live rule.*
 
 The work is cut so that each piece can be checked by someone who was not there when it was made.
 
@@ -101,7 +111,9 @@ A reviewer from another model family read this frame and pointed out that every 
 
 The plan for a slice is committed before its run. It names the one metric that decides, the data, the baseline, the size of effect that would matter, how many repeats, and when to stop. Anything changed afterwards is added underneath with a date, so a reader can see what was planned and what was improvised.
 
-Before the real run is read, the measuring code has to pass two checks. Comparing a thing with itself must read zero, or the session's noise. An effect of known size planted on purpose must be found at about that size. A measurement that fails either is fixed before anything is interpreted.
+Before the real run is read, the measuring code has to pass two checks. Comparing a thing with itself must read zero, or the session's noise. An effect of known size planted on purpose must be found at about that size. A measurement that fails either is fixed before anything is interpreted. Any tolerance on such a check is derived first from the numeric format's own error (bf16 rounding, accumulation order) and set above it.
+
+A third check is on the subject, not the instrument (added 2026-11-10). Before the arms that test the hypothesis run, a short pilot shows that the model, task or data has the property the test depends on, with room for the effect to show, against a bar written in advance. A planted-effect check does not count here, because it tests the instrument. The first card the lab ran passed every measuring check and still decided nothing, because the model got no greedy answer right.
 
 Comparisons hold everything else still: same inputs, same data type, same seeds, arms interleaved, timings synchronised. A difference inside the spread of the baseline against itself is called inconclusive.
 

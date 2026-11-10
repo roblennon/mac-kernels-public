@@ -1,5 +1,7 @@
 # Checkpoint, 2026-11-09 night
 
+*Since this checkpoint (2026-11-10): the lab ran the first card and it decided nothing; the card was redesigned, every queued card got a subject gate, and Rob paused both sessions. The current state is in [the reorientation report](reorientation-2026-11-10.md) and [the tracker](TASKS.md). This note stays as the record of 2026-11-09.*
+
 The close-out note for the ideas-only pass framed in [FRAME.md](FRAME.md). It says what was asked, what exists now, what is not finished, what was learned, and what happens next.
 
 ## What needs Rob
@@ -32,7 +34,7 @@ One designed stop to expect: the first card's own estimate puts its step 1a over
 
 ## What is not finished
 
-- The two parked cards self-training-37 and paired-metric-floor still owe a search; paired-metric-floor's park was confirmed by a second reader.
+- The parked cards self-training-37 and nested-bitplanes still owe a search; paired-metric-floor's park was confirmed by a second reader.
 - Cards below the top five were attacked and searched, but not cold-read. A runner should expect to make some choices the card leaves open, and should record them in the card.
 - The queue is mostly measurement. Only two queued cards build something. The critic's point about inventor's taste stands as the gap for the next round.
 - The "Search gate" sections cite papers read by agents, often abstracts. A person should read the three closest papers on any card before a result from it goes public.

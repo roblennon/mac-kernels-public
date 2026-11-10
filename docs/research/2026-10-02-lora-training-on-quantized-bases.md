@@ -2,6 +2,8 @@
 
 2026-10-02. Tags: [V] read in source or measured here today, [S] secondary, [I] inference. Repos cloned today at latest commits (ai-toolkit 2026-09-27, mflux and diffusers 2026-10-02, bitsandbytes/torchao/quanto Sept 2026).
 
+*Dated note, 2026-11-10: this survey predates mflux's Qwen-Image trainer, which mflux added on 2026-11-06 (see [the funder research](../review/2026-11-09-funder-research.md)). Read any statement here about what mflux can or cannot train as true on 2026-10-02 only.*
+
 ## Decision first
 
 Two findings change the plan. [V] **ai-toolkit already trains on MPS over a ConvRot INT8 base**: qfloat8 is remapped to `convrot8` on MPS (`toolkit/config_modules.py:727`), with an autograd STE (`toolkit/util/convrot_quant.py:992-1040`) and Krea 2, Qwen-Image 2.1 and Wan 2.2 5B arches. Its MPS training branch (`convrot_quant.py:1442-1480`) dequantizes the whole layer weight per call. Our kernel replaces exactly that. [V] **mflux already trains Krea 2 Raw on MLX** (QLoRA q8, 512px, PR #462, merged 2026-08-13) but has no Qwen-Image or Wan trainer (`src/mflux/models/*/training_adapter`: flux2, krea2, z_image, ernie).

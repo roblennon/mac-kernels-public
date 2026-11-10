@@ -146,4 +146,4 @@ Fixed after the hostile review: naive means missing the targets that set X_1 (pe
 
 Zipf toys showed fixing s = 1/2 loses under 0.1 bit; naive means at n = 24 would need on the order of 2^37 targets. Scooping: see Search gate.
 
-2026-11-10, base-task check (after copies-as-evidence step 1a ran at chance): the step-1 gate checked that predicted work fits the budget but not that the two rules predict differently enough for the 1-bit deciding rule to be passable. Added a room-for-effect gate on the predicted gap, plus censoring and seed-spread bars on the throughput probe. Whether real text clears the gap bar is not checked.
+2026-11-10, base-task check (after copies-as-evidence step 1a's model got no greedy answer right, one template inaccurate, the other off-format): the step-1 gate checked that predicted work fits the budget but not that the two rules predict differently enough for the 1-bit deciding rule to be passable. Added a room-for-effect gate on the predicted gap, plus censoring and seed-spread bars on the throughput probe. Whether real text clears the gap bar is not checked.

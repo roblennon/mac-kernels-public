@@ -7,6 +7,8 @@
 - [Findings](findings.md): the dated measurement log.
 - [Krea 2 blocks and variety](krea2-blocks-and-variety.md): same-face ablations, checkpoint and LoRA controls, and scoring limits.
 - [Inference acceleration survey for M1–M4](research/2026-10-02-inference-acceleration-survey.md)
+- [Weight error by format](research/2026-11-09-weight-error-by-format.md)
+- [Gap research](review/2026-11-09-gap-research.md)
 - [LoRA training on an INT8 ConvRot base](research/2026-10-02-lora-training-on-quantized-bases.md)
 - [GGUF diffusion models on Apple GPUs](research/2026-10-03-gguf-on-metal.md)
 - [Format checkpoint availability](research/2026-10-04-format-checkpoint-availability.md)

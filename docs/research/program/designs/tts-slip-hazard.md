@@ -144,7 +144,7 @@ Reviewer's notes: the model card confirms "Aiden", with CUDA code and nothing on
   - No affordable path to the event target, with attrition, ASR and listening cost: accepted; the floor is 338 long generations, not 100. Added the generation and device-minute formula from Step 0's quantities (Appendix A), with detector time and a 2-hour listening budget.
   - Step 0 decides nothing scientific: accepted. What Step 1 decides alone is now stated.
   - Added a stop rule at 300 device-minutes per step, two cheaper designs (all slips; T = 1.15 with its sampler link as part of the claim), and a park-and-report outcome. Search gate moved to Appendix B.
-- 2026-11-10, base-task gate check (lesson from copies-as-evidence case 002, where the model was at chance and the test was void): the stop rule already gated slip rate against budget, but nothing confirmed the model produces correct speech on MPS before slips are counted, nor that long clips leave room in the last third. Added Step 0 item 6 with a WER bar, a first-third bar and park or redirect outcomes. Risk without it: medium.
+- 2026-11-10, base-task gate check (lesson from copies-as-evidence case 002, where the model got no greedy answer right (one template inaccurate, the other off-format) and the test was void): the stop rule already gated slip rate against budget, but nothing confirmed the model produces correct speech on MPS before slips are counted, nor that long clips leave room in the last third. Added Step 0 item 6 with a WER bar, a first-third bar and park or redirect outcomes. Risk without it: medium.
 
 ## Appendix A: sizing arithmetic
 

@@ -199,7 +199,7 @@ Cold reads 1 to 3, 2026-11-09: from not plannable to runnable cold; fixed layers
 
 Cold read 4 fixes, 2026-11-09: no blocks; four result-changing decisions made. T̃ drives Δ⁰, f⁰, Δ', f' at every D (stored levels only for Δ̄); P-1c judged per D on the mean of per-seed ratios; C3's bar widens with seed spread; layer 12 gets fresh seeds; kill-side values inside the seed spread are inconclusive, per the frame. Also fixed: timing projection, arm order, API calls, backend record, 1a flags and basis, ratio-of-means S_x, energy columns, K = 896 list, cost (about 31 minutes, two stages).
 
-Subject-gate check, 2026-11-10, after case 002 (copies-as-evidence 1a ran at chance): step 2's pilot already gated base-task ability with counts and a fallback, but nothing confirmed that forgetting trains or that R has room to vary before the 12 training runs. Added step 0: pilot, two probe edits, R at two α under RTN 4-bit, with bars and stops. Step 3 was already gated (3a gates 3b). Risk without the gate: medium.
+Subject-gate check, 2026-11-10, after case 002 (copies-as-evidence 1a's model got no greedy answer right: one template inaccurate, the other off-format): step 2's pilot already gated base-task ability with counts and a fallback, but nothing confirmed that forgetting trains or that R has room to vary before the 12 training runs. Added step 0: pilot, two probe edits, R at two α under RTN 4-bit, with bars and stops. Step 3 was already gated (3a gates 3b). Risk without the gate: medium.
 
 ## Appendix A1: step 1 sources and reasons
 

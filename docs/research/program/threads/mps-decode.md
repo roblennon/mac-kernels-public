@@ -2,14 +2,14 @@
 
 Opened 2026-11-10 from the lab's Q003 result, at Rob's direction to explore it hard. Measurements so far are in [the findings log](../../../findings.md) under 2026-11-10; raw results in `docs/review/2026-11-10-experiments/`.
 
-## Where it stands
+## Where it stands (updated 2026-11-10, late morning)
 
-The lab's "decode step cut to a third" was real on a tiny model and does not carry to a 1.7B model in its simple form. Measuring why found two larger levers on the latest PyTorch (2.15.0), on Qwen3-1.7B in fp16:
+Measured on Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0, every speed claim checked against float32 or against plain greedy output. Details in [the findings log](../../../findings.md).
 
-- At batch 1, a decode step takes 21.8 ms. The linear layers take 10.8 ms and run near the memory limit. The other 11 ms is GPU time spent on hundreds of near-empty kernels: normalisation run as seven elementwise kernels per layer, a KV cache grown by concatenation every token, and a rotary positional step built from several small operations. (Attention itself is on PyTorch's fused Metal path; an earlier version of this note said otherwise, from a truncated operation name.)
-- At batch 16, the linear layers take 26 ms for the same weight bytes, 2.4 times the batch-1 figure, because between 2 and about 16 rows PyTorch leaves its own one-row kernel for Apple's general matrix kernels.
-
-Neither is fixed upstream as of 2026-11-10. Both apply to essentially every Hugging Face decoder run on a Mac, and MLX shows the same small-row gap on M1 and M2 (MLX issues 3661 and 3967).
+- **Batch 1:** `torch.compile` with a static cache takes a decode step from 24.9 to 14.9 ms (1.67x) and is closer to float32 than eager. Hand-fused normalisation and a fused rotary kernel reached 1.41x and showed where the time was; compile does better with no custom code.
+- **Batches 4 to 16:** compile plus the multi-row kernel gives 1.51x, 1.79x and 1.69x at batches 4, 8 and 16 (627 tokens per second at batch 16), closer to float32 than eager. Neither lever alone passes 1.3x there.
+- **Speculative decoding:** with the kernel, verifying 2 to 4 drafted tokens costs 1.33x to 1.46x a single step, against 1.45x to 1.76x compiled without it. Exact prompt-lookup speculation is 3.0x to 3.7x faster than plain compiled decoding on a copy-heavy code edit (2.1x to 2.3x without the kernel), and adaptive drafting keeps free writing at par. This bears directly on arXiv 2610.31479, which found speculative decoding loses on Apple Silicon with stock MLX kernels.
+- **Mistakes caught on the way, all corrected in the log:** a cache-resident microbenchmark that measured cache rather than memory; an attention "fallback" read from a truncated op name; a rotary kernel that indexed past batch-broadcast tables; and a speculative loop that wrote to the wrong cache slots, which had produced speed-ups with wrong output. Each was caught by checking output against a reference, not only speed.
 
 ## Experiments, in order
 

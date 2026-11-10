@@ -1261,3 +1261,20 @@ Thread experiment B. A Metal kernel for linear layers with 2 to 32 input rows th
 - **Correct:** 506 cases and 22,351 runs against float64, 0 failures, error matching `F.linear`'s; four gross and three subtle planted bugs caught. Greedy divergences are tie flips (top-two gaps of 0.0 and one fp16 step), and stock's own logit difference between batch sizes is larger than the kernel's difference from stock.
 - **Where the gain comes from.** At 8 rows the per-layer linears gain 1.68x. At 16 rows they gain 1.27x, and the 151,936-row output head, which `F.linear` handles badly at 12 to 32 rows (7.2 to 10.5 ms per call against 2.1 to 4.2), supplies 55% of the saving.
 - **Prediction missed:** the thread predicted the batch-16 linears at 14 ms or less; measured about 18 ms. Not a hardware limit: the kernel reaches about 3.1 TFLOPS at 16 rows where Apple's kernel does 5.4 at 32 rows on the same shape.
+
+## 2026-11-10: Both levers together, 1.5x to 1.8x Qwen3-1.7B decode on MPS at batch 1 to 16, closer to float32 than eager
+
+`torch.compile` with a static cache, plus the multi-row kernel (round 1) registered as a custom op (`mk::multirow_linear`) so Inductor treats it as opaque and routes linears with 2 to 16 rows to it. `bench/bench_decode_compile_kernel.py`, one batch size per process, best of two passes after compiling; equivalence by `bench/check_decode_equivalence.py`. Results in `docs/review/2026-11-10-experiments/decode-compile-kernel-b*.json` and `decode-equivalence-fp32-b16-2.15.0.json`.
+
+| ms per decode step | Eager, static cache | Compiled | Compiled + kernel | Best speed-up | Tokens per second, best |
+|---|---|---|---|---|---|
+| Batch 1 | 24.9 | 14.9 | 16.3 (kernel not used at 1 row) | 1.67x (compiled) | 67 |
+| Batch 4 | 32.5 | 29.4 | 21.5 | 1.51x | 186 |
+| Batch 8 | 37.1 | 31.5 | 20.7 | 1.79x | 386 |
+| Batch 16 | 43.2 | 38.3 | 25.5 | 1.69x | 627 |
+
+- The two levers compound. Compile removes the small-kernel overhead; what remains at batch 4 to 16 is the 2-to-16-row matrix path, which the kernel fixes. Neither alone gets past 1.3x at batch 8 or 16.
+- At batch 1 the compiled-plus-kernel arm read 16.3 ms against 14.9 for compiled alone, although the kernel does not run at 1 row. The two compiles produce different graphs (the custom-op branch is traced); not investigated. Use compile alone at batch 1.
+- **Equivalence, decode path at batch 16** (teacher-forced one token at a time on a float32 model's greedy tokens, 512 positions): eager fp16 max error 0.100, mean 0.0040, top-1 agreement 99.80%; compiled 0.064, 0.0031, 99.80%; compiled plus kernel 0.056, 0.0030, 99.61% (one position fewer). The combined arm is closest to float32 on every error measure.
+
+Kernel round 2, aimed at the 16-row efficiency gap, is running; these numbers use round 1.

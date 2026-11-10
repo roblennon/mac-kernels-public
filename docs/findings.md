@@ -1278,3 +1278,18 @@ Thread experiment B. A Metal kernel for linear layers with 2 to 32 input rows th
 - **Equivalence, decode path at batch 16** (teacher-forced one token at a time on a float32 model's greedy tokens, 512 positions): eager fp16 max error 0.100, mean 0.0040, top-1 agreement 99.80%; compiled 0.064, 0.0031, 99.80%; compiled plus kernel 0.056, 0.0030, 99.61% (one position fewer). The combined arm is closest to float32 on every error measure.
 
 Kernel round 2, aimed at the 16-row efficiency gap, is running; these numbers use round 1.
+
+## 2026-11-10: What verifying drafted tokens costs on MPS, and why speculative decoding loses on Apple stacks
+
+Speculative decoding verifies k drafted tokens with one forward of k + 1 tokens, which puts the model's linears in the 2-to-16-row regime. `bench/bench_verify_cost.py`: one forward of T new tokens against a static cache holding a 256-token prompt, batch 1, Qwen3-1.7B fp16, torch 2.15.0, the cache reset and the prompt re-filled before every timed call, median of 9. Results in `docs/review/2026-11-10-experiments/verify-cost/`.
+
+| ms per forward of T tokens | T = 1 | 2 | 3 | 5 | 9 | 13 | 17 |
+|---|---|---|---|---|---|---|---|
+| Eager | 25.2 | 29.5 | 31.0 | 33.8 | 46.2 | 51.5 | 56.1 |
+| Compiled | 14.9 | 21.5 | 22.2 | 26.1 | 38.2 | 47.5 | 46.2 |
+| Compiled + multi-row kernel | 13.9 | 18.6 | 18.5 | 20.3 | 30.5 | 27.3 | 46.3 |
+
+- **Compile alone raises the relative cost of verifying.** It speeds the one-token step far more than the few-token step: verifying 2 tokens costs 1.45x a single step compiled, against 1.17x eager. A faster plain decode leaves less room for speculation to pay.
+- **The kernel brings it back.** Compiled plus kernel, verifying 1 to 4 drafts costs 1.33x to 1.46x a single step, and 12 drafts about 2x. At 17 rows the kernel is off and the cost returns to the compiled figure. The T = 9 and T = 13 cells reflect the kernel's tuned bands (13 rows is cheaper than 9).
+- **Context.** A 2026 study of speculative decoding on Apple Silicon (arXiv 2610.31479, MLX only, M2 Pro and M3 Ultra) found every method it tested reduced throughput, while its own kernel section measured MLX's 4-bit matmul at about 5x the one-row time at 8 rows and showed that a small-row kernel turned one speculative setup from break-even to 1.13x. It did not connect the two, and did not test PyTorch, M1 or 9 to 16 rows.
+- **Projection, not a measurement.** At that paper's n-gram acceptance rates (about 0.6 to 1.6 accepted drafts per round with 2 drafted), prompt-lookup speculation on the compiled-plus-kernel stack would run about 1.3x to 2x faster than the best plain decode (compiled, 14.9 ms), before drafting overhead. The end-to-end test on real text is next.

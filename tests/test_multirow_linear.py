@@ -99,3 +99,23 @@ def test_unsupported_inputs_are_refused():
     assert not mrl.supports(torch.randn(33, 64, device="mps", dtype=torch.float16), w)  # M > 32
     with pytest.raises(ValueError):
         mrl.multirow_linear(torch.randn(4, 64, device="mps", dtype=torch.float32), w)
+
+
+def test_every_table_entry_parses_or_routes_to_linear():
+    # Arrange / Act: every cell of the tuned table, the way pick_config reads it.
+    names = {c for t in mrl.TUNED.values() for row in t.values() for c in row.values()}
+    # Assert
+    for name in names - {mrl.LINEAR}:
+        assert mrl.Config.parse(name).name() == name
+
+
+def test_round2_grid_is_built_from_the_frozen_round1_table(monkeypatch):
+    # Arrange: a "linear" cell in the live table must not reach the grid or crash Config.parse.
+    from bench import bench_multirow as bm
+    monkeypatch.setitem(mrl.TUNED, "float16", {(64, 40): {4: mrl.LINEAR}})
+    # Act
+    grids = {dt: [c.name() for c in bm.tune_grid_round2(dt)] for dt in ("float16", "bfloat16")}
+    # Assert: the grid sizes recorded in round2/tune-*.json, and every round-1 choice at 2 to 16 rows.
+    assert (len(grids["float16"]), len(grids["bfloat16"])) == (56, 40)
+    round1 = {c for t in bm.ROUND1_TUNED.values() for row in t.values() for m, c in row.items() if 2 <= m <= 16}
+    assert round1 <= set(grids["float16"]) and round1 <= set(grids["bfloat16"])

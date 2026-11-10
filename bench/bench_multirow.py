@@ -2,11 +2,13 @@
 
 Subcommands (run every one through the GPU lock):
   correctness  float64 CPU reference against the kernel and F.linear, random and real weights,
-               plus a planted bug (a source mutation) that the check must catch
+               plus planted bugs (source mutations) that the check must catch; planted_table
+               mutates the family of every config in the tuned table
   tune         time every kernel variant per shape and row count, fp16 or bf16 (--grid round2
                adds the round-2 families mmh, mmp, mmt)
   layers       F.linear, the kernel, and two noise arms (F.linear against itself, the kernel
-               against itself), weights rotated through copies larger than the on-die cache
+               against itself), weights rotated through copies larger than the on-die cache;
+               --cells times chosen cells only, --compare adds an arm for another config
   model        Qwen3-1.7B fp16 decode, stock against patched, interleaved in one process (round 1)
   decode       round 2's end-to-end run: nn.Linear's own forward against the patch, per-row logits
   probe        diagnosis: kernels with loads made cache-resident, loads removed, or multiplies
@@ -235,6 +237,46 @@ def cmd_correctness(a):
                 emit(event="planted_bug", variant=cfg.name(), M=M, caught=not out["pass"],
                      err=list(out["configs"].values())[0]["max_norm_err"],
                      rel=list(out["configs"].values())[0]["rel_l2"], allow=out["allowance"])
+    if "planted_table" in parts:
+        # Planted bugs on every config the tuned table holds, in fp16 and bf16, with and without
+        # bias, at the smallest and largest row count it is used at: each mutation of the config's
+        # family must be caught. K = 2056 leaves a partial last chunk, so the tail mutation drops
+        # 8 of 2056 K elements.
+        src = mrl.SOURCE_PATH.read_text()
+        family = {
+            "dev": [("for (uint k = lane; k < K8;", "for (uint k = lane + 32; k < K8;")],
+            "tg": [("for (uint k0 = 0; k0 < K8;", "for (uint k0 = TILE; k0 < K8;")],
+            "mma": [("for (uint k0 = kb; k0 < ke; k0 += KC)", "for (uint k0 = kb + KC; k0 < ke; k0 += KC)")],
+            "mmr": [("for (uint k = kb; k < ke; k += 32 * U)", "for (uint k = kb + 32 * U; k < ke; k += 32 * U)")],
+            "mmh": [("uint k8 = kb8 + sg * 4 * U;", "uint k8 = kb8 + sg * 4 * U + STEP8;"),
+                    ("if (k8 < ke8) {  // at most one partial chunk per simdgroup", "if (false) {")],
+        }
+        family["mmp"] = family["mmh"]
+        used = {}
+        for t in mrl.TUNED.values():
+            for row in t.values():
+                for M, c in row.items():
+                    if c != mrl.LINEAR:
+                        used.setdefault(c, set()).add(M)
+        libs = {}
+        for name, Ms in sorted(used.items()):
+            cfg = mrl.Config.parse(name)
+            for old, new in family[cfg.xsrc]:
+                assert src.count(old) == 1, old
+                lib = libs.setdefault((old, new), mrl._Library(src.replace(old, new)))
+                for dt in (torch.float16, torch.bfloat16):
+                    for M in sorted({min(Ms), max(Ms)}):
+                        for bias in (False, True):
+                            x = torch.randn(M, 2056).to(dt)
+                            w = (torch.randn(1027, 2056) / 45).to(dt)
+                            b = torch.randn(1027).to(dt) if bias else None
+                            out = check_case(x, w, b, [cfg], lib=lib)
+                            c = list(out["configs"].values())[0]
+                            planted.append({"variant": name, "dtype": str(dt).split(".")[-1], "M": M, "bias": bias,
+                                            "mutation": [old, new], "caught": not out["pass"], **out})
+                            emit(event="planted_table", variant=name, dtype=str(dt), M=M, bias=bias,
+                                 caught=not out["pass"], err=c["max_norm_err"], allow=out["allowance"],
+                                 lin=out["F.linear"]["max_norm_err"])
     res["planted_bug"] = planted
     res["failures"] = failures
     res["seconds"] = time.time() - started
@@ -292,7 +334,8 @@ def tune_grid():
 def tune_grid_round2(dtype):
     """Round 2: every config the round-1 table chose for 2 to 16 rows, plus the round-2 families
     at the settings that were competitive in the first 16-row sweeps."""
-    names = {c for t in ROUND1_TUNED.values() for row in t.values() for m, c in row.items() if 2 <= m <= 16}
+    names = {c for t in ROUND1_TUNED.values() for row in t.values() for m, c in row.items()
+             if 2 <= m <= 16 and c != mrl.LINEAR}
     hs = (0, 1) if dtype == "float16" else (0,)
     for R in (1, 2):
         for S in (4, 8):
@@ -307,8 +350,28 @@ def tune_grid_round2(dtype):
     return [mrl.Config.parse(n) for n in sorted(names)]
 
 
-# The round-1 table, kept so the round-2 grid includes every config round 1 chose.
-ROUND1_TUNED = {dt: {k: dict(v) for k, v in t.items()} for dt, t in mrl.TUNED.items()}
+# The round-1 table (commit a441c78, bench/multirow_linear.py), frozen here so `tune --grid round2`
+# rebuilds the grid round 2 was tuned on: every config round 1 chose for 2 to 16 rows.
+ROUND1_TUNED: dict[str, dict[tuple[int, int], dict[int, str]]] = {
+    "bfloat16": {
+        (2048, 1024): {1: "dev_r4_u1_s8", 2: "tg_r1_u2_s4", 4: "dev_r2_u1_s4", 8: "mmr_r1_u1_s4_p4_f1", 12: "tg_r1_u2_s8", 16: "mma_r1_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4_p4"},
+        (2048, 2048): {1: "tg_r4_u1_s8", 2: "tg_r2_u2_s4", 4: "dev_r2_u2_s4", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4_p4", 16: "mmr_r2_u1_s4_p4", 24: "mma_r2_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
+        (2048, 6144): {1: "tg_r1_u2_s4", 2: "dev_r1_u1_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4", 16: "mma_r1_u1_s4", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (2048, 151936): {1: "tg_r2_u2_s8", 2: "tg_r1_u1_s4", 4: "tg_r2_u1_s8", 8: "mmr_r1_u1_s4_f1", 12: "mma_r1_u1_s4", 16: "mma_r1_u1_s4", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (2560, 9728): {1: "tg_r1_u2_s4", 2: "dev_r2_u1_s4", 4: "dev_r2_u1_s8", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4_p4", 16: "mmr_r2_u1_s4", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4_p4"},
+        (4096, 11008): {1: "tg_r1_u2_s8", 2: "dev_r1_u1_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4_p4", 16: "mma_r1_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4"},
+        (6144, 2048): {1: "dev_r1_u2_s4", 2: "dev_r2_u1_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mma_r1_u1_s4_p4", 16: "mma_r1_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
+    },
+    "float16": {
+        (2048, 1024): {1: "tg_r1_u2_s4", 2: "dev_r4_u1_s8", 4: "dev_r1_u1_s8", 8: "tg_r1_u1_s4", 12: "tg_r1_u1_s8", 16: "tg_r1_u1_s8", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4_p4"},
+        (2048, 2048): {1: "tg_r2_u1_s4", 2: "tg_r1_u2_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "tg_r1_u1_s8", 16: "mmr_r2_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
+        (2048, 6144): {1: "tg_r1_u2_s4", 2: "tg_r1_u2_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mmr_r2_u1_s4_p2", 16: "mma_r1_u1_s4", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (2048, 151936): {1: "dev_r4_u1_s8", 2: "mmr_r1_u1_s4_f1", 4: "dev_r2_u1_s4", 8: "mmr_r1_u1_s4", 12: "mmr_r2_u1_s4", 16: "mmr_r2_u1_s4", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (2560, 9728): {1: "dev_r1_u1_s8", 2: "dev_r2_u1_s8", 4: "dev_r2_u1_s4", 8: "mmr_r1_u2_s4_f1", 12: "mmr_r2_u1_s4", 16: "mmr_r2_u1_s4_p2", 24: "mma_r1_u1_s4", 32: "mma_r1_u1_s4"},
+        (4096, 11008): {1: "dev_r2_u1_s4", 2: "dev_r2_u2_s8", 4: "tg_r2_u2_s4", 8: "mmr_r1_u2_s4_f1", 12: "mmr_r2_u1_s4_p2", 16: "mmr_r2_u1_s4", 24: "mma_r1_u1_s4_p4", 32: "mma_r1_u1_s4"},
+        (6144, 2048): {1: "dev_r4_u1_s4", 2: "tg_r4_u1_s4", 4: "dev_r4_u1_s4", 8: "mmr_r2_u2_s4_p4", 12: "mma_r1_u1_s4_p4", 16: "mmr_r2_u1_s4_p4", 24: "mma_r1_u1_s4_p4", 32: "mma_r2_u1_s4_p4"},
+    },
+}
 
 
 def cmd_tune(a):
@@ -350,10 +413,14 @@ def cmd_tune(a):
 def cmd_layers(a):
     """Per layer shape and row count: F.linear, the kernel with its tuned variant, and two noise
     arms (F.linear against itself, the kernel against itself). Where the table routes a cell to
-    F.linear, the kernel arm times the config given by --candidates (if any) instead."""
+    F.linear, the kernel arm times the config given by --candidates (if any) instead. --cells
+    limits each dtype and shape to the listed row counts; --compare adds an arm timing another
+    config for a cell (for example the one the table held before)."""
     rng = random.Random(a.seed)
     torch.manual_seed(a.seed)
     cand = json.loads(Path(a.candidates).read_text()) if a.candidates else {}
+    only = json.loads(Path(a.cells).read_text()) if a.cells else None
+    comp = json.loads(Path(a.compare).read_text()) if a.compare else {}
     rows_list = [int(m) for m in a.rows.split(",")]
     res = {"torch": torch.__version__, "reps": a.reps, "seed": a.seed,
            "tuned": {dt: {f"{K}x{N}": v for (K, N), v in t.items()} for dt, t in mrl.TUNED.items()},
@@ -363,9 +430,12 @@ def cmd_layers(a):
         dt = DTYPES[dname]
         for name in a.shapes.split(","):
             K, N = SHAPES[name]
+            ms = rows_list if only is None else [int(m) for m in only.get(dname, {}).get(name, [])]
+            if not ms:
+                continue
             ws, wts = weight_copies(K, N, dt, pre_t=a.pre_t)
             iters = iters_for(K, N, len(ws), a.target_bytes)
-            for M in rows_list:
+            for M in ms:
                 x = torch.randn(M, K, device="mps", dtype=dt)
                 cfg = mrl.pick_config(M, K, N, dt)
                 routed = cfg is not None
@@ -379,6 +449,10 @@ def cmd_layers(a):
                         "multirow_again": lambda i: mrl.multirow_linear(x, ws[i], config=cfg)}
                 if a.pre_t:
                     arms["mm_pre_t"] = lambda i: torch.mm(x, wts[i])
+                other = comp.get(dname, {}).get(name, {}).get(str(M))
+                ocfg = mrl.Config.parse(other) if other and other != mrl.LINEAR else None
+                if ocfg is not None:
+                    arms["compare"] = lambda i: mrl.multirow_linear(x, ws[i], config=ocfg)
                 samples = interleaved(arms, len(ws), iters, a.reps, rng)
                 med = {k: statistics.median(v) for k, v in samples.items()}
                 flop = 2 * M * N * K
@@ -391,6 +465,9 @@ def cmd_layers(a):
                        "linear_over_multirow": med["F.linear"] / med["multirow"],
                        "aa_ratio": med["F.linear_again"] / med["F.linear"],
                        "bb_ratio": med["multirow_again"] / med["multirow"]}
+                if ocfg is not None:
+                    row["compare_config"] = ocfg.name()
+                    row["compare_over_multirow"] = med["compare"] / med["multirow"]
                 res["rows"].append(row)
                 emit(event="layer", dtype=dname, shape=name, M=M, cfg=cfg.name(),
                      us={k: round(v, 1) for k, v in med.items()},
@@ -454,7 +531,6 @@ def cmd_probe(a):
     torch.manual_seed(13)
     res = {"torch": torch.__version__, "reps": a.reps, "rows": []}
     # mmr / mmh probes on the large MLP shapes (the peak multiply rate is round2/peak_mma.py).
-    # 2. mmr probes on the large MLP shapes.
     src = mrl.SOURCE_PATH.read_text()
     libs = {name: mrl._Library(MMR_PROBES[name](src)) for name in a.probes.split(",") if name in MMR_PROBES}
     hlibs = {name: mrl._Library(MMH_PROBES[name](src)) for name in a.probes.split(",") if name in MMH_PROBES}
@@ -767,7 +843,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("correctness"); c.add_argument("--out", required=True)
-    c.add_argument("--parts", default="random,real,planted")
+    c.add_argument("--parts", default="random,real,planted", help="any of random, real, planted, planted_table")
     t = sub.add_parser("tune"); t.add_argument("--out", required=True)
     t.add_argument("--dtype", default="float16"); t.add_argument("--shapes", default=",".join(SHAPES))
     t.add_argument("--rows", default=",".join(map(str, ROWS)))
@@ -780,6 +856,8 @@ def main():
     l.add_argument("--rows", default=",".join(map(str, list(range(1, 17)) + [24, 32])))
     l.add_argument("--seed", type=int, default=11); l.add_argument("--pre-t", type=int, default=0)
     l.add_argument("--candidates", default="", help="JSON {dtype: {shape: {M: config}}} for cells routed to F.linear")
+    l.add_argument("--cells", default="", help="JSON {dtype: {shape: [M, ...]}}: time only these cells")
+    l.add_argument("--compare", default="", help="JSON {dtype: {shape: {M: config}}}: an extra arm per cell")
     pr = sub.add_parser("probe"); pr.add_argument("--out", required=True)
     pr.add_argument("--dtype", default="float16"); pr.add_argument("--shapes", default="q17_up,q17_down")
     pr.add_argument("--rows", default="16"); pr.add_argument("--reps", type=int, default=5)

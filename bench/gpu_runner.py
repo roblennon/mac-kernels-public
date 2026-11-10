@@ -57,7 +57,11 @@ def pid_alive(pid):
 
 
 def label():
-    """Optional free-text run label (MK_GPU_LABEL), so sessions sharing the lock can tell their runs apart."""
+    """Optional free-text run label (MK_GPU_LABEL), so sessions sharing the lock can tell their runs apart.
+
+    In the GPU_RUN record, lock_wait_seconds is the reliable contention signal. The labels are hints: a null
+    lock_prior_label does not prove the lock was free, because a holder on an older runner writes no label
+    and the lock file is truncated before it is rewritten, so a waiter can read it empty."""
     return os.environ.get("MK_GPU_LABEL") or None
 
 

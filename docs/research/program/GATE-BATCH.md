@@ -1,5 +1,7 @@
 # Gate batch 1, 2026-11-10
 
+*Revised later on 2026-11-10: Rob redirected the programme toward training, inference and the technical machinery, away from behaviour. Item 1 (the role-swap check) belongs to a behavioural card and is withdrawn. The decode-speed thread ([threads/mps-decode.md](threads/mps-decode.md)) now comes first; items 2 to 4 follow it.*
+
 Rob chose to measure the subject gates before running more full experiments. A subject gate asks, before an experiment's real test, whether its model or data can show the effect at all. This brief is what the lab runs first. It was shaped by a review from a different model family ([Sol's gate review](reviews/2026-11-10-gate-review-sol.md)), whose main advice was not to build thirty harnesses just to rank thirty cards. So the batch is small. For the other cards, the gate is read first from the run the card already plans, when that card comes up.
 
 ## The batch, in order

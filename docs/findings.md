@@ -1190,3 +1190,30 @@ Changes, in effect from the 256 check onward: the driver waits for swap to stop 
 
 - `bench/bench_int8_linear.py`, two runs, saved as `docs/review/2026-11-09-experiments/int8-linear-microbench-rerun.txt`. Milliseconds per call for bf16, fp16, ComfyUI-style dequantize per call, and the prototype kernel: K=6144, N=6144: 68.6, 37.8 to 38.6, 76.4 to 76.5, 41.2 to 42.8. K=6144, N=16384: 181.8, 101.2 to 101.7, 204.2 to 205.1, 106.5 to 107.0. K=16384, N=6144: 225.4, 200.7 to 222.6, 238.7 to 249.5, 208.9 to 213.8. These are at or below the October 2 table from the same script (lines 17 to 19): within 4 percent at K=6144 and 4 to 9 percent faster at K=16384 in three of four columns, where fp16 also varied by 11 percent between today's two runs. The 103 and 107 ms at K=16384 in the hardened table (lines 76 to 81) come from the comfy-kitchen backend path, which avoids the wide-K `F.linear` slowdown; they are a different measurement, not a regression.
 - CPU test suite: `pytest tests --ignore=tests/test_gguf_node.py`, 685 passed, 16 skipped.
+
+## 2026-11-10: Where decode time goes on MPS, and the one-row linear "slow path"
+
+Prompted by the model-research-lab's Q003 (2026-11-10): on a 3.2M-parameter character model, swapping one-row `nn.Linear` calls for `addmm` on a pre-transposed weight cut the cached decode step to about a third. The question here: does that carry to real models? Results are in `docs/review/2026-11-10-experiments/`. Scripts: `bench/bench_onerow_linear.py`, `bench/bench_smallm_layout.py`, `bench/bench_linear_rank.py`, `bench/bench_decode_layout.py`, `bench/bench_decode_breakdown.py`, `bench/profile_decode_step.py`. All runs went through `bench/gpu_runner.py` on the M1 Max, torch 2.14.1 unless marked 2.15.0 (a separate environment; the repo venv is unchanged).
+
+**The tiny model's gain does not carry to a 1.7B model in its simple form.** Swapping all 197 linear layers of Qwen3-1.7B (fp16) to `mm` on pre-transposed weights made decode slower at every batch size: 0.94x at batch 1, 0.76x to 0.89x at batches 4 to 24, with identical greedy tokens. Most of the tiny model's gain was a fixed cost of `F.linear` with a bias (20 to 30 µs per call at every shape) plus one-row dispatch overhead on tiny matrices, both of which vanish against a large layer's memory traffic.
+
+**A microbenchmark pitfall.** Looping one weight that fits in the chip's on-die cache measures cache bandwidth, not decode: a 2048x6144 fp16 one-row `mm` timed at 44 µs, about 570 GB/s, above the M1 Max's roughly 400 GB/s memory bandwidth. In model order, with each layer's weight streaming from memory, the pre-transposed layout is the slower one (14.6 against 12.2 ms for all 197 linears at batch 1). Layout conclusions need weights larger than the cache or rotated through it.
+
+**Where a decode step goes (Qwen3-1.7B fp16, 32-token prompt).**
+
+| | torch 2.14.1 | torch 2.15.0 |
+|---|---|---|
+| Full step, batch 1 | 24.3 ms | 21.8 ms |
+| The 197 linears alone, in model order, batch 1 | 12.2 ms (281 GB/s) | 10.8 ms (318 GB/s) |
+| Full step, batch 16 | 41.6 ms | 42.3 ms |
+| The 197 linears alone, batch 16 | 26.2 ms (131 GB/s) | 26.2 ms (131 GB/s) |
+
+- At batch 1 the linears run near the memory limit, and about half the step (11 ms) is everything else. Torch 2.15.0's one-row GEMV routing for `F.linear` (PR 198721) accounts for the 2.5 ms gained.
+- The rest is GPU time, not host overhead: enqueuing a step takes about 8 ms of CPU against a 22 ms step. A profile of one step shows about 6,000 aten calls: 113 normalisation layers each run as about seven elementwise kernels (pow, mean, add, rsqrt, mul, mul, dtype copies), 113 `cat` calls growing the KV cache, and all 28 attention calls on `_scaled_dot_product_attention_math`, the unfused fallback. Hundreds of near-empty kernels make up the second half of the step.
+- At batch 16 the linears read the same weights as at batch 1 but take 2.4 times as long. Between 2 and about 16 rows, PyTorch leaves its own GEMV path for Apple's general matrix kernels, which pay encode overhead per call and, with the weight in `nn.Linear`'s [out, in] layout, appear to read it more than once. Unchanged in 2.15.0 and on main as of 2026-11-10 (source reading, `docs/research/program/raw/pivot_mps-source.md`, git-ignored).
+
+**The row-count bands.** With interleaved arms and an A/A control (median ratio 1.00, range 0.70 to 1.18 on small cells), `F.linear` against `mm` on a pre-transposed weight changes in steps at row counts 1, 2 to 7, 8 to 9, 10 to 16, 17 to 24 and 25 to 32. The largest effect is on the Llama-7B up-projection shape (4096 to 11008, fp16, 90 MB, larger than the on-die cache): at 17 to 32 rows `F.linear` takes about 980 to 1,220 µs against 360 to 470 µs, 2.4 to 2.7 times slower, with non-overlapping repeats, on both torch versions. On other shapes and in bf16 the direction can reverse (Qwen3-4B up-projection, bf16, 17 to 32 rows: pre-transposed 1.5 times slower).
+
+What this does not show: no end-to-end model gain yet. The 2 to 16 row and 17 to 32 row slowdowns are per-op measurements; their effect on speculative-decoding verification, small-batch serving and short prefills is a prediction until measured. Single machine, one model family end to end.
+
+Open levers, in order of expected payoff at batch 1 and batch 16: fusing normalisation, a preallocated KV cache and the fused attention path (the 11 ms); a multi-row kernel for 2 to 16 rows that streams each weight row once (bringing batch-16 linears from 26 ms toward the batch-1 figure); folding normalisation scales into the next weight, an exact rewrite that removes kernels.

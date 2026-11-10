@@ -5,37 +5,28 @@ import os, re
 HERE = os.path.dirname(os.path.abspath(__file__))
 D = os.path.join(HERE, 'designs')
 ORDER = [
- ('copies-as-evidence', 'Forward passes only on small public models, with a practical consequence: whether agent harnesses should collapse repeated failures into one copy and a count. It is also the cheapest test of the question the whole-notebook critic named for a year of work, how much long-horizon decline comes from the decoding loop rather than the model. Its step 1a ran in the lab (case 002) and decided nothing, because the 1.7B model could not do the base task; the card now starts with a capability step (step 0) that picks a task, model and protocol the model can do, and only then runs the contrast. Its search gate came back clean, and a cross-family reviewer put it in its own top three.'),
  ('cross-stack-numerics', 'Extends a probe that already runs in this repository, needs no model, and produces facts every other Mac result in this queue rests on: how Apple GPU and CPU stacks round and add inside a matmul. Citation value is narrow (an Apple column beside published NVIDIA and AMD arithmetic models), but the cross-family reviewer ranked it first for being the most certain to finish and be reused.'),
- ('whisper-silence', 'Training-free on public checkpoints, and it decides between three accounts of why Whisper stops: a stop signal in the padding, an attention sink, or nothing. It sits on a failure people who rely on local speech tools meet (text invented over silence). It moved from first to third after the cross-family review found it was not yet runnable cold; the card has been repaired against that list.'),
  ('finetune-survival-requant', "Answers a practical question about Rob's own merge path whatever happens to the law: which fine-tunes survive rounding to 4 bits, and whether one number per layer predicts it against explicit rival predictors. Moved up on the cross-family reviewer's advice."),
  ('noise-margin-gain-table', 'Step 1 builds the instrument that eight separate ideas need (a per-layer noise tolerance with a linearized control), on a small public model. If one calibration prices many shortcuts, format choice becomes a lookup.'),
  ('fixed-vs-fresh-error', "Rob's kernels and formats are the subject. It measures whether 4-bit error behaves as a per-sample bias across sampling steps, the thread seven lenses reached on their own, and either answer is a writable note."),
-
- ('tts-slip-hazard', "Rob's own ground and likely to change practice if true: a constant slip rate would make long-form TTS failure predictable from short tests. Moved down because its first slice shows feasibility but decides nothing; the deciding run needs about a hundred long generations or more, and the card now says how many and when to stop."),
- ('img-subliminal', 'The long shot. The first step is a CPU-sized MNIST diffusion toy and a positive result would be widely cited, but the cross-family review showed that greater transfer to a same-initialisation student does not by itself separate hidden transfer from ordinary learning of visible changes. The card was revised for that; it moved down until its first slice can identify what it claims.'),
- ('rare-exploit-onset', 'CPU-only numpy and decisive for its narrowed optimizer claim. Moved down after the cross-family review found its advertised safety bound was wrong (no exploits in N draws bounds the starting probability at about 3/N, not 1/N squared); the card now claims a finite-regime optimizer result only.'),
- ('variety-census', 'Counts how many distinct people a one-step model draws, and asks whether 4-bit rounding changes who gets drawn. Rob\'s formats again, and a concrete harm (sameness) a person can see.'),
- ('sampler-backward-error', 'A reference-free test of fast samplers by inverting their outputs and checking the noise. Cheap on a small public checkpoint; slice 1a settles a real disagreement with published DDIM results.'),
- ('voice-clone-circuit', 'Training-free on a released TTS model: does it clone a voice by looking up matching sounds in the prompt? Active field with two 2026 neighbours, so it comes after the cards above.'),
  ('train-scaffolds', "The card that fits the lab's existing case 001 as it stands; its step 1a is drafted there as Q002, not yet opened. As research it sits lower: its deciding run is days of Mac time and needs Rob's approval."),
+ ('rare-feature-threshold', 'A bold law (weight decay and beta2 set the rarest fact a model can keep), cheap to test exactly in a scalar simulation first. Weak case for large models, since the sparse regime is rare in big-batch pretraining.'),
+ ('content-energy', 'Whether a token costs different energy depending on what it says, on the Mac. Step 1 is an instrument check other energy work can reuse; later steps have weak priors.'),
+ ('rare-exploit-onset', 'CPU-only numpy and decisive for its narrowed optimizer claim. Moved down after the cross-family review found its advertised safety bound was wrong (no exploits in N draws bounds the starting probability at about 3/N, not 1/N squared); the card now claims a finite-regime optimizer result only.'),
+ ('sampler-backward-error', 'A reference-free test of fast samplers by inverting their outputs and checking the noise. Cheap on a small public checkpoint; slice 1a settles a real disagreement with published DDIM results.'),
  ('guidance-optimal-weight', 'Forward passes only, with an analytic toy that catches estimator bugs first. Moved down: its distribution-shift reading depends on access to a training-source dataset that is not checked, and the likeliest result is a precise negative that mostly confirms theory.'),
  ('layer-repeat-step-size', 'Separates the two things layer duplication does (a bigger step and a second read) with exact bookkeeping. Cheap, but the headline is judged unlikely; the useful outcome is probably the overshoot account.'),
- ('agent-hazard-mixture', 'Whether errors in an agent\'s own turns hurt more than the same errors labelled as another agent\'s. Partly scooped by two 2026 papers that the card now cites; the remaining contrast is cheap.'),
- ('rare-feature-threshold', 'A bold law (weight decay and beta2 set the rarest fact a model can keep), cheap to test exactly in a scalar simulation first. Weak case for large models, since the sparse regime is rare in big-batch pretraining.'),
- ('whisper-grades-students', 'Whether TTS models trained on Whisper-labelled data get an easier score from Whisper judges. Step 1 can only observe; the causal answer needs a later step.'),
- ('tts-clear-speech-guidance', 'Whether guidance makes synthetic speech over-articulate the way people do for a listener. Waits on its search gate, because one group published three 2026 clarity papers with these measures.'),
- ('duplex-turn-temperature', 'Whether late turn-taking in a duplex speech model is a sampler artefact. Partly anticipated by the model\'s own paper; the open value needs Rob to record stimuli.'),
- ('raster-binding', 'Whether a vision-language model confuses colours of objects that sit near each other in the token string rather than in the picture. Cheap on a 0.5B model; the prior favours a null.'),
- ('dit-positional-binding', 'Whether position tags in a diffusion transformer prompt do binding work. Cheap first slice with a clean stop; claim limited to one model family.'),
  ('renyi-search-cutoff', 'A theory-backed second number next to perplexity for search. Rebuilt after a fatal objection into a narrower per-sentence prediction; CPU only.'),
- ('denoiser-talks-back', 'Whether a diffusion transformer\'s text tokens carry seed-specific image information. Two gates before GPU time and a heavy deciding step.'),
  ('linear-response-window', 'How small a weight nudge must be for training to answer in proportion. No GPU needed, so it can run beside GPU cards; weak carry to large models.'),
  ('continuous-ar-temperature', 'What temperature means in continuous-token generators, by inverting real tokens through the head. Half the idea is occupied by a 2026 paper.'),
  ('surprise-feedback', 'Feed a model its own prediction error as an input. A build, self-contained on synthetic data; the lead\'s prior is low after the review.'),
- ('content-energy', 'Whether a token costs different energy depending on what it says, on the Mac. Step 1 is an instrument check other energy work can reuse; later steps have weak priors.'),
  ('semantic-latent-memorization', 'Whether a semantic latent lowers the data a diffusion model needs before it stops memorizing. Blocked on Rob accepting the DINOv3 licence.'),
+ ('voice-clone-circuit', 'Training-free on a released TTS model: does it clone a voice by looking up matching sounds in the prompt? Active field with two 2026 neighbours, so it comes after the cards above.'),
+ ('img-subliminal', 'The long shot. The first step is a CPU-sized MNIST diffusion toy and a positive result would be widely cited, but the cross-family review showed that greater transfer to a same-initialisation student does not by itself separate hidden transfer from ordinary learning of visible changes. The card was revised for that; it moved down until its first slice can identify what it claims.'),
 ]
+# Set aside 2026-11-10 at Rob's direction: behavioural, model-dependent, or not about training, fine-tuning,
+# inference, attention, context or gradients. Kept, not deleted; the triage that sorted them is raw/pivot_triage.md.
+
 PARKED = ['paired-metric-floor', 'nested-bitplanes', 'self-training-37']
 NOT_CARDS = {'TEMPLATE'}
 
@@ -43,11 +34,7 @@ NOT_CARDS = {'TEMPLATE'}
 # Once a card carries a "Needs Rob:" header (see designs/TEMPLATE.md), its items are read from the card
 # instead; move an item out of this list when its card states it.
 NEEDS_ROB = [
- ('copies-as-evidence', "Allowances for step 0 (1,200 guarded seconds) and step 1a (2,400 guarded seconds). Whether to download Qwen3-4B (about 8 GB) for the second ladder, needed only if the Qwen3-1.7B ladder finds no task."),
-
  ('semantic-latent-memorization', "Accept the DINOv3 licence on the Hub."),
- ('duplex-turn-temperature', "Record the stimuli its open half needs."),
- ('tts-slip-hazard', "His ears: speech cards that end in a listening test need him to listen (also [tts-clear-speech-guidance](designs/tts-clear-speech-guidance.md)'s optional step 4)."),
  ('train-scaffolds', "Approve days of Mac time for step 2, the deciding run."),
  (None, "Whether these research files go public."),
 ]
@@ -89,7 +76,7 @@ def short(st):
     return out if out == st else out + ' (more in the card)'
 
 have = {f[:-3] for f in os.listdir(D) if f.endswith('.md')} - NOT_CARDS
-listed = {c for c, _ in ORDER} | set(PARKED)
+listed = {c for c, _ in ORDER} | set(PARKED) | set(SET_ASIDE)
 assert have == listed, (have - listed, listed - have)
 cards = {c: card(c) for c in listed}
 
@@ -111,6 +98,8 @@ for cid, _ in ORDER:
 L = ['# Experiment queue', '',
  'The experiments worth running first, in order, each with a design card under [designs](designs/). The order was written 2026-11-09 by the lead agent, from 33 cards that each had a real prior-art search, a hostile review and a revision. The card is the source of truth; this file only orders them and says why.', '',
  "Since then, the lab ran card 1's step 1a as its case 002 on 2026-11-10. It decided nothing: every measuring check passed, but the model could not do the base task, so the hypothesis was never tested (the card's \"Result of step 1a\" has the reading). Card 1 was redesigned to start with a capability step, and the other queued cards gained a gate on their subject. What that taught is in [LESSONS.md](LESSONS.md); new cards start from [the template](designs/TEMPLATE.md).", '',
+ '## Focus, from 2026-11-10', '',
+ "Rob redirected the programme on 2026-11-10 toward training, fine-tuning, inference, attention, context and gradients, and away from behaviour. The behavioural cards are set aside below. The thread now leading is not a card: [decode and small-batch speed on MPS](threads/mps-decode.md), opened from a lab result and measured the same day ([findings](../../findings.md)). The cards below are ordered for that focus; the reasons under each were written for the earlier order and still describe the card.", '',
  '## Needs Rob', '',
  'Nothing below runs past these without him. The lab asks him for its own approvals; this list is so they are visible in one place.', '',
  *need_lines, '',
@@ -125,11 +114,15 @@ L = ['# Experiment queue', '',
 for i, (cid, why) in enumerate(ORDER, 1):
     title, st = cards[cid][:2]
     L += [f'{i}. **[{title}](designs/{cid}.md)**  ', f'   Status: {short(st)}  ', f'   Why here: {why}', '']
+L += ['## Set aside (behavioural)', '', 'Set aside on 2026-11-10 at Rob\'s direction. Two hold a speed angle worth salvaging: whisper-silence (if the padding\'s content does not matter, short clips spend encoder compute on up to 30 s of padding) and denoiser-talks-back (if the text stream barely depends on the seed, it can be cached across seeds and steps).', '']
+for cid in SET_ASIDE:
+    title, st = cards[cid][:2]
+    L += [f'- [{title}](designs/{cid}.md)', '']
 L += ['## Parked', '', 'Kept because the reasoning is worth having; each card says what would unpark it.', '']
 for cid in PARKED:
     title, st = cards[cid][:2]
     L += [f'- **[{title}](designs/{cid}.md)**. {short(st)}', '']
 open(os.path.join(HERE, 'QUEUE.md'), 'w').write('\n'.join(L))
-print('wrote', len(ORDER), 'queued and', len(PARKED), 'parked')
+print('wrote', len(ORDER), 'queued,', len(SET_ASIDE), 'set aside and', len(PARKED), 'parked')
 for w in warnings:
     print('warning:', w)

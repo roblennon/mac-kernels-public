@@ -2,18 +2,15 @@
 
 The running list for the programme framed in `FRAME.md`. One line per item. Decisions and their reasons go at the bottom so the next reader can see why, not only what. Lessons for card writers are in `LESSONS.md`.
 
-## Now: gate batch 1 (2026-11-10)
+## Now: decode and small-batch speed on MPS (2026-11-10)
 
-Rob read the reorientation report and chose "Measure the gates first". The subject gates had a cross-family review (`reviews/2026-11-10-gate-review-sol.md`) and were revised. The first batch is in `GATE-BATCH.md`: the role-swap check, then three cheap training gates. It goes to the lab, which runs it once Rob sets device time.
+Rob redirected the programme toward training, fine-tuning, inference, attention, context and gradients, and away from behaviour, and asked to explore the lab's decode-speed result hard. Measured the same day (findings log, 2026-11-10): the tiny-model gain does not carry to Qwen3-1.7B in its simple form, but half of a batch-1 decode step is near-empty GPU kernels, and batch-16 linears take 2.4 times their batch-1 time. Next experiments, with predictions, are in `threads/mps-decode.md`. Behavioural cards are set aside in `QUEUE.md`. Gate batch 1 lost its behavioural item and now follows the thread.
 
 ## Waiting on Rob
 
 - Whether the phase after the goal (handing cards to the lab, reading results) gets its own budget and stop, or stays attended only.
-- copies-as-evidence: step 0's 1,200 s and step 1a's 2,400 s allowances; whether to download Qwen3-4B (about 8 GB) for the second ladder; his own yes before any Qwen3.5-4B ladder.
-
 - semantic-latent-memorization: accept the DINOv3 licence.
-- duplex-turn-temperature: record the stimuli its open half needs.
-- Speech cards that end in a listening test need his ears.
+- Thread experiment D needs a 7B model download (about 14 GB in fp16).
 - train-scaffolds step 2: days of unattended Mac time.
 - Whether these research files go public. The repository is public once pushed, and the docs name his private projects.
 - Kaggle or Colab login; the gaming PC's GPU model.
@@ -21,8 +18,7 @@ Rob read the reorientation report and chose "Measure the gates first". The subje
 
 ## Open, ours
 
-- [ ] copies-as-evidence role-swap check: R and RS differ only in the system prompt's last sentence (a 15-token fragment against a complete sentence), and T2 format went from 13 to 53 of 60. First item of gate batch 1, prediction written in the card.
-- [ ] copies-as-evidence: the redesign's last cold read found blocking gaps that were fixed but not re-read. Re-read before it goes to the lab.
+- [ ] Decode thread experiments A to C (`threads/mps-decode.md`): fused normalisation, preallocated cache and fused attention; a multi-row kernel for 2 to 16 rows from `bench/small_m_int8.metal`; exact rewrites (scale folding, fused projections).
 - [x] Subject gates reviewed by Sol for needless slowness and weakness; 141 changes applied across 23 cards, 20 points rejected with reasons
 - [ ] Parked cards owe searches: self-training-37, nested-bitplanes (paired-metric-floor's park was confirmed by a second reader).
 - [ ] Cards named but not written: card B for copies-as-evidence's loop-share question; a divergence-law card; an attention-hint card split from train-scaffolds.
@@ -44,6 +40,8 @@ Rob read the reorientation report and chose "Measure the gates first". The subje
 - [x] Reorientation sweep: stale docs, learnings, process, new avenues (`raw/reorient_*.md`)
 
 ## Decisions
+
+- 2026-11-10: Rob: focus on training, fine-tuning, inference, attention, context and gradients, not behaviour. copies-as-evidence is set aside as model-dependent and not about speed or performance. The decode-speed thread leads.
 
 - 2026-11-10: measure the gates first (Rob). A small first batch, not thirty harnesses; other cards read their gate from their own first run.
 

@@ -1,0 +1,135 @@
+{
+ "torch": "2.15.0",
+ "batch": 1,
+ "wall_ms_per_step": 22.02253381256014,
+ "host_enqueue_ms_per_step": 7.927132810436888,
+ "profiled_self_cpu_ms_per_step": 6.798167125000036,
+ "aten_calls_per_step": 5989.0,
+ "top": [
+  {
+   "op": "aten::mul",
+   "self_cpu_ms_per_step": 0.9629255000000084,
+   "calls_per_step": 368.0
+  },
+  {
+   "op": "aten::cat",
+   "self_cpu_ms_per_step": 0.7058178749999954,
+   "calls_per_step": 113.0
+  },
+  {
+   "op": "aten::copy_",
+   "self_cpu_ms_per_step": 0.6949782500000175,
+   "calls_per_step": 344.0
+  },
+  {
+   "op": "aten::add",
+   "self_cpu_ms_per_step": 0.6591561250000173,
+   "calls_per_step": 226.0
+  },
+  {
+   "op": "aten::mm",
+   "self_cpu_ms_per_step": 0.4563792499999963,
+   "calls_per_step": 197.0
+  },
+  {
+   "op": "aten::linear",
+   "self_cpu_ms_per_step": 0.3316087499999908,
+   "calls_per_step": 197.0
+  },
+  {
+   "op": "aten::mean",
+   "self_cpu_ms_per_step": 0.3315352500000059,
+   "calls_per_step": 113.0
+  },
+  {
+   "op": "aten::pow",
+   "self_cpu_ms_per_step": 0.3002571250000047,
+   "calls_per_step": 113.0
+  },
+  {
+   "op": "aten::empty_strided",
+   "self_cpu_ms_per_step": 0.24860650000001455,
+   "calls_per_step": 344.0
+  },
+  {
+   "op": "aten::rsqrt",
+   "self_cpu_ms_per_step": 0.22414962500000635,
+   "calls_per_step": 113.0
+  },
+  {
+   "op": "aten::empty",
+   "self_cpu_ms_per_step": 0.21647450000001056,
+   "calls_per_step": 257.0
+  },
+  {
+   "op": "aten::_to_copy",
+   "self_cpu_ms_per_step": 0.21397874999999827,
+   "calls_per_step": 344.0
+  },
+  {
+   "op": "aten::neg",
+   "self_cpu_ms_per_step": 0.16331212499998507,
+   "calls_per_step": 56.0
+  },
+  {
+   "op": "aten::view",
+   "self_cpu_ms_per_step": 0.1486706250000014,
+   "calls_per_step": 510.0
+  },
+  {
+   "op": "aten::transpose",
+   "self_cpu_ms_per_step": 0.14785500000003196,
+   "calls_per_step": 310.0
+  },
+  {
+   "op": "aten::as_strided",
+   "self_cpu_ms_per_step": 0.14733799999996788,
+   "calls_per_step": 570.0
+  },
+  {
+   "op": "aten::_scaled_dot_product_attention_math_for_mps",
+   "self_cpu_ms_per_step": 0.12126412499999739,
+   "calls_per_step": 28.0
+  },
+  {
+   "op": "aten::bmm",
+   "self_cpu_ms_per_step": 0.11577574999999858,
+   "calls_per_step": 1.0
+  },
+  {
+   "op": "aten::to",
+   "self_cpu_ms_per_step": 0.11183487499999031,
+   "calls_per_step": 461.0
+  },
+  {
+   "op": "aten::slice",
+   "self_cpu_ms_per_step": 0.08030762500000137,
+   "calls_per_step": 112.0
+  },
+  {
+   "op": "aten::alias",
+   "self_cpu_ms_per_step": 0.07810137499999122,
+   "calls_per_step": 459.0
+  },
+  {
+   "op": "aten::silu",
+   "self_cpu_ms_per_step": 0.06631224999999552,
+   "calls_per_step": 28.0
+  },
+  {
+   "op": "aten::reshape",
+   "self_cpu_ms_per_step": 0.06309212499999298,
+   "calls_per_step": 228.0
+  },
+  {
+   "op": "aten::t",
+   "self_cpu_ms_per_step": 0.05544675000001479,
+   "calls_per_step": 197.0
+  },
+  {
+   "op": "aten::unsqueeze",
+   "self_cpu_ms_per_step": 0.03458437499999575,
+   "calls_per_step": 60.0
+  }
+ ]
+}

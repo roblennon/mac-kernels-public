@@ -1,0 +1,36 @@
+{
+ "dtype": "float16",
+ "torch": "2.15.0",
+ "n_linears": 197,
+ "linear_weight_GB": 3.440902144,
+ "param_GB": 3.441149952,
+ "cells": [
+  {
+   "batch": 1,
+   "full_step_ms": 21.821701375301927,
+   "linears_only_ms": 10.823620797600597,
+   "linears_pre_t_ms": 15.323266701307148,
+   "linears_GBps": 317.9067530491078,
+   "pre_t_GBps": 224.5540856967839,
+   "full_step_GBps_params": 157.69393471284215
+  },
+  {
+   "batch": 4,
+   "full_step_ms": 26.82512499935304,
+   "linears_only_ms": 14.933149999706075,
+   "linears_pre_t_ms": 20.485116698546335,
+   "linears_GBps": 230.4203831119172,
+   "pre_t_GBps": 167.97083436894323,
+   "full_step_GBps_params": 128.28085431411756
+  },
+  {
+   "batch": 16,
+   "full_step_ms": 42.270158000368006,
+   "linears_only_ms": 26.19097920251079,
+   "linears_pre_t_ms": 32.991379202576354,
+   "linears_GBps": 131.37737682102926,
+   "pre_t_GBps": 104.29700810238616,
+   "full_step_GBps_params": 81.40849513668819
+  }
+ ]
+}

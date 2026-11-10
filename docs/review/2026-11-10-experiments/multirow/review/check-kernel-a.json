@@ -1,0 +1,459 @@
+{
+ "torch": "2.15.0",
+ "offsets": {
+  "runs": 270,
+  "fails": [],
+  "n_fail": 0
+ },
+ "nonfinite": [
+  {
+   "dtype": "torch.float16",
+   "cfg": "dev_r2_u1_s4",
+   "case": "inf_nan",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.float16",
+   "cfg": "dev_r2_u1_s4",
+   "case": "overflow",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.float16",
+   "cfg": "tg_r1_u2_s8",
+   "case": "inf_nan",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.float16",
+   "cfg": "tg_r1_u2_s8",
+   "case": "overflow",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.float16",
+   "cfg": "mma_r1_u1_s4_p4",
+   "case": "inf_nan",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.float16",
+   "cfg": "mma_r1_u1_s4_p4",
+   "case": "overflow",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.float16",
+   "cfg": "mmr_r2_u1_s4_p3_f1",
+   "case": "inf_nan",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.float16",
+   "cfg": "mmr_r2_u1_s4_p3_f1",
+   "case": "overflow",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.bfloat16",
+   "cfg": "dev_r2_u1_s4",
+   "case": "inf_nan",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.bfloat16",
+   "cfg": "dev_r2_u1_s4",
+   "case": "overflow",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.bfloat16",
+   "cfg": "tg_r1_u2_s8",
+   "case": "inf_nan",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.bfloat16",
+   "cfg": "tg_r1_u2_s8",
+   "case": "overflow",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.bfloat16",
+   "cfg": "mma_r1_u1_s4_p4",
+   "case": "inf_nan",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.bfloat16",
+   "cfg": "mma_r1_u1_s4_p4",
+   "case": "overflow",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.bfloat16",
+   "cfg": "mmr_r2_u1_s4_p3_f1",
+   "case": "inf_nan",
+   "nonfinite_pattern_matches_F.linear": true
+  },
+  {
+   "dtype": "torch.bfloat16",
+   "cfg": "mmr_r2_u1_s4_p3_f1",
+   "case": "overflow",
+   "nonfinite_pattern_matches_F.linear": true
+  }
+ ],
+ "sensitivity": [
+  {
+   "mutation": "dev fp16 accumulator",
+   "dtype": "torch.float16",
+   "K": 2056,
+   "N": 1027,
+   "M": 8,
+   "caught": true,
+   "ours_norm": 8.79921324481661e-05,
+   "lin_norm": 3.4637948475447386e-05,
+   "allow": 0.0006108283996582031,
+   "ours_rel": 0.0005490169805955126,
+   "lin_rel": 0.00020806844058283912
+  },
+  {
+   "mutation": "dev fp16 accumulator",
+   "dtype": "torch.float16",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "caught": true,
+   "ours_norm": 7.360000464064999e-05,
+   "lin_norm": 3.557692183328422e-05,
+   "allow": 0.0008544921875,
+   "ours_rel": 0.0008119568779711408,
+   "lin_rel": 0.00020874161207191672
+  },
+  {
+   "mutation": "dev fp16 accumulator",
+   "dtype": "torch.float16",
+   "K": 264,
+   "N": 33,
+   "M": 4,
+   "caught": true,
+   "ours_norm": 0.00010321404256712125,
+   "lin_norm": 7.956504937385058e-05,
+   "allow": 0.0005040168762207031,
+   "ours_rel": 0.0003054169730049311,
+   "lin_rel": 0.00022353950347671765
+  },
+  {
+   "mutation": "dev fp16 accumulator",
+   "dtype": "torch.bfloat16",
+   "K": 2056,
+   "N": 1027,
+   "M": 8,
+   "caught": false,
+   "ours_norm": 0.00031300555028074934,
+   "lin_norm": 0.00028179951376362344,
+   "allow": 0.004028797149658203,
+   "ours_rel": 0.0017572865466760818,
+   "lin_rel": 0.0016840564841190243
+  },
+  {
+   "mutation": "dev fp16 accumulator",
+   "dtype": "torch.bfloat16",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "caught": false,
+   "ours_norm": 0.00021848139276991118,
+   "lin_norm": 0.00021848139276991118,
+   "allow": 0.0042724609375,
+   "ours_rel": 0.0018474698650567515,
+   "lin_rel": 0.0016707739502844093
+  },
+  {
+   "mutation": "dev fp16 accumulator",
+   "dtype": "torch.bfloat16",
+   "K": 264,
+   "N": 33,
+   "M": 4,
+   "caught": false,
+   "ours_norm": 0.0007219305669281926,
+   "lin_norm": 0.0007219305669281926,
+   "allow": 0.003921985626220703,
+   "ours_rel": 0.0018069367421526487,
+   "lin_rel": 0.0017935375343702952
+  },
+  {
+   "mutation": "dev drops the last 8-element K chunk",
+   "dtype": "torch.float16",
+   "K": 2056,
+   "N": 1027,
+   "M": 8,
+   "caught": true,
+   "ours_norm": 0.011956479141259335,
+   "lin_norm": 3.4637948475447386e-05,
+   "allow": 0.0006108283996582031,
+   "ours_rel": 0.07074799810648,
+   "lin_rel": 0.00020806844058283912
+  },
+  {
+   "mutation": "dev drops the last 8-element K chunk",
+   "dtype": "torch.float16",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "caught": true,
+   "ours_norm": 0.0036709207663137735,
+   "lin_norm": 3.557692183328422e-05,
+   "allow": 0.0008544921875,
+   "ours_rel": 0.034341863407623595,
+   "lin_rel": 0.00020874161207191672
+  },
+  {
+   "mutation": "dev drops the last 8-element K chunk",
+   "dtype": "torch.float16",
+   "K": 264,
+   "N": 33,
+   "M": 4,
+   "caught": true,
+   "ours_norm": 0.04160831374429494,
+   "lin_norm": 7.956504937385058e-05,
+   "allow": 0.0005040168762207031,
+   "ours_rel": 0.14673116930294586,
+   "lin_rel": 0.00022353950347671765
+  },
+  {
+   "mutation": "dev drops the last 8-element K chunk",
+   "dtype": "torch.bfloat16",
+   "K": 2056,
+   "N": 1027,
+   "M": 8,
+   "caught": true,
+   "ours_norm": 0.01190262711075069,
+   "lin_norm": 0.00028179951376362344,
+   "allow": 0.004028797149658203,
+   "ours_rel": 0.07076838880770579,
+   "lin_rel": 0.0016840564841190243
+  },
+  {
+   "mutation": "dev drops the last 8-element K chunk",
+   "dtype": "torch.bfloat16",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "caught": true,
+   "ours_norm": 0.003706458359358022,
+   "lin_norm": 0.00021848139276991118,
+   "allow": 0.0042724609375,
+   "ours_rel": 0.034376859924919664,
+   "lin_rel": 0.0016707739502844093
+  },
+  {
+   "mutation": "dev drops the last 8-element K chunk",
+   "dtype": "torch.bfloat16",
+   "K": 264,
+   "N": 33,
+   "M": 4,
+   "caught": true,
+   "ours_norm": 0.04144724221991356,
+   "lin_norm": 0.0007219305669281926,
+   "allow": 0.003921985626220703,
+   "ours_rel": 0.14662141577101265,
+   "lin_rel": 0.0017935375343702952
+  },
+  {
+   "mutation": "mmr drops the last 4 x elements of K",
+   "dtype": "torch.float16",
+   "K": 2056,
+   "N": 1027,
+   "M": 8,
+   "caught": true,
+   "ours_norm": 0.008445682252133258,
+   "lin_norm": 3.4637948475447386e-05,
+   "allow": 0.0006108283996582031,
+   "ours_rel": 0.0492808952127685,
+   "lin_rel": 0.00020806844058283912
+  },
+  {
+   "mutation": "mmr drops the last 4 x elements of K",
+   "dtype": "torch.float16",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "caught": true,
+   "ours_norm": 0.003244257968744189,
+   "lin_norm": 3.557692183328422e-05,
+   "allow": 0.0008544921875,
+   "ours_rel": 0.025086906397786372,
+   "lin_rel": 0.00020874161207191672
+  },
+  {
+   "mutation": "mmr drops the last 4 x elements of K",
+   "dtype": "torch.float16",
+   "K": 264,
+   "N": 33,
+   "M": 4,
+   "caught": true,
+   "ours_norm": 0.033878862400450974,
+   "lin_norm": 7.956504937385058e-05,
+   "allow": 0.0005040168762207031,
+   "ours_rel": 0.11114221279715729,
+   "lin_rel": 0.00022353950347671765
+  },
+  {
+   "mutation": "mmr drops the last 4 x elements of K",
+   "dtype": "torch.bfloat16",
+   "K": 2056,
+   "N": 1027,
+   "M": 8,
+   "caught": true,
+   "ours_norm": 0.008543118034659495,
+   "lin_norm": 0.00028179951376362344,
+   "allow": 0.004028797149658203,
+   "ours_rel": 0.04934941595201929,
+   "lin_rel": 0.0016840564841190243
+  },
+  {
+   "mutation": "mmr drops the last 4 x elements of K",
+   "dtype": "torch.bfloat16",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "caught": true,
+   "ours_norm": 0.003315673778366489,
+   "lin_norm": 0.00021848139276991118,
+   "allow": 0.0042724609375,
+   "ours_rel": 0.025132466894083074,
+   "lin_rel": 0.0016707739502844093
+  },
+  {
+   "mutation": "mmr drops the last 4 x elements of K",
+   "dtype": "torch.bfloat16",
+   "K": 264,
+   "N": 33,
+   "M": 4,
+   "caught": true,
+   "ours_norm": 0.03416380795688712,
+   "lin_norm": 0.0007219305669281926,
+   "allow": 0.003921985626220703,
+   "ours_rel": 0.11126339041843006,
+   "lin_rel": 0.0017935375343702952
+  },
+  {
+   "mutation": "bf16 output rounded by truncation",
+   "dtype": "torch.bfloat16",
+   "K": 2056,
+   "N": 1027,
+   "M": 8,
+   "caught": true,
+   "ours_norm": 0.0005843320601915122,
+   "lin_norm": 0.00028179951376362344,
+   "allow": 0.004028797149658203,
+   "ours_rel": 0.003339392073001233,
+   "lin_rel": 0.0016840564841190243
+  },
+  {
+   "mutation": "bf16 output rounded by truncation",
+   "dtype": "torch.bfloat16",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "caught": true,
+   "ours_norm": 0.000575037884939259,
+   "lin_norm": 0.00021848139276991118,
+   "allow": 0.0042724609375,
+   "ours_rel": 0.0033176635902242243,
+   "lin_rel": 0.0016707739502844093
+  },
+  {
+   "mutation": "bf16 output rounded by truncation",
+   "dtype": "torch.bfloat16",
+   "K": 264,
+   "N": 33,
+   "M": 4,
+   "caught": true,
+   "ours_norm": 0.001222879622269249,
+   "lin_norm": 0.0007219305669281926,
+   "allow": 0.003921985626220703,
+   "ours_rel": 0.0033513180614436217,
+   "lin_rel": 0.0017935375343702952
+  },
+  {
+   "mutation": "mma split path drops the bias",
+   "dtype": "torch.float16",
+   "K": 2056,
+   "N": 1027,
+   "M": 8,
+   "caught": true,
+   "ours_norm": 0.10931269495172964,
+   "lin_norm": 6.271601790442163e-05,
+   "allow": 0.0006108283996582031,
+   "ours_rel": 0.7047453041521969,
+   "lin_rel": 0.0002068640464686418
+  },
+  {
+   "mutation": "mma split path drops the bias",
+   "dtype": "torch.float16",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "caught": true,
+   "ours_norm": 0.062081212106422104,
+   "lin_norm": 3.892347178822242e-05,
+   "allow": 0.0008544921875,
+   "ours_rel": 0.7089905520645554,
+   "lin_rel": 0.00020869124237255887
+  },
+  {
+   "mutation": "mma split path drops the bias",
+   "dtype": "torch.float16",
+   "K": 264,
+   "N": 33,
+   "M": 4,
+   "caught": true,
+   "ours_norm": 0.18273965407632473,
+   "lin_norm": 0.00011071274693216538,
+   "allow": 0.0005040168762207031,
+   "ours_rel": 0.7671994608804442,
+   "lin_rel": 0.00020860610252510314
+  },
+  {
+   "mutation": "mma split path drops the bias",
+   "dtype": "torch.bfloat16",
+   "K": 2056,
+   "N": 1027,
+   "M": 8,
+   "caught": true,
+   "ours_norm": 0.10949923595264549,
+   "lin_norm": 0.000506899431188919,
+   "allow": 0.004028797149658203,
+   "ours_rel": 0.7047073419647829,
+   "lin_rel": 0.0016813093032251036
+  },
+  {
+   "mutation": "mma split path drops the bias",
+   "dtype": "torch.bfloat16",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "caught": true,
+   "ours_norm": 0.062062864035208845,
+   "lin_norm": 0.00030420031224932993,
+   "allow": 0.0042724609375,
+   "ours_rel": 0.7089895140955582,
+   "lin_rel": 0.0016671996507367972
+  },
+  {
+   "mutation": "mma split path drops the bias",
+   "dtype": "torch.bfloat16",
+   "K": 264,
+   "N": 33,
+   "M": 4,
+   "caught": true,
+   "ours_norm": 0.18308940737929755,
+   "lin_norm": 0.0010730746917757712,
+   "allow": 0.003921985626220703,
+   "ours_rel": 0.767527736087685,
+   "lin_rel": 0.0017438043903773752
+  }
+ ]
+}

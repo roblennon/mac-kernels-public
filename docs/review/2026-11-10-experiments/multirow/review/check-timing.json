@@ -1,0 +1,245 @@
+{
+ "torch": "2.15.0",
+ "rows": [
+  {
+   "dtype": "torch.float16",
+   "shape": "q17_up",
+   "K": 2048,
+   "N": 6144,
+   "M": 8,
+   "copies": 11,
+   "iters": 66,
+   "median_us": {
+    "tuned:mmr_r1_u2_s4_f1|stream": 90.61678781907892,
+    "tuned:mmr_r1_u2_s4_f1|cached": 61.3478486863614,
+    "mmr_r2_u1_s4|stream": 99.14962080956408,
+    "mmr_r2_u1_s4|cached": 77.0151514602317,
+    "mma_r1_u1_s4|stream": 100.86931764486839,
+    "mma_r1_u1_s4|cached": 94.24746950213431,
+    "F.linear|stream": 167.87500036033717,
+    "F.linear|cached": 163.56565174646676
+   },
+   "TFLOPS": {
+    "tuned:mmr_r1_u2_s4_f1|stream": 2.2217361357142664,
+    "tuned:mmr_r1_u2_s4_f1|cached": 3.28172211921032,
+    "mmr_r2_u1_s4|stream": 2.030533151374189,
+    "mmr_r2_u1_s4|cached": 2.614116679416763,
+    "mma_r1_u1_s4|stream": 1.9959150780499233,
+    "mma_r1_u1_s4|cached": 2.1361485147931827,
+    "F.linear|stream": 1.1992648790341642,
+    "F.linear|cached": 1.230861063128732
+   },
+   "GBps": {
+    "tuned:mmr_r1_u2_s4_f1|stream": 277.7170169642833,
+    "tuned:mmr_r1_u2_s4_f1|cached": 410.21526490129,
+    "mmr_r2_u1_s4|stream": 253.8166439217736,
+    "mmr_r2_u1_s4|cached": 326.76458492709537,
+    "mma_r1_u1_s4|stream": 249.4893847562404,
+    "mma_r1_u1_s4|cached": 267.0185643491478,
+    "F.linear|stream": 149.9081098792705,
+    "F.linear|cached": 153.8576328910915
+   },
+   "memory_floor_us_at_400GBps": 62.91456
+  },
+  {
+   "dtype": "torch.float16",
+   "shape": "q17_up",
+   "K": 2048,
+   "N": 6144,
+   "M": 16,
+   "copies": 11,
+   "iters": 66,
+   "median_us": {
+    "tuned:mma_r1_u1_s4|stream": 130.95643953420222,
+    "tuned:mma_r1_u1_s4|cached": 131.77019674472058,
+    "mmr_r2_u1_s4|stream": 137.51325737261638,
+    "mmr_r2_u1_s4|cached": 126.6464700386154,
+    "mma_r1_u1_s4|stream": 132.78030250644818,
+    "mma_r1_u1_s4|cached": 136.2493794383199,
+    "F.linear|stream": 132.6470907467107,
+    "F.linear|cached": 113.1332114296542
+   },
+   "TFLOPS": {
+    "tuned:mma_r1_u1_s4|stream": 3.0747108384451614,
+    "tuned:mma_r1_u1_s4|cached": 3.0557227199111123,
+    "mmr_r2_u1_s4|stream": 2.9281044729304924,
+    "mmr_r2_u1_s4|cached": 3.179347863996748,
+    "mma_r1_u1_s4|stream": 3.0324767785526476,
+    "mma_r1_u1_s4|cached": 2.9552661866051375,
+    "F.linear|stream": 3.035522164363675,
+    "F.linear|cached": 3.5591068167491047
+   },
+   "GBps": {
+    "tuned:mma_r1_u1_s4|stream": 192.16942740282258,
+    "tuned:mma_r1_u1_s4|cached": 190.98266999444454,
+    "mmr_r2_u1_s4|stream": 183.00652955815576,
+    "mmr_r2_u1_s4|cached": 198.70924149979675,
+    "mma_r1_u1_s4|stream": 189.5297986595405,
+    "mma_r1_u1_s4|cached": 184.70413666282107,
+    "F.linear|stream": 189.72013527272966,
+    "F.linear|cached": 222.44417604681905
+   },
+   "memory_floor_us_at_400GBps": 62.91456
+  },
+  {
+   "dtype": "torch.float16",
+   "shape": "q17_up",
+   "K": 2048,
+   "N": 6144,
+   "M": 32,
+   "copies": 11,
+   "iters": 66,
+   "median_us": {
+    "tuned:mma_r1_u1_s4|stream": 184.37753015226036,
+    "tuned:mma_r1_u1_s4|cached": 179.00946885206258,
+    "mmr_r2_u1_s4|stream": 616.6388788683848,
+    "mmr_r2_u1_s4|cached": 616.53219657301,
+    "mma_r1_u1_s4|stream": 183.5454542853051,
+    "mma_r1_u1_s4|cached": 182.13131768403179,
+    "F.linear|stream": 150.453287818836,
+    "F.linear|cached": 145.75883379262504
+   },
+   "TFLOPS": {
+    "tuned:mma_r1_u1_s4|stream": 4.367703414483164,
+    "tuned:mma_r1_u1_s4|cached": 4.498680283027504,
+    "mmr_r2_u1_s4|stream": 1.305961066674624,
+    "mmr_r2_u1_s4|cached": 1.306187045017746,
+    "mma_r1_u1_s4|stream": 4.387503744703057,
+    "mma_r1_u1_s4|cached": 4.421569987195039,
+    "F.linear|stream": 5.352534196326015,
+    "F.linear|cached": 5.524923238242498
+   },
+   "GBps": {
+    "tuned:mma_r1_u1_s4|stream": 136.49073170259885,
+    "tuned:mma_r1_u1_s4|cached": 140.5837588446095,
+    "mmr_r2_u1_s4|stream": 40.811283333582,
+    "mmr_r2_u1_s4|cached": 40.81834515680456,
+    "mma_r1_u1_s4|stream": 137.10949202197054,
+    "mma_r1_u1_s4|cached": 138.17406209984497,
+    "F.linear|stream": 167.26669363518798,
+    "F.linear|cached": 172.65385119507806
+   },
+   "memory_floor_us_at_400GBps": 62.91456
+  },
+  {
+   "dtype": "torch.float16",
+   "shape": "q17_down",
+   "K": 6144,
+   "N": 2048,
+   "M": 8,
+   "copies": 11,
+   "iters": 66,
+   "median_us": {
+    "tuned:mmr_r2_u2_s4_p4|stream": 101.90909079304247,
+    "tuned:mmr_r2_u2_s4_p4|cached": 88.49495453901137,
+    "mmr_r2_u1_s4|stream": 167.0530296960902,
+    "mmr_r2_u1_s4|cached": 146.28157562886676,
+    "mma_r1_u1_s4|stream": 186.60037841817194,
+    "mma_r1_u1_s4|cached": 165.59595436168215,
+    "F.linear|stream": 183.44759133249295,
+    "F.linear|cached": 171.4128787474086
+   },
+   "TFLOPS": {
+    "tuned:mmr_r2_u2_s4_p4|stream": 1.9755508604120033,
+    "tuned:mmr_r2_u2_s4_p4|cached": 2.2750064458335744,
+    "mmr_r2_u1_s4|stream": 1.2051657630290316,
+    "mmr_r2_u1_s4|cached": 1.376294937585228,
+    "mma_r1_u1_s4|stream": 1.0789184550785131,
+    "mma_r1_u1_s4|cached": 1.2157699913385427,
+    "F.linear|stream": 1.0974610815963342,
+    "F.linear|cached": 1.1745126356384912
+   },
+   "GBps": {
+    "tuned:mmr_r2_u2_s4_p4|stream": 246.9438575515004,
+    "tuned:mmr_r2_u2_s4_p4|cached": 284.3758057291968,
+    "mmr_r2_u1_s4|stream": 150.64572037862894,
+    "mmr_r2_u1_s4|cached": 172.03686719815352,
+    "mma_r1_u1_s4|stream": 134.86480688481413,
+    "mma_r1_u1_s4|cached": 151.97124891731784,
+    "F.linear|stream": 137.18263519954178,
+    "F.linear|cached": 146.8140794548114
+   },
+   "memory_floor_us_at_400GBps": 62.91456
+  },
+  {
+   "dtype": "torch.float16",
+   "shape": "q17_down",
+   "K": 6144,
+   "N": 2048,
+   "M": 16,
+   "copies": 11,
+   "iters": 66,
+   "median_us": {
+    "tuned:mmr_r2_u1_s4_p4|stream": 116.38951554866226,
+    "tuned:mmr_r2_u1_s4_p4|cached": 113.69065120534012,
+    "mmr_r2_u1_s4|stream": 203.4539092247459,
+    "mmr_r2_u1_s4|cached": 208.62878811771446,
+    "mma_r1_u1_s4|stream": 205.43434815904632,
+    "mma_r1_u1_s4|cached": 203.20833374915475,
+    "F.linear|stream": 152.07892460184115,
+    "F.linear|cached": 136.4273943402099
+   },
+   "TFLOPS": {
+    "tuned:mmr_r2_u1_s4_p4|stream": 3.4595314028234045,
+    "tuned:mmr_r2_u1_s4_p4|cached": 3.5416560616998836,
+    "mmr_r2_u1_s4|stream": 1.9790879690358179,
+    "mmr_r2_u1_s4|cached": 1.9299981926406593,
+    "mma_r1_u1_s4|stream": 1.9600090618160297,
+    "mma_r1_u1_s4|cached": 1.9814796793572689,
+    "F.linear|stream": 2.647659332509018,
+    "F.linear|cached": 2.95141005915499
+   },
+   "GBps": {
+    "tuned:mmr_r2_u1_s4_p4|stream": 216.22071267646277,
+    "tuned:mmr_r2_u1_s4_p4|cached": 221.35350385624272,
+    "mmr_r2_u1_s4|stream": 123.69299806473862,
+    "mmr_r2_u1_s4|cached": 120.62488704004122,
+    "mma_r1_u1_s4|stream": 122.50056636350186,
+    "mma_r1_u1_s4|cached": 123.8424799598293,
+    "F.linear|stream": 165.47870828181362,
+    "F.linear|cached": 184.46312869718685
+   },
+   "memory_floor_us_at_400GBps": 62.91456
+  },
+  {
+   "dtype": "torch.float16",
+   "shape": "q17_down",
+   "K": 6144,
+   "N": 2048,
+   "M": 32,
+   "copies": 11,
+   "iters": 66,
+   "median_us": {
+    "tuned:mma_r2_u1_s4_p4|stream": 195.33649990052888,
+    "tuned:mma_r2_u1_s4_p4|cached": 189.39521220145804,
+    "mmr_r2_u1_s4|stream": 904.5113631256038,
+    "mmr_r2_u1_s4|cached": 882.5713329398158,
+    "mma_r1_u1_s4|stream": 263.4690600009917,
+    "mma_r1_u1_s4|cached": 269.70581772426766,
+    "F.linear|stream": 237.65530292593846,
+    "F.linear|cached": 225.76956050188252
+   },
+   "TFLOPS": {
+    "tuned:mma_r2_u1_s4_p4|stream": 4.122662013551414,
+    "tuned:mma_r2_u1_s4_p4|cached": 4.251989047872038,
+    "mmr_r2_u1_s4|stream": 0.8903220023872406,
+    "mmr_r2_u1_s4|cached": 0.9124547081282951,
+    "mma_r1_u1_s4|stream": 3.0565500480282917,
+    "mma_r1_u1_s4|cached": 2.9858694736177354,
+    "F.linear|stream": 3.3885478593800245,
+    "F.linear|cached": 3.5669395210311583
+   },
+   "GBps": {
+    "tuned:mma_r2_u1_s4_p4|stream": 128.8331879234817,
+    "tuned:mma_r2_u1_s4_p4|cached": 132.87465774600116,
+    "mmr_r2_u1_s4|stream": 27.822562574601267,
+    "mmr_r2_u1_s4|cached": 28.514209629009223,
+    "mma_r1_u1_s4|stream": 95.51718900088412,
+    "mma_r1_u1_s4|cached": 93.30842105055423,
+    "F.linear|stream": 105.89212060562576,
+    "F.linear|cached": 111.4668600322237
+   },
+   "memory_floor_us_at_400GBps": 62.91456
+  }
+ ]
+}

@@ -1,0 +1,372 @@
+{
+ "torch": "2.15.0",
+ "model": "Qwen/Qwen3-1.7B",
+ "revision": "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e",
+ "dtype": "float16",
+ "n_linears": 197,
+ "linear_weight_GB": 3.440902144,
+ "prompt_len": 32,
+ "new_tokens": 32,
+ "reps": 3,
+ "batches": [
+  {
+   "batch": 1,
+   "ms_per_step": {
+    "stock": [
+     22.123883063379196,
+     22.459153224894354,
+     22.148287644790063
+    ],
+    "patched": [
+     22.905639806506976,
+     22.496314514653697,
+     22.174606193608096
+    ]
+   },
+   "median_ms_per_step": {
+    "stock": 22.148287644790063,
+    "patched": 22.496314514653697
+   },
+   "multirow_calls_per_generate": 0,
+   "token_agreement_vs_stock_rep0": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "first_divergent_step_per_row": [
+    [
+     null
+    ],
+    [
+     null
+    ],
+    [
+     null
+    ]
+   ],
+   "stock_token_agreement_run_to_run": [
+    1.0,
+    1.0
+   ],
+   "last_step_logit_maxdiff_patched_vs_stock_free_run": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "last_step_logit_maxdiff_stock_run_to_run": [
+    0.0,
+    0.0
+   ],
+   "forced_logit_maxdiff_patched_vs_stock": {
+    "last_step": 0.0,
+    "all_steps": 0.0
+   },
+   "forced_logit_maxdiff_stock_vs_stock": 0.0,
+   "logit_abs_max": 28.796875,
+   "linears_only_ms": {
+    "stock": [
+     11.065074999351054,
+     10.960212495410815
+    ],
+    "patched": [
+     11.153554200427607,
+     11.157025001011789
+    ]
+   }
+  },
+  {
+   "batch": 4,
+   "ms_per_step": {
+    "stock": [
+     27.566918001074583,
+     27.100887096997713,
+     27.192669355445695
+    ],
+    "patched": [
+     27.619704322498894,
+     26.25682122532218,
+     26.294983870860552
+    ]
+   },
+   "median_ms_per_step": {
+    "stock": 27.192669355445695,
+    "patched": 26.294983870860552
+   },
+   "multirow_calls_per_generate": 6107,
+   "token_agreement_vs_stock_rep0": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "first_divergent_step_per_row": [
+    [
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     null,
+     null,
+     null,
+     null
+    ]
+   ],
+   "stock_token_agreement_run_to_run": [
+    1.0,
+    1.0
+   ],
+   "last_step_logit_maxdiff_patched_vs_stock_free_run": [
+    0.0234375,
+    0.0234375,
+    0.0234375
+   ],
+   "last_step_logit_maxdiff_stock_run_to_run": [
+    0.0,
+    0.0
+   ],
+   "forced_logit_maxdiff_patched_vs_stock": {
+    "last_step": 0.0234375,
+    "all_steps": 0.04296875
+   },
+   "forced_logit_maxdiff_stock_vs_stock": 0.0,
+   "logit_abs_max": 31.265625,
+   "linears_only_ms": {
+    "stock": [
+     14.34139590128325,
+     14.341633400181308
+    ],
+    "patched": [
+     13.703362504020333,
+     13.987937499769032
+    ]
+   },
+   "stock_spread_batchB_row0_vs_batch1": {
+    "last_step": 0.02734375,
+    "all_steps": 0.03125
+   },
+   "patched_batchB_row0_vs_stock_batch1": {
+    "last_step": 0.03125,
+    "all_steps": 0.03125
+   }
+  },
+  {
+   "batch": 8,
+   "ms_per_step": {
+    "stock": [
+     36.34275674196561,
+     36.20326883843048,
+     35.95908870920539
+    ],
+    "patched": [
+     28.028233872441152,
+     27.75842070977594,
+     27.71716396654806
+    ]
+   },
+   "median_ms_per_step": {
+    "stock": 36.20326883843048,
+    "patched": 27.75842070977594
+   },
+   "multirow_calls_per_generate": 6107,
+   "token_agreement_vs_stock_rep0": [
+    0.98828125,
+    0.98828125,
+    0.98828125
+   ],
+   "first_divergent_step_per_row": [
+    [
+     null,
+     null,
+     null,
+     6,
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     null,
+     null,
+     null,
+     6,
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     null,
+     null,
+     null,
+     6,
+     null,
+     null,
+     null,
+     null
+    ]
+   ],
+   "stock_token_agreement_run_to_run": [
+    1.0,
+    1.0
+   ],
+   "last_step_logit_maxdiff_patched_vs_stock_free_run": [
+    1.6796875,
+    1.6796875,
+    1.6796875
+   ],
+   "last_step_logit_maxdiff_stock_run_to_run": [
+    0.0,
+    0.0
+   ],
+   "forced_logit_maxdiff_patched_vs_stock": {
+    "last_step": 0.03125,
+    "all_steps": 0.078125
+   },
+   "forced_logit_maxdiff_stock_vs_stock": 0.0,
+   "logit_abs_max": 43.5,
+   "linears_only_ms": {
+    "stock": [
+     22.943087498424575,
+     22.745899995788932
+    ],
+    "patched": [
+     14.892570796655491,
+     14.92835829849355
+    ]
+   },
+   "stock_spread_batchB_row0_vs_batch1": {
+    "last_step": 0.02734375,
+    "all_steps": 0.03125
+   },
+   "patched_batchB_row0_vs_stock_batch1": {
+    "last_step": 0.03515625,
+    "all_steps": 0.03515625
+   }
+  },
+  {
+   "batch": 16,
+   "ms_per_step": {
+    "stock": [
+     42.51536154826623,
+     41.29744622661101,
+     42.228141129242196
+    ],
+    "patched": [
+     34.72809541797746,
+     32.3506626450727,
+     33.77150267835766
+    ]
+   },
+   "median_ms_per_step": {
+    "stock": 42.228141129242196,
+    "patched": 33.77150267835766
+   },
+   "multirow_calls_per_generate": 6107,
+   "token_agreement_vs_stock_rep0": [
+    0.947265625,
+    0.947265625,
+    0.947265625
+   ],
+   "first_divergent_step_per_row": [
+    [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     2,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     2,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ],
+    [
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     2,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null,
+     null
+    ]
+   ],
+   "stock_token_agreement_run_to_run": [
+    1.0,
+    1.0
+   ],
+   "last_step_logit_maxdiff_patched_vs_stock_free_run": [
+    11.375,
+    11.375,
+    11.375
+   ],
+   "last_step_logit_maxdiff_stock_run_to_run": [
+    0.0,
+    0.0
+   ],
+   "forced_logit_maxdiff_patched_vs_stock": {
+    "last_step": 0.03125,
+    "all_steps": 0.1103515625
+   },
+   "forced_logit_maxdiff_stock_vs_stock": 0.0,
+   "logit_abs_max": 43.5,
+   "linears_only_ms": {
+    "stock": [
+     26.368454098701477,
+     27.21986660035327
+    ],
+    "patched": [
+     18.45016249571927,
+     19.577175000449643
+    ]
+   },
+   "stock_spread_batchB_row0_vs_batch1": {
+    "last_step": 0.025390625,
+    "all_steps": 0.0390625
+   },
+   "patched_batchB_row0_vs_stock_batch1": {
+    "last_step": 0.03125,
+    "all_steps": 0.0390625
+   }
+  }
+ ]
+}

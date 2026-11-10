@@ -1,0 +1,294 @@
+{
+ "torch": "2.15.0",
+ "steps": 32,
+ "reps": 4,
+ "batches": [
+  {
+   "batch": 1,
+   "ms_per_step": {
+    "native": [
+     22.693358870568655,
+     22.020212355850926,
+     22.18250941950828,
+     22.42179706527461
+    ],
+    "stock": [
+     22.087426097582902,
+     22.106517483705595,
+     22.06870429067602,
+     21.913767484347183
+    ],
+    "patched": [
+     22.363375001136337,
+     22.160885742895545,
+     22.316739257920773,
+     22.51898654879281
+    ]
+   },
+   "median": {
+    "native": 22.302153242391444,
+    "stock": 22.07806519412946,
+    "patched": 22.340057129528553
+   },
+   "range": {
+    "native": [
+     22.020212355850926,
+     22.693358870568655
+    ],
+    "stock": [
+     21.913767484347183,
+     22.106517483705595
+    ],
+    "patched": [
+     22.160885742895545,
+     22.51898654879281
+    ]
+   },
+   "native_tokens_equal_stock_wrapper": true
+  },
+  {
+   "batch": 8,
+   "ms_per_step": {
+    "native": [
+     36.077424709219486,
+     36.22099193519041,
+     36.343680095723684,
+     36.06329703207819
+    ],
+    "stock": [
+     36.532814514958446,
+     36.39071100136085,
+     36.11764248513106,
+     36.386853483911125
+    ],
+    "patched": [
+     27.726084677382342,
+     28.08864248330675,
+     28.110959677911932,
+     27.984784934819945
+    ]
+   },
+   "median": {
+    "native": 36.14920832220495,
+    "stock": 36.38878224263598,
+    "patched": 28.03671370906335
+   },
+   "range": {
+    "native": [
+     36.06329703207819,
+     36.343680095723684
+    ],
+    "stock": [
+     36.11764248513106,
+     36.532814514958446
+    ],
+    "patched": [
+     27.726084677382342,
+     28.110959677911932
+    ]
+   },
+   "native_tokens_equal_stock_wrapper": true,
+   "spread_rows": [
+    {
+     "row": 0,
+     "stockB_vs_stock1": 0.03125,
+     "patchedB_vs_stock1": 0.03515625,
+     "patchedB_vs_stockB": 0.03125
+    },
+    {
+     "row": 1,
+     "stockB_vs_stock1": 0.0322265625,
+     "patchedB_vs_stock1": 0.0390625,
+     "patchedB_vs_stockB": 0.0390625
+    },
+    {
+     "row": 2,
+     "stockB_vs_stock1": 0.04296875,
+     "patchedB_vs_stock1": 0.03515625,
+     "patchedB_vs_stockB": 0.0546875
+    },
+    {
+     "row": 3,
+     "stockB_vs_stock1": 0.0390625,
+     "patchedB_vs_stock1": 0.046875,
+     "patchedB_vs_stockB": 0.02734375
+    },
+    {
+     "row": 4,
+     "stockB_vs_stock1": 0.072265625,
+     "patchedB_vs_stock1": 0.0546875,
+     "patchedB_vs_stockB": 0.06640625
+    },
+    {
+     "row": 5,
+     "stockB_vs_stock1": 0.09814453125,
+     "patchedB_vs_stock1": 0.142578125,
+     "patchedB_vs_stockB": 0.044921875
+    },
+    {
+     "row": 6,
+     "stockB_vs_stock1": 0.03125,
+     "patchedB_vs_stock1": 0.032470703125,
+     "patchedB_vs_stockB": 0.03125
+    },
+    {
+     "row": 7,
+     "stockB_vs_stock1": 0.2451171875,
+     "patchedB_vs_stock1": 0.263671875,
+     "patchedB_vs_stockB": 0.078125
+    }
+   ],
+   "spread_max": {
+    "stockB_vs_stock1": 0.2451171875,
+    "patchedB_vs_stock1": 0.263671875,
+    "patchedB_vs_stockB": 0.078125
+   }
+  },
+  {
+   "batch": 16,
+   "ms_per_step": {
+    "native": [
+     42.02284409679593,
+     41.07475806508334,
+     42.66784406424831,
+     40.62451345042416
+    ],
+    "stock": [
+     41.027706967020826,
+     41.321813192729266,
+     40.65689245133751,
+     41.17117471046625
+    ],
+    "patched": [
+     31.785184128825826,
+     31.562404581270513,
+     32.35450535524456,
+     32.18329838672353
+    ]
+   },
+   "median": {
+    "native": 41.54880108093963,
+    "stock": 41.09944083874354,
+    "patched": 31.984241257774677
+   },
+   "range": {
+    "native": [
+     40.62451345042416,
+     42.66784406424831
+    ],
+    "stock": [
+     40.65689245133751,
+     41.321813192729266
+    ],
+    "patched": [
+     31.562404581270513,
+     32.35450535524456
+    ]
+   },
+   "native_tokens_equal_stock_wrapper": true,
+   "spread_rows": [
+    {
+     "row": 0,
+     "stockB_vs_stock1": 0.0390625,
+     "patchedB_vs_stock1": 0.0390625,
+     "patchedB_vs_stockB": 0.03125
+    },
+    {
+     "row": 1,
+     "stockB_vs_stock1": 0.03515625,
+     "patchedB_vs_stock1": 0.046875,
+     "patchedB_vs_stockB": 0.0390625
+    },
+    {
+     "row": 2,
+     "stockB_vs_stock1": 0.0546875,
+     "patchedB_vs_stock1": 0.060546875,
+     "patchedB_vs_stockB": 0.083984375
+    },
+    {
+     "row": 3,
+     "stockB_vs_stock1": 0.0390625,
+     "patchedB_vs_stock1": 0.05078125,
+     "patchedB_vs_stockB": 0.03515625
+    },
+    {
+     "row": 4,
+     "stockB_vs_stock1": 0.046875,
+     "patchedB_vs_stock1": 0.06640625,
+     "patchedB_vs_stockB": 0.0546875
+    },
+    {
+     "row": 5,
+     "stockB_vs_stock1": 0.046875,
+     "patchedB_vs_stock1": 0.0458984375,
+     "patchedB_vs_stockB": 0.041015625
+    },
+    {
+     "row": 6,
+     "stockB_vs_stock1": 0.033203125,
+     "patchedB_vs_stock1": 0.03125,
+     "patchedB_vs_stockB": 0.03125
+    },
+    {
+     "row": 7,
+     "stockB_vs_stock1": 0.15625,
+     "patchedB_vs_stock1": 0.203125,
+     "patchedB_vs_stockB": 0.1103515625
+    },
+    {
+     "row": 8,
+     "stockB_vs_stock1": 0.0546875,
+     "patchedB_vs_stock1": 0.06640625,
+     "patchedB_vs_stockB": 0.0546875
+    },
+    {
+     "row": 9,
+     "stockB_vs_stock1": 0.03125,
+     "patchedB_vs_stock1": 0.03125,
+     "patchedB_vs_stockB": 0.02734375
+    },
+    {
+     "row": 10,
+     "stockB_vs_stock1": 0.0625,
+     "patchedB_vs_stock1": 0.05859375,
+     "patchedB_vs_stockB": 0.041015625
+    },
+    {
+     "row": 11,
+     "stockB_vs_stock1": 0.05078125,
+     "patchedB_vs_stock1": 0.0546875,
+     "patchedB_vs_stockB": 0.0546875
+    },
+    {
+     "row": 12,
+     "stockB_vs_stock1": 0.03125,
+     "patchedB_vs_stock1": 0.03125,
+     "patchedB_vs_stockB": 0.03125
+    },
+    {
+     "row": 13,
+     "stockB_vs_stock1": 0.03125,
+     "patchedB_vs_stock1": 0.03125,
+     "patchedB_vs_stockB": 0.03125
+    },
+    {
+     "row": 14,
+     "stockB_vs_stock1": 0.03125,
+     "patchedB_vs_stock1": 0.0390625,
+     "patchedB_vs_stockB": 0.03125
+    },
+    {
+     "row": 15,
+     "stockB_vs_stock1": 0.03125,
+     "patchedB_vs_stock1": 0.03125,
+     "patchedB_vs_stockB": 0.03125
+    }
+   ],
+   "spread_max": {
+    "stockB_vs_stock1": 0.15625,
+    "patchedB_vs_stock1": 0.203125,
+    "patchedB_vs_stockB": 0.1103515625
+   }
+  }
+ ]
+}

@@ -1,0 +1,101 @@
+{
+ "torch": "2.15.0",
+ "criterion": "per config: max over elements of |y - ref| / (sum_k |x||w| + |b|) <= the same for F.linear + (u_out + K * 2^-24), and rel-L2 <= 1.25 * F.linear's + sqrt(K) * 2^-24",
+ "cases": [],
+ "planted_bug": [
+  {
+   "variant": "dev_r2_u1_s4",
+   "mutation": [
+    "for (uint k = lane; k < K8;",
+    "for (uint k = lane + 32; k < K8;"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.47911303706345e-05,
+    "rel_l2": 0.00020773021679910394
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "dev_r2_u1_s4": {
+     "max_norm_err": 0.04619014064478181,
+     "rel_l2": 0.35423892405779556,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "tg_r2_u1_s4",
+   "mutation": [
+    "for (uint k0 = 0; k0 < K8;",
+    "for (uint k0 = TILE; k0 < K8;"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.5407711195662246e-05,
+    "rel_l2": 0.0002058617817913971
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "tg_r2_u1_s4": {
+     "max_norm_err": 0.04221143417724174,
+     "rel_l2": 0.35163702845772876,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mma_r1_u1_s4",
+   "mutation": [
+    "for (uint k0 = kb; k0 < ke; k0 += KC)",
+    "for (uint k0 = kb + KC; k0 < ke; k0 += KC)"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.453632366843231e-05,
+    "rel_l2": 0.00020954040770729498
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mma_r1_u1_s4": {
+     "max_norm_err": 0.02886910337221461,
+     "rel_l2": 0.20836125872761987,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  },
+  {
+   "variant": "mmr_r1_u1_s4",
+   "mutation": [
+    "for (uint k = kb; k < ke; k += 32 * U)",
+    "for (uint k = kb + 32 * U; k < ke; k += 32 * U)"
+   ],
+   "caught": true,
+   "F.linear": {
+    "max_norm_err": 3.471001897488542e-05,
+    "rel_l2": 0.00020722508683903798
+   },
+   "allowance": 0.0006108283996582031,
+   "configs": {
+    "mmr_r1_u1_s4": {
+     "max_norm_err": 0.017507659086303334,
+     "rel_l2": 0.12170929267473496,
+     "finite": true,
+     "pass": false,
+     "bitwise_equal_to_F.linear": false
+    }
+   },
+   "pass": false
+  }
+ ],
+ "failures": 0,
+ "seconds": 0.4770848751068115
+}

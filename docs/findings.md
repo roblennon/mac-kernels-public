@@ -1252,3 +1252,12 @@ Same model and settings as the entry above. `bench/bench_decode_compile.py`: the
 - **Merged projections** (query, key and value in one matrix, gate and up in one; `decode-fusions-merged-projections-2.15.0.json`) gave identical tokens and logits to stock and almost no speed: 1.02x at batch 1, 0.97x at batch 4, 1.07x at batch 16. At batch 1 the linears are bandwidth-bound and fewer calls do not help.
 
 Not yet checked: whether this recipe is documented for MPS (it is the standard recipe on CUDA), other models, long contexts, and memory overhead of the static cache.
+
+## 2026-11-10: A multi-row Metal linear kernel, 1.29x Qwen3-1.7B decode at batch 8 and 16 on MPS
+
+Thread experiment B. A Metal kernel for linear layers with 2 to 32 input rows that streams each weight row once and uses the GPU's matrix units, built by a subagent and reviewed by a second (`docs/review/2026-11-10-experiments/multirow/`: `README.md`, `REVIEW.md`, raw JSON; code in `bench/multirow_linear.metal`, `bench/multirow_linear.py`, `bench/bench_multirow.py`, `tests/test_multirow_linear.py`).
+
+- **Decode, Qwen3-1.7B fp16, torch 2.15.0,** stock against every linear routed to the kernel at 2 to 16 rows: batch 8, 36.2 → 28.0 ms (1.29x); batch 16, 41.6 → 32.0 ms (1.30x); reproduced by the reviewer in a fresh process. No clear change at batch 1 or 4.
+- **Correct:** 506 cases and 22,351 runs against float64, 0 failures, error matching `F.linear`'s; four gross and three subtle planted bugs caught. Greedy divergences are tie flips (top-two gaps of 0.0 and one fp16 step), and stock's own logit difference between batch sizes is larger than the kernel's difference from stock.
+- **Where the gain comes from.** At 8 rows the per-layer linears gain 1.68x. At 16 rows they gain 1.27x, and the 151,936-row output head, which `F.linear` handles badly at 12 to 32 rows (7.2 to 10.5 ms per call against 2.1 to 4.2), supplies 55% of the saving.
+- **Prediction missed:** the thread predicted the batch-16 linears at 14 ms or less; measured about 18 ms. Not a hardware limit: the kernel reaches about 3.1 TFLOPS at 16 rows where Apple's kernel does 5.4 at 32 rows on the same shape.

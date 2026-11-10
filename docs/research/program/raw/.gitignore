@@ -1,0 +1,4 @@
+# Raw agent output from the 2026-11-09 idea search: kept on this machine, not committed.
+# It names private projects and local paths. build_ledger.py reads it.
+*
+!.gitignore

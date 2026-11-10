@@ -6,7 +6,11 @@ import torch
 from torch.profiler import profile, ProfilerActivity
 from transformers import AutoModelForCausalLM
 REPO, REV = "Qwen/Qwen3-1.7B", "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
-ap = argparse.ArgumentParser(); ap.add_argument("--out", required=True); ap.add_argument("--batch", type=int, default=1); a = ap.parse_args()
+ap = argparse.ArgumentParser(); ap.add_argument("--out", required=True); ap.add_argument("--batch", type=int, default=1)
+ap.add_argument("--fused-norm", action="store_true"); a = ap.parse_args()
+if a.fused_norm:
+    import torch.nn.functional as F, transformers.models.qwen3.modeling_qwen3 as q3
+    q3.Qwen3RMSNorm.forward = lambda self, x: F.rms_norm(x, (x.shape[-1],), self.weight, self.variance_epsilon)
 model = AutoModelForCausalLM.from_pretrained(REPO, revision=REV, dtype=torch.float16).to("mps").eval()
 with torch.no_grad():
     ids = torch.randint(1000, 30000, (a.batch, 32), device="mps")
@@ -32,8 +36,8 @@ with torch.no_grad():
         agg[e.key] += e.self_cpu_time_total; cnt[e.key] += e.count
     total = sum(agg.values())
     top = [{"op": k, "self_cpu_ms_per_step": v / 8 / 1e3, "calls_per_step": cnt[k] / 8} for k, v in agg.most_common(25)]
-res = {"torch": torch.__version__, "batch": a.batch, "wall_ms_per_step": wall * 1e3, "host_enqueue_ms_per_step": host * 1e3,
+res = {"fused_norm": a.fused_norm, "torch": torch.__version__, "batch": a.batch, "wall_ms_per_step": wall * 1e3, "host_enqueue_ms_per_step": host * 1e3,
        "profiled_self_cpu_ms_per_step": total / 8 / 1e3, "aten_calls_per_step": sum(cnt.values()) / 8, "top": top}
 json.dump(res, open(a.out, "w"), indent=1)
 print({k: (round(v, 2) if isinstance(v, float) else v) for k, v in res.items() if k != "top"})
-for r in top[:18]: print(f"{r['op'][:40]:40} {r['self_cpu_ms_per_step']:7.2f} ms  {r['calls_per_step']:6.0f} calls")
+for r in top[:22]: print(f"{r['op']:55} {r['self_cpu_ms_per_step']:7.2f} ms  {r['calls_per_step']:6.0f} calls")

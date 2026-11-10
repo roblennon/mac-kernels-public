@@ -16,6 +16,24 @@ From the follow-up that handed over the helm:
 
 An earlier correction that still governs how research is done here: "do your research and actually read things, don't just theorize."
 
+## Amendment, 2026-11-09 evening: ideas now, experiments later
+
+Rob read the first report and changed the shape of this pass:
+
+> I actually want you to focus on queuing up the ideas but you don't need to run experiments until the lab is fully constructed. let this pass be one of creativity, research, musing, wild thoughts, hidden theories, and otherwise be the prep work to make sure that when we do run experiments, they're the best ones we could run
+
+This replaces item 3 of Done and lifts the cap on idea rounds. No experiment runs in this pass. The work is now wider thinking and deeper preparation: more idea rounds from angles the first two did not take, theories worked through to predictions, and for the strongest threads an experiment design good enough that the lab can pick it up cold. The section on how an experiment earns belief stays, as the standard those designs are written to.
+
+Done, as amended:
+
+1. The directions document, as before, now covering every round.
+2. `QUEUE.md`: the experiments worth running first, in order, with the reason for the order.
+3. One design card per queued experiment under `designs/`. A card states the hypothesis, the theory behind it, what is already known with links, the prediction as a number, the control that could embarrass it, the planted-effect check, the confounds a hostile reader would raise, the cost on this hardware, and what a yes and a no would each change. Each card has been attacked by a skeptic before it is queued.
+4. `MUSINGS.md`: the wilder thoughts and half-theories that are not experiments yet, kept because a later reader may see what to do with them.
+5. The checkpoint note.
+
+The 08:00 stop stays. Device time is no longer needed, so the GPU rules above apply to nothing in this pass.
+
 ## How the ask is read
 
 Rob asked for ideas worth publishing, checked against what already exists, and sized to hardware he owns. He did not ask for an application, and he did not ask for a product. Running a cheap first experiment is read as inside the ask, because "testable with what we have" is the selection rule he gave and "Run it" is in the loop he described. New kernels are part of what he asked for, and they come later in the sequence: a kernel is worth writing once a measurement says what it should do. A paper draft or a new subsystem waits for him. Those get proposed in the report, not started.

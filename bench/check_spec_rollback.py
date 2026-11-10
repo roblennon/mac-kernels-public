@@ -9,7 +9,10 @@ Every verified row is compared with a freshly rebuilt cache: one eager forward o
 the history so far. The tolerance comes from the same comparison for the plain decoder over the same
 positions. Pass rule, fixed before running: every row finite; every row's max |logit difference|
 from the rebuild at most max(2 x the plain decoder's largest, 0.1); and the argmax equal to the
-rebuild's wherever the rebuild's top-two margin exceeds 0.5. Planted controls must fail:
+rebuild's wherever the rebuild's top-two margin exceeds 0.5. The tolerance is capped at 1.0 so a
+fault shared by both paths cannot widen it without limit. The check is valid only if every accepted
+length 0 to 4 occurred and both graph switches (one token to five, five to one) happened; otherwise
+the verdict is "inconclusive". Planted controls must fail:
 skip_reset skips the counter reset; visible_sentinel puts the sentinel in the newest committed slot."""
 import argparse, json, os, sys
 import torch
@@ -37,7 +40,8 @@ def main():
         return model(x, past_key_values=cache, use_cache=True, cache_position=pos).logits
 
     fn = step if a.arm == "eager" else torch.compile(step, dynamic=False)
-    new_cache = lambda: StaticCache(config=model.config, max_cache_len=P + n_ref + K + 2)
+    # room for a faulty run too: without resets every round advances the write counter by its full length
+    new_cache = lambda: StaticCache(config=model.config, max_cache_len=P + n_ref + len(SCHEDULE) * (K + 1) + 8)
 
     @torch.no_grad()
     def prefill(cache):
@@ -57,7 +61,8 @@ def main():
             L = fn(torch.tensor([[ref[-1]]], device="mps"), cache, torch.tensor([P + i], device="mps"))[0, -1].float().cpu()
             plain_rows.append(L); ref.append(int(L.argmax()))
     plain_err = [float((plain_rows[i] - rebuilt(ref[:i + 1])).abs().max()) for i in range(0, n_ref - 1, 3)]
-    tol = max(2 * max(plain_err), 0.1)
+    assert all(torch.isfinite(r).all() for r in plain_rows) and all(e == e for e in plain_err), "plain path not finite"
+    tol = min(max(2 * max(plain_err), 0.1), 1.0)
 
     rows, rounds = [], []
     with torch.no_grad():
@@ -89,11 +94,17 @@ def main():
                     layer.keys[:, :, pos - 1] = SENTINEL; layer.values[:, :, pos - 1] = SENTINEL
             rounds.append({"planned": planned, "accepted": n_ok, "graph_T": 1 + kk, "matches_ref": gen == ref[:len(gen)]})
     bad = [r for r in rows if not r["finite"] or r["max_abs"] > tol or (not r["argmax_eq"] and r["margin"] > 0.5)]
+    seen = {r["accepted"] for r in rounds if r["planned"] is not None}
+    Ts = [r["graph_T"] for r in rounds]
+    switches = {(x, y) for x, y in zip(Ts, Ts[1:]) if x != y}
+    covered = seen >= set(range(K + 1)) and {(1, K + 1), (K + 1, 1)} <= switches
+    planned_met = sum(r["planned"] is None or r["accepted"] == r["planned"] for r in rounds)
     res = {"arm": a.arm, "plant": a.plant, "torch": torch.__version__, "prompt_tokens": P, "tolerance": tol,
            "plain_err_max": max(plain_err), "rows": len(rows), "failing_rows": bad[:20], "n_failing": len(bad),
            "max_abs": max(r["max_abs"] for r in rows if r["finite"]) if any(r["finite"] for r in rows) else None,
            "accepted_lengths_seen": sorted({r["accepted"] for r in rounds}), "rounds": rounds,
-           "verdict": "pass" if not bad else "fail"}
+           "planned_met": planned_met, "n_rounds": len(rounds), "coverage_complete": covered,
+           "verdict": "fail" if bad else ("pass" if covered else "inconclusive")}
     print(a.arm, a.plant, res["verdict"], f"{len(bad)}/{len(rows)} rows fail; tol {tol:.3f}; max {res['max_abs']}",
           "accepted lengths", res["accepted_lengths_seen"], flush=True)
     USE["kernel"] = False

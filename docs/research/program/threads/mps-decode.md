@@ -15,7 +15,7 @@ Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. Details, and the corrections, in [the f
 
 ## Rerun protocol (fixed 2026-11-10, before any rerun result)
 
-The harness: `bench/rerun_decode_step.py`, `bench/rerun_spec.py`, `bench/check_spec_rollback.py`, `bench/bench_verify_cost.py` and `bench/check_decode_equivalence.py`, driven by `bench/rerun_all.sh` and summarised by `bench/rerun_analyze.py`. Correctness checks run first. Then come four rounds, each with the arm order rotated, where every process runs every arm and keeps every sample. Ratios are formed inside a process, then summarised across processes as a median, a range and a bootstrap interval. The arms are:
+The harness: `bench/rerun_decode_step.py`, `bench/rerun_spec.py`, `bench/check_spec_rollback.py`, `bench/bench_verify_cost.py` and `bench/check_decode_equivalence.py`, driven by `bench/rerun_all.sh` and summarised by `bench/rerun_analyze.py`. Correctness checks run first. Then come four rounds, each with the arm order rotated, where every process runs every arm and keeps every sample. Ratios are formed inside a process, then summarised across processes as a median and a range. Four processes cannot support a 95% interval, so none is claimed. The arms are:
 
 - default dynamic-cache eager and static-cache eager;
 - two separately compiled copies of the compiled decoder, and two of compiled plus kernel;
@@ -26,7 +26,8 @@ Requests run to the end-of-sequence token, so whole-request time covers a finish
 **Rules.**
 
 - A speed claim stands only if all four processes agree on its direction, and its median clears 1 by more than the largest A/A deviation at that setting.
-- The rollback check passes only if three things hold: every verified row is finite; each row lies within twice the plain decoder's own largest difference from a freshly rebuilt cache (at least 0.1); and its argmax matches wherever the rebuild's top-two margin exceeds 0.5. The two planted faults must fail it.
+- The rollback check passes only if three things hold: every verified row is finite; each row lies within twice the plain decoder's own largest difference from a freshly rebuilt cache (at least 0.1, at most 1.0); and its argmax matches wherever the rebuild's top-two margin exceeds 0.5. The check counts only if every accepted length from 0 to 4 occurred, and the decoder switched both ways between one-token and five-token steps. Otherwise it is inconclusive. The two planted faults must fail it. A failed check stops the run before any timing.
+- The analysis refuses to summarise if a cell is missing a process, a request hit its length cap, or repeats of an arm gave different tokens.
 - Equivalence passes if each faster arm's mean and 99.9th-percentile error against float32 is within 1.25 times eager fp16's, and its top-1 agreement is no more than 2 tokens below eager's.
 
 **Predictions.** A miss is reported as a miss.

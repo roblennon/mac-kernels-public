@@ -14,16 +14,32 @@ run() {  # run <name> <seconds> <script and args...>
   pmset -g therm > "$OUT/$name.therm" 2>&1
   MK_GPU_LABEL="mac-kernels-public:rerun-$name" python3 bench/gpu_runner.py --monitor --seconds "$secs" --rss-gib 14 -- \
     "$PY" "$@" > "$OUT/$name.log" 2>&1
-  echo "$name exit $?"
+  local rc=$?; echo "$name exit $rc"; return $rc
+}
+verdict() {  # verdict <json> <expected>: stop the whole run if a check did not give the expected verdict
+  "$PY" - "$1" "$2" <<'PY' || { echo "STOPPED: $1 did not give $2"; exit 1; }
+import json, sys
+r = json.load(open(sys.argv[1]))
+v = r["verdict"] if "verdict" in r else ("pass" if all(r[a]["pass"] for a in ("compiled", "compiled_kernel")) else "fail")
+print(sys.argv[1], v); sys.exit(v != sys.argv[2])
+PY
 }
 
 # 1. Correctness. The two planted runs must fail; everything else must pass.
-for A in compiled compiled_kernel eager; do run rollback_$A 400 bench/check_spec_rollback.py --arm $A --out "$OUT/rollback_$A.json"; done
-for P in skip_reset visible_sentinel; do run rollback_plant_$P 400 bench/check_spec_rollback.py --arm compiled --plant $P --out "$OUT/rollback_plant_$P.json"; done
-run equiv_real_ref 300 bench/check_decode_equivalence.py --mode ref --prompts real --ref "$OUT/ref_real_fp32.pt"
-run equiv_real 300 bench/check_decode_equivalence.py --mode test --prompts real --ref "$OUT/ref_real_fp32.pt" --out "$OUT/equiv_real.json"
+for A in compiled compiled_kernel eager; do
+  run rollback_$A 400 bench/check_spec_rollback.py --arm $A --out "$OUT/rollback_$A.json" || exit 1
+  verdict "$OUT/rollback_$A.json" pass
+done
+for P in skip_reset visible_sentinel; do
+  run rollback_plant_$P 400 bench/check_spec_rollback.py --arm compiled --plant $P --out "$OUT/rollback_plant_$P.json" || exit 1
+  verdict "$OUT/rollback_plant_$P.json" fail
+done
+run equiv_real_ref 300 bench/check_decode_equivalence.py --mode ref --prompts real --ref "$OUT/ref_real_fp32.pt" || exit 1
+run equiv_real 300 bench/check_decode_equivalence.py --mode test --prompts real --ref "$OUT/ref_real_fp32.pt" --out "$OUT/equiv_real.json" || exit 1
+verdict "$OUT/equiv_real.json" pass
 if [ -n "${REF_RANDOM:-}" ]; then
-  run equiv_random 300 bench/check_decode_equivalence.py --mode test --ref "$REF_RANDOM" --out "$OUT/equiv_random.json"
+  run equiv_random 300 bench/check_decode_equivalence.py --mode test --ref "$REF_RANDOM" --out "$OUT/equiv_random.json" || exit 1
+  verdict "$OUT/equiv_random.json" pass
 fi
 
 # 2. Speed. A/A partners sit three places apart, as far as the pairs under test.
@@ -48,5 +64,5 @@ for r in 0 1 2 3; do
     run verify_${A}_r$r 400 bench/bench_verify_cost.py --arm $A --T "${VERIFY_T[$r]}" --repeat-first --out "$OUT/verify_${A}_r$r.json"
   done
 done
-"$PY" bench/rerun_analyze.py "$OUT" > "$OUT/summary.md"
+"$PY" bench/rerun_analyze.py "$OUT" --expect 4 > "$OUT/summary.md" || { echo "INCOMPLETE: see $OUT/summary.md"; exit 1; }
 echo ALL DONE

@@ -1,27 +1,22 @@
 """Summarise a decode rerun directory (rerun_all.sh output). Ratios are formed within each process,
-where arms ran back to back, then summarised across processes: median, range, and a bootstrap 95%
-interval over processes. A/A pairs give the noise floor; a gap smaller than the A/A spread is not
-a finding. Writes summary.json and prints markdown tables."""
-import argparse, glob, json, os, random, statistics as st
+where arms ran back to back, then summarised across processes: median and range. With four processes
+the range is the honest summary (it covers the population median about 87.5% of the time), so no
+bootstrap interval is claimed. A/A pairs give the noise floor; a gap smaller than the A/A spread is
+not a finding. With --expect N it exits non-zero when any cell has fewer than N processes, when a
+speculative run did not end on end-of-sequence, or when repeats of an arm produced different tokens.
+Writes summary.json and prints markdown tables."""
+import argparse, glob, json, os, statistics as st
 from collections import defaultdict
 
 WARM_STEPS = 4  # the first steps of every timed decode are dropped, as in the earlier harness
 
 
-def boot(xs, n=4000, seed=0):
-    if len(xs) < 2:
-        return (xs[0], xs[0]) if xs else (None, None)
-    rnd = random.Random(seed); ms = sorted(st.median(rnd.choices(xs, k=len(xs))) for _ in range(n))
-    return ms[int(0.025 * n)], ms[int(0.975 * n) - 1]
-
-
 def summ(xs):
-    lo, hi = boot(xs)
-    return {"median": st.median(xs), "min": min(xs), "max": max(xs), "ci95": [lo, hi], "n": len(xs)}
+    return {"median": st.median(xs), "min": min(xs), "max": max(xs), "n": len(xs)}
 
 
 def fmt(s):
-    return f"{s['median']:.3f} ({s['min']:.3f}–{s['max']:.3f}; CI {s['ci95'][0]:.3f}–{s['ci95'][1]:.3f}; n={s['n']})"
+    return f"{s['median']:.3f} (range {s['min']:.3f}–{s['max']:.3f}, n={s['n']})"
 
 
 def decode_steps(d):
@@ -50,6 +45,12 @@ def spec(d):
         r = json.load(open(f)); t = res.setdefault(r["task"], {"ratios": defaultdict(list), "match": defaultdict(list),
                                                                "decode_s": defaultdict(list), "whole_s": defaultdict(list), "tokens": defaultdict(list)})
         arms = r["arms"]
+        for a_, v in arms.items():
+            for i, run in enumerate(v["runs"]):
+                if not run["ended_on_eos"]:
+                    PROBLEMS.append(f"{os.path.basename(f)} {a_} repeat {i}: hit the cap, not end-of-sequence")
+                if run.get("same_tokens_as_first") is False:
+                    PROBLEMS.append(f"{os.path.basename(f)} {a_} repeat {i}: tokens differ from the first repeat")
         med = {a: {m: st.median(run[m] for run in v["runs"]) for m in ("decode_s", "whole_s")} for a, v in arms.items()}
         for a, v in med.items():
             t["decode_s"][a].append(v["decode_s"]); t["whole_s"][a].append(v["whole_s"])
@@ -78,15 +79,33 @@ def verify(d):
             continue
         for T, v in m.items():
             if T.endswith("_end"):  # the first size measured again at the end: an A/A check
-                out[r["arm"]][f"A/A T{T[:-4]} end/start"].append(v / m[T[:-4]])
+                out[r["arm"]]["A/A first size, end/start"].append(v / m[T[:-4]])
             elif T != "1":
                 out[r["arm"]][f"T{T}/T1"].append(v / m["1"])
     return {arm: {n: summ(v) for n, v in x.items()} for arm, x in out.items()}
 
 
+PROBLEMS = []
+
+
+def short(s, expect, where):
+    for k, v in s.items():
+        if isinstance(v, dict) and "n" in v and "median" in v:
+            if v["n"] < expect:
+                PROBLEMS.append(f"{where} {k}: {v['n']} of {expect} processes")
+        elif isinstance(v, dict):
+            short(v, expect, f"{where} {k}")
+
+
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("dir"); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("dir"); ap.add_argument("--expect", type=int, default=0); a = ap.parse_args()
     s = {"decode_step": decode_steps(a.dir), "spec": spec(a.dir), "verify": verify(a.dir)}
+    if a.expect:
+        short({k: s[k] for k in ("decode_step", "spec")}, a.expect, "")
+        short(s["verify"], a.expect, "verify")
+        for part, want in (("decode_step", 6), ("spec", 3), ("verify", 3)):  # the cells rerun_all.sh produces
+            if len(s[part]) < want:
+                PROBLEMS.append(f"{part}: {len(s[part])} of {want} settings present")
     for f in ("rollback_*.json", "equiv_*.json"):
         for p in sorted(glob.glob(os.path.join(a.dir, f))):
             r = json.load(open(p)); r.pop("rounds", None)
@@ -104,6 +123,11 @@ def main():
         print(f"### {arm}\n"); [print(f"- {n}: {fmt(x)}") for n, x in v.items()]; print()
     for name, r in s.get("checks", {}).items():
         print(f"- {name}: {r.get('verdict', {k: r[k].get('pass') for k in ('compiled', 'compiled_kernel') if k in r})}")
+    s["problems"] = PROBLEMS
+    json.dump(s, open(os.path.join(a.dir, "summary.json"), "w"), indent=1)
+    if PROBLEMS:
+        print("\n## Problems\n"); [print(f"- {p}") for p in PROBLEMS]
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

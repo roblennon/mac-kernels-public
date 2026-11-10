@@ -70,8 +70,9 @@ def main():
                     # transformers' StaticLayer writes new entries at its own running count (cumulative_length),
                     # not at cache_position. After rejected drafts that count runs ahead of the true position,
                     # so set it back: the next round must write at pos. In-place, so compiled graphs keep working.
-                    for layer in cache.layers:
-                        layer.cumulative_length.fill_(pos)
+                    if n_ok < kk:  # only after rejected drafts; a plain step or full acceptance leaves the count right
+                        for layer in cache.layers:
+                            layer.cumulative_length.fill_(pos)
                 torch.mps.synchronize(); dt = time.perf_counter() - t0
             return gen[:a.new], dt, rounds, acc
         t0 = time.perf_counter(); run(); compile_s = time.perf_counter() - t0

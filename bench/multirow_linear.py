@@ -221,7 +221,7 @@ def supports(x, weight, bias=None):
         return False
     M, K = x.shape
     N = weight.shape[0]
-    if not 1 <= M <= MAX_M or weight.shape[1] != K or K % 8 or N < 1:
+    if not 1 <= M <= MAX_M or weight.shape[1] != K or K < 8 or K % 8 or N < 1:  # K = 0 would divide by zero
         return False
     if x.dtype not in CODEC or weight.dtype != x.dtype:
         return False

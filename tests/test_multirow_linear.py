@@ -119,3 +119,13 @@ def test_round2_grid_is_built_from_the_frozen_round1_table(monkeypatch):
     assert (len(grids["float16"]), len(grids["bfloat16"])) == (56, 40)
     round1 = {c for t in bm.ROUND1_TUNED.values() for row in t.values() for m, c in row.items() if 2 <= m <= 16}
     assert round1 <= set(grids["float16"]) and round1 <= set(grids["bfloat16"])
+
+
+def test_supports_refuses_zero_width_input():
+    """A zero-width input (K = 0) must be refused: the split calculation divides by K's tile count."""
+    if not torch.backends.mps.is_available():
+        pytest.skip("needs MPS tensors")
+    for shape in ((5, 0), (3, 0)):
+        x = torch.empty(shape, device="mps", dtype=torch.float16)
+        w = torch.empty((4, 0), device="mps", dtype=torch.float16)
+        assert not mrl.supports(x, w)

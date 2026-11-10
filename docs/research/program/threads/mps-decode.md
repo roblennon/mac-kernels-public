@@ -2,14 +2,16 @@
 
 Opened 2026-11-10 from the lab's Q003 result, at Rob's direction to explore it hard. Measurements so far are in [the findings log](../../../findings.md) under 2026-11-10; raw results in `docs/review/2026-11-10-experiments/`.
 
-## Where it stands (updated 2026-11-10, late morning)
+## Where it stands (updated 2026-11-10, after the cross-family review)
 
-Measured on Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0, every speed claim checked against float32 or against plain greedy output. Details in [the findings log](../../../findings.md).
+Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. Details, and the corrections, in [the findings log](../../../findings.md).
 
-- **Batch 1:** `torch.compile` with a static cache takes a decode step from 24.9 to 14.9 ms (1.67x) and is closer to float32 than eager. Hand-fused normalisation and a fused rotary kernel reached 1.41x and showed where the time was; compile does better with no custom code.
-- **Batches 4 to 16:** compile plus the multi-row kernel gives 1.51x, 1.79x and 1.69x at batches 4, 8 and 16 (627 tokens per second at batch 16), closer to float32 than eager. Neither lever alone passes 1.3x there.
-- **Speculative decoding:** with the kernel, verifying 2 to 4 drafted tokens costs 1.33x to 1.46x a single step, against 1.45x to 1.76x compiled without it. Exact prompt-lookup speculation is 3.0x to 3.7x faster than plain compiled decoding on a copy-heavy code edit (2.1x to 2.3x without the kernel), and adaptive drafting keeps free writing at par. This bears directly on arXiv 2610.31479, which found speculative decoding loses on Apple Silicon with stock MLX kernels.
-- **Mistakes caught on the way, all corrected in the log:** a cache-resident microbenchmark that measured cache rather than memory; an attention "fallback" read from a truncated op name; a rotary kernel that indexed past batch-broadcast tables; and a speculative loop that wrote to the wrong cache slots, which had produced speed-ups with wrong output. Each was caught by checking output against a reference, not only speed.
+- **Batch 1:** `torch.compile` with a static cache, 1.67x against eager with the same cache (about 1.5x against default eager).
+- **Batches 4 to 16:** compile plus the multi-row kernel (final table), 1.64x, 2.02x and 2.13x at batches 4, 8 and 16 against eager with a static cache. The kernel alone gives 1.34x to 1.55x at batches 8 to 16. Error against float32 comparable to eager fp16.
+- **Verification:** with the kernel, the forward pass that verifies 4 drafted tokens costs 1.19x a single step (one process; to be replicated).
+- **Prompt-lookup speculation:** large gains on a copy-heavy code edit with output identical to plain decoding, but the measured 3.3x to 3.5x used a burdened baseline and will be rerun. Without the kernel it was already 2.3x to 2.6x; the kernel adds about 1.3x to 1.4x. Free writing gains nothing and adaptive drafting without the kernel lost 14%.
+- **Prior work:** arXiv 2610.31479 already connects small-row kernels to speculative verification on MLX (0.99x to 1.13x in one setup). The open part here is PyTorch on MPS, M1, 9 to 16 rows, and the size of the gain.
+- **Next:** a rerun with every arm interleaved across processes, all samples kept, A/A arms, default dynamic-cache eager as a baseline, an ordinary compiled loop as the speculative baseline, and forced acceptance lengths checked against a rebuilt cache. Needs the GPU, which the lab holds now.
 
 ## Experiments, in order
 

@@ -1295,3 +1295,20 @@ Speculative decoding verifies k drafted tokens with one forward of k + 1 tokens,
 - **Projection, not a measurement.** At that paper's n-gram acceptance rates (about 0.6 to 1.6 accepted drafts per round with 2 drafted), prompt-lookup speculation on the compiled-plus-kernel stack would run about 1.3x to 2x faster than the best plain decode (compiled, 14.9 ms), before drafting overhead. The end-to-end test on real text is next.
 
 **Correction, same day: the first prompt-lookup speculative results were invalid.** An end-to-end run (`bench/bench_prompt_lookup.py`) reported 2.03x on a code edit and 1.86x on free writing, but its output differed from plain greedy decoding at tokens 73 and 7, and `bench/check_spec_divergence.py` showed those were not near-tie flips: at the code edit's first difference the model's own top choice led by 20 logits, and 29 tokens of the story were not the model's argmax. Cause: transformers 5.18's `StaticLayer.update` writes each new entry at the cache's own running count (`cumulative_length`) and ignores `cache_position`. After a round with rejected drafts that count runs ahead of the true position, so later tokens were written to the wrong slots. The same count is why repeated timing calls overflowed the cache in the verify-cost run, which then reset the cache before every call; those timings are unaffected. The loop now resets the count to the true position after every round. The corrected run is pending.
+
+## 2026-11-10: Prompt-lookup speculative decoding on MPS, exact, 3.0x to 3.7x on a copy-heavy task with the multi-row kernel
+
+`bench/bench_prompt_lookup.py`, with the cache-position fix above. Qwen3-1.7B fp16, batch 1, greedy, 160 new tokens, thinking off, `torch.compile` throughout; drafts of 4 tokens taken from the context itself (the latest earlier occurrence of the last 3, 2 or 1 tokens). Two tasks: rewriting a 1,600-token Python file with one rename (output mostly repeats input) and a 300-word short story (little repeats). Arms in separate processes. Results in `docs/review/2026-11-10-experiments/prompt-lookup/`.
+
+| ms per token | Plain | Speculation | Speculation + kernel | Drafts accepted per round |
+|---|---|---|---|---|
+| Code edit, always draft | 17.8 | 7.7 (2.31x) | 4.75 (3.74x) | 3.42 |
+| Code edit, adaptive | 15.2 | 7.1 (2.14x) | 5.0 (3.03x) | 3.30 |
+| Free writing, always draft | 17.3 | 26.3 (0.66x) | 19.3 (0.89x) | 0.02 |
+| Free writing, adaptive | 14.6 | 15.0 (0.97x) | 14.0 (1.04x) | 0.01 |
+
+- **Output identical to plain greedy decoding in every run** (all 160 tokens, both tasks, all arms).
+- "Adaptive" drafts only when the last two or more tokens match earlier context, and otherwise takes a plain one-token step, so text that does not repeat loses nothing.
+- **The kernel accounts for much of the gain:** on the code edit, 2.1x to 2.3x without it and 3.0x to 3.7x with it, the same drafts accepted. It makes the 5-token verification cheap (see the verify-cost entry).
+- **Noise:** the plain baseline differed between the two series (17.8 against 15.2 ms on the code edit), because arms ran in separate processes. Read each speed-up within its own row, and the code-edit gain as 3.0x to 3.7x.
+- **What this does not show:** other models, other draft lengths, long contexts, batches above 1, or real-world task mixes. Copy-heavy work (editing code, rewriting, retrieval-augmented answers) is where prompt lookup is known to help. The new part is that on an Apple GPU it pays mainly once the few-row verification path is fixed; arXiv 2610.31479 found n-gram speculation near break-even on stock MLX.

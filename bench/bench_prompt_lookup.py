@@ -21,27 +21,30 @@ def tasks(tok):
                                        enable_thinking=False, return_tensors="pt", return_dict=True)["input_ids"]
             for k, v in msgs.items()}
 
-def lookup(ctx, k):
+def lookup(ctx, k, min_n=1):
     ids = ctx.tolist()
     for n in (3, 2, 1):
+        if n < min_n: return None
         if len(ids) <= n: continue
         tail = ids[-n:]
         for s in range(len(ids) - n - 1, -1, -1):
             if ids[s:s + n] == tail:
                 d = ids[s + n:s + n + k]
                 if d: return d + [d[-1]] * (k - len(d))
-    return [ids[-1]] * k
+    return None if min_n > 1 else [ids[-1]] * k
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--arm", required=True); ap.add_argument("--out", required=True)
-    ap.add_argument("--k", type=int, default=4); ap.add_argument("--new", type=int, default=160); a = ap.parse_args()
+    ap.add_argument("--k", type=int, default=4); ap.add_argument("--new", type=int, default=160)
+    ap.add_argument("--adaptive", action="store_true", help="draft only on a 2+ token match, else a plain step"); a = ap.parse_args()
     tok = AutoTokenizer.from_pretrained(REPO, revision=REV)
     model = AutoModelForCausalLM.from_pretrained(REPO, revision=REV, dtype=torch.float16).to("mps").eval()
     USE["kernel"] = a.arm == "spec_kernel"
     def step(x, cache, pos): return model(x, past_key_values=cache, use_cache=True, cache_position=pos).logits
     fn = torch.compile(step, dynamic=False)
+    fn1 = fn  # same compiled function; a separate graph is compiled per input length
     k = 0 if a.arm == "plain" else a.k
-    res = {"arm": a.arm, "k": k, "torch": torch.__version__, "tasks": {}}
+    res = {"arm": a.arm, "k": k, "adaptive": a.adaptive, "torch": torch.__version__, "tasks": {}}
     for name, prompt in tasks(tok).items():
         P = prompt.shape[1]; L = P + a.new + 64
         prompt = prompt.to("mps")
@@ -53,12 +56,15 @@ def main():
                 ctx = prompt[0].tolist(); gen = [int(out.logits[0, -1].argmax())]; pos = P; rounds = acc = 0
                 torch.mps.synchronize(); t0 = time.perf_counter()
                 while len(gen) < a.new:
-                    draft = lookup(torch.tensor(ctx + gen), k) if k else []
+                    draft = lookup(torch.tensor(ctx + gen), k, min_n=2 if a.adaptive else 1) if k else []
+                    if draft is None:  # adaptive: no match of 2+ tokens, so take a plain one-token step
+                        draft = []
+                    kk = len(draft)
                     x = torch.tensor([[gen[-1]] + draft], device="mps")
-                    logits = fn(x, cache, torch.arange(pos, pos + 1 + k, device="mps"))
+                    logits = (fn if kk else fn1)(x, cache, torch.arange(pos, pos + 1 + kk, device="mps"))
                     pred = logits[0].argmax(-1).tolist()
                     n_ok = 0
-                    while n_ok < k and draft[n_ok] == pred[n_ok]: n_ok += 1
+                    while n_ok < kk and draft[n_ok] == pred[n_ok]: n_ok += 1
                     gen += draft[:n_ok] + [pred[n_ok]]
                     pos += 1 + n_ok; rounds += 1; acc += n_ok
                     # transformers' StaticLayer writes new entries at its own running count (cumulative_length),
@@ -72,7 +78,7 @@ def main():
         gen, dt, rounds, acc = run()
         _, dt2, _, _ = run()
         dt = min(dt, dt2)
-        res["tasks"][name] = {"prompt_tokens": P, "new_tokens": len(gen), "seconds": dt, "ms_per_token": dt / len(gen) * 1e3,
+        res["tasks"][name] = {"plain_steps": None, "prompt_tokens": P, "new_tokens": len(gen), "seconds": dt, "ms_per_token": dt / len(gen) * 1e3,
                               "rounds": rounds, "accepted_per_round": acc / rounds, "first_pass_s": compile_s,
                               "tokens": gen, "text_head": tok.decode(gen[:60])}
         r = res["tasks"][name]

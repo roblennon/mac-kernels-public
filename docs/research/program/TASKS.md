@@ -13,7 +13,7 @@ The running list for the programme framed in `FRAME.md`. One line per item. Deci
 
 ## Parked (real, not now)
 
-- First experiments wait until the research lab project is built (Rob, 2026-11-09 evening). The design cards are the handoff.
+- First experiments wait for word from the agent building the research lab project. Rob has told it to message this session at a milestone, and has cleared this session to test the lab and start extracting findings once that message arrives and the goal in `FRAME.md` is met.
 - Kaggle and Colab quotas are unverified. They need Rob's login.
 - The gaming PC's GPU model is unknown. Ask Rob.
 - Modal token was pasted in chat on 2026-11-09 and should be rotated. Only Rob can.

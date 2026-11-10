@@ -34,6 +34,14 @@ Done, as amended:
 
 The 08:00 stop stays. Device time is no longer needed, so the GPU rules above apply to nothing in this pass.
 
+## The goal, and what happens after it (Rob, 2026-11-09 evening)
+
+> I've advised the Claude agent running the model-research-lab project to message you if it hits a milestone and you can use that project for your own purposes. Set a goal to complete this end of it (as explained above) and then if you are messaged by the research lab agent you may proceed with testing the research lab and beginning to extract findings.
+
+The goal: finish this end. That means the directions document covering every round, `QUEUE.md`, an attacked design card for each queued experiment, `MUSINGS.md`, and the checkpoint, all committed. It is met when a reader who was not here can pick the first experiment off the queue and run it from its card.
+
+After the goal, and only once the lab's agent has sent word of a milestone: try the lab on real work, starting from the top of the queue, and begin extracting findings. That message is the trigger Rob set, so it starts the work he described and nothing wider. What the lab's own files say about how to use it governs how experiments run there. If the goal is met and no message has come, this session reports and waits.
+
 ## How the ask is read
 
 Rob asked for ideas worth publishing, checked against what already exists, and sized to hardware he owns. He did not ask for an application, and he did not ask for a product. Running a cheap first experiment is read as inside the ask, because "testable with what we have" is the selection rule he gave and "Run it" is in the loop he described. New kernels are part of what he asked for, and they come later in the sequence: a kernel is worth writing once a measurement says what it should do. A paper draft or a new subsystem waits for him. Those get proposed in the report, not started.

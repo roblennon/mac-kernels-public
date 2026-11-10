@@ -11,7 +11,66 @@ Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. Details, and the corrections, in [the f
 - **Verification:** with the kernel, the forward pass that verifies 4 drafted tokens costs 1.19x a single step (one process; to be replicated).
 - **Prompt-lookup speculation:** large gains on a copy-heavy code edit with output identical to plain decoding, but the measured 3.3x to 3.5x used a burdened baseline and will be rerun. Without the kernel it was already 2.3x to 2.6x; the kernel adds about 1.3x to 1.4x. Free writing gains nothing and adaptive drafting without the kernel lost 14%.
 - **Prior work:** arXiv 2610.31479 already connects small-row kernels to speculative verification on MLX (0.99x to 1.13x in one setup). The open part here is PyTorch on MPS, M1, 9 to 16 rows, and the size of the gain.
-- **Next:** a rerun with every arm interleaved across processes, all samples kept, A/A arms, default dynamic-cache eager as a baseline, an ordinary compiled loop as the speculative baseline, and forced acceptance lengths checked against a rebuilt cache. Needs the GPU, which the lab holds now.
+- **Next:** the rerun below, harness written (`bench/rerun_all.sh`), rules fixed before running. Needs the GPU, which the lab holds now.
+
+## Rerun protocol (fixed 2026-11-10, before any rerun result)
+
+The harness: `bench/rerun_decode_step.py`, `bench/rerun_spec.py`, `bench/check_spec_rollback.py`, `bench/bench_verify_cost.py` and `bench/check_decode_equivalence.py`, driven by `bench/rerun_all.sh` and summarised by `bench/rerun_analyze.py`. Correctness checks run first. Then come four rounds, each with the arm order rotated, where every process runs every arm and keeps every sample. Ratios are formed inside a process, then summarised across processes as a median, a range and a bootstrap interval. The arms are:
+
+- default dynamic-cache eager and static-cache eager;
+- two separately compiled copies of the compiled decoder, and two of compiled plus kernel;
+- for speculation, an ordinary compiled decoder (two copies) against fixed and adaptive drafting, with and without the kernel.
+
+Requests run to the end-of-sequence token, so whole-request time covers a finished answer. The prompts are a code edit, a prose edit and free writing, with texts frozen in `bench/rerun_texts/`.
+
+**Rules.**
+
+- A speed claim stands only if all four processes agree on its direction, and its median clears 1 by more than the largest A/A deviation at that setting.
+- The rollback check passes only if three things hold: every verified row is finite; each row lies within twice the plain decoder's own largest difference from a freshly rebuilt cache (at least 0.1); and its argmax matches wherever the rebuild's top-two margin exceeds 0.5. The two planted faults must fail it.
+- Equivalence passes if each faster arm's mean and 99.9th-percentile error against float32 is within 1.25 times eager fp16's, and its top-1 agreement is no more than 2 tokens below eager's.
+
+**Predictions.** A miss is reported as a miss.
+
+- **Batch 1:** compiled at least 1.4x static-cache eager and 1.3x default eager. The four compiled arms sit within the A/A spread of each other. If not, the 9% gap seen before between nominally identical pipelines is real and needs an explanation.
+- **Batches 8 and 16:** compiled plus kernel at least 1.8x static-cache eager, and the kernel at least 1.3x over compiled alone.
+- **Verify cost:** with the kernel, five tokens cost at most 1.3x one token.
+- **Code edit:** speculation with the kernel at least 2.5x the ordinary compiled decoder in decode time, and 2x in whole-request time.
+- **Free writing:** adaptive drafting with the kernel no worse than 0.95x.
+
+## Carrying this to the Kaggle T4 server (assessed 2026-11-10)
+
+Rob asked whether and when to upgrade the Kaggle T4 server (`kaggle-qwen-serve`) with any of this, for a bigger model. That server runs llama.cpp `b12228` on CUDA. It serves a 4-bit (Q4_0) Qwen3.5-9B, one copy per T4, with MTP drafting at depth 2, which is about 17% faster than plain decoding there.
+
+**Not worth porting: the compile result and the multi-row kernel.** Both fix overhead that PyTorch adds on MPS. llama.cpp on CUDA already has the equivalents:
+
+- CUDA graphs are on by default in its build. That removes per-kernel launch cost, which is what `torch.compile` removed here.
+- Its quantized matrix-vector kernels take up to 8 rows (`MMVQ_MAX_BATCH_SIZE`). That is the small-row path the Metal kernel added here.
+
+There is nothing to carry over.
+
+**Worth testing now: prompt-lookup drafting.** This is the part that transfers, and llama.cpp already has it:
+
+- `b12228` ships five n-gram drafters.
+- `--spec-type` takes a list that it tries in order, n-gram before MTP. Asking for an n-gram drafter plus `draft-mtp` gives the adaptive policy built here: copy from the context when there is a match, otherwise use MTP.
+- So the upgrade is a server flag and a tune run, with no code from this repository.
+
+It pays on copy-heavy work, and the server feeds OpenCode, whose agent tasks rewrite and edit files. Free writing gains nothing, so the A/B needs both kinds of prompt.
+
+**The wrinkle is rollback on a hybrid model.** Qwen3.5 has recurrent layers, and a recurrent state cannot be rewound. llama.cpp keeps recurrent snapshots for as many draft tokens as the draft-length setting, which is 2 on this server.
+
+- When a longer draft is partly rejected, the server restores a full checkpoint and replays the accepted tokens. That costs an extra forward pass.
+- The n-gram drafters default to drafts of 48 to 64 tokens, so on this model they will often take that path.
+- The A/B must therefore try shorter n-gram drafts and a larger snapshot count. That setting also sets the MTP depth, so the two are coupled.
+
+This is the T4 counterpart of the cache-rollback bug found here. It is also where the change could lose.
+
+**A bigger model: decide after the 9B A/B.**
+
+- **Speculation pays more on a bigger model.** Each step costs more, while n-gram drafting stays free. So a bigger model is where this pays most.
+- **A bigger model won't fit one T4.** A 27B model at 4 bits is about 16 GB, which needs both cards. One copy would then be split across them over PCIe, so the server loses its second copy and runs well below the 9B's speed.
+- **So it only makes sense when answer quality matters more than throughput.** Run it with n-gram plus MTP drafting from the start.
+
+The 9B A/B costs about 15 minutes of the 30 free GPU hours a week. It does not wait on the Mac rerun, because it measures llama.cpp directly.
 
 ## Experiments, in order
 

@@ -18,7 +18,10 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 
 ## Open, ours
 
-- [ ] Decode thread experiments A to C (`threads/mps-decode.md`): fused normalisation, preallocated cache and fused attention; a multi-row kernel for 2 to 16 rows from `bench/small_m_int8.metal`; exact rewrites (scale folding, fused projections).
+- [x] Decode thread experiments A to C (`threads/mps-decode.md`): fused norm and rope, compile with a static cache, the multi-row kernel, merged projections, prompt-lookup speculation; cross-family review and corrections (6f6ad21)
+- [ ] Decode rerun under the protocol fixed in `threads/mps-decode.md` (`bench/rerun_all.sh`), once the lab pauses its device work
+- [ ] Kaggle T4 server: A/B llama.cpp's n-gram drafting chained ahead of MTP, on agent edits and free writing (assessment in `threads/mps-decode.md`); belongs to `kaggle-qwen-serve`
+- [ ] Scale folding (experiment C's other half) and the verified-rewrite design's next stage
 - [x] Subject gates reviewed by Sol for needless slowness and weakness; 141 changes applied across 23 cards, 20 points rejected with reasons
 - [ ] Parked cards owe searches: self-training-37, nested-bitplanes (paired-metric-floor's park was confirmed by a second reader).
 - [ ] Cards named but not written: card B for copies-as-evidence's loop-share question; a divergence-law card; an attention-hint card split from train-scaffolds.

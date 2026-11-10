@@ -9,27 +9,30 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from bench_decode_compile_kernel import USE  # registers the custom op and the linear routing
 REPO, REV = "Qwen/Qwen3-1.7B", "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
 ap = argparse.ArgumentParser(); ap.add_argument("--arm", required=True); ap.add_argument("--out", required=True)
-ap.add_argument("--T", default="1,2,3,5,9,13,17"); a = ap.parse_args()
+ap.add_argument("--T", default="1,2,3,5,9,13,17"); ap.add_argument("--reps", type=int, default=9)
+ap.add_argument("--repeat-first", action="store_true", help="measure the first T again at the end, as an A/A check"); a = ap.parse_args()
 model = AutoModelForCausalLM.from_pretrained(REPO, revision=REV, dtype=torch.float16).to("mps").eval()
 P = 256
 USE["kernel"] = a.arm.endswith("kernel")
 def step(x, cache, pos): return model(x, past_key_values=cache, use_cache=True, cache_position=pos).logits
 fn = step if a.arm == "eager" else torch.compile(step, dynamic=False)
 g = torch.Generator().manual_seed(3)
-res = {"arm": a.arm, "torch": torch.__version__, "prompt": P, "ms": {}, "compile_s": {}}
+res = {"arm": a.arm, "torch": torch.__version__, "prompt": P, "ms": {}, "compile_s": {}, "samples_ms": {}}
 with torch.no_grad():
     cache = StaticCache(config=model.config, max_cache_len=P + 32)
     ids = torch.randint(1000, 30000, (1, P), generator=g).to("mps")
     def fresh():  # the static cache counts every update, so reset and re-fill the prompt before each timed call
         cache.reset()
         model(ids, past_key_values=cache, use_cache=True, cache_position=torch.arange(P, device="mps"))
-    for T in [int(t) for t in a.T.split(",")]:
+    Ts = [int(t) for t in a.T.split(",")]
+    for i, T in enumerate(Ts + (Ts[:1] if a.repeat_first else [])):
+        key = f"{T}_end" if i == len(Ts) else T
         x = torch.randint(1000, 30000, (1, T), generator=g).to("mps"); pos = torch.arange(P, P + T, device="mps")
-        fresh(); t0 = time.perf_counter(); fn(x, cache, pos); torch.mps.synchronize(); res["compile_s"][T] = time.perf_counter() - t0
+        fresh(); t0 = time.perf_counter(); fn(x, cache, pos); torch.mps.synchronize(); res["compile_s"][key] = time.perf_counter() - t0
         for _ in range(2): fresh(); fn(x, cache, pos)
         ts = []
-        for _ in range(9):
+        for _ in range(a.reps):
             fresh(); torch.mps.synchronize(); t = time.perf_counter(); fn(x, cache, pos); torch.mps.synchronize(); ts.append(time.perf_counter() - t)
-        res["ms"][T] = statistics.median(ts) * 1e3
-        print(a.arm, "T", T, round(res["ms"][T], 2), "ms", "ratio to T=1:", round(res["ms"][T] / res["ms"][1], 2) if 1 in res["ms"] else "", flush=True)
+        res["ms"][key] = statistics.median(ts) * 1e3; res["samples_ms"][key] = [t * 1e3 for t in ts]
+        print(a.arm, "T", key, round(res["ms"][key], 2), "ms", "ratio to T=1:", round(res["ms"][key] / res["ms"][1], 2) if 1 in res["ms"] else "", flush=True)
 json.dump(res, open(a.out, "w"), indent=1)

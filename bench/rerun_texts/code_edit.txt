@@ -1,0 +1,61 @@
+"""A fused rotary positional embedding for MPS (rotate-half convention, as Llama and Qwen use),
+one Metal kernel per tensor in place of about five elementwise kernels. fp16 only.
+Computes x*cos + rotate_half(x)*sin in float32 per element and rounds once.
+
+apply_rotary_pos_emb(q, k, cos, sin) matches transformers' signature for Qwen3: q, k are
+[B, H, T, D] views of [B, T, H, D] buffers (as the attention module produces them); cos, sin [B, T, D].
+"""
+import torch
+
+SRC = r"""
+#include <metal_stdlib>
+using namespace metal;
+kernel void rope_f16(device half* out [[buffer(0)]],
+                     device const half* x [[buffer(1)]],
+                     device const half* cs [[buffer(2)]],
+                     device const half* sn [[buffer(3)]],
+                     constant long& T [[buffer(4)]],
+                     constant long& H [[buffer(5)]],
+                     constant long& D [[buffer(6)]],
+                     constant long& total [[buffer(7)]],
+                     constant long& cos_batch [[buffer(8)]],
+                     uint idx [[thread_position_in_grid]]) {
+    if (long(idx) >= total) return;
+    const long d = long(idx) % D;
+    const long bt = long(idx) / (D * H);          // x and out are [B, T, H, D]; bt = b*T + t
+    const long b = bt / T, t = bt % T;
+    const long cb = cos_batch == 1 ? 0 : b;       // cos and sin are [B, T, D] or [1, T, D] broadcast over the batch
+    const long half_d = D / 2;
+    const float xv = float(x[idx]);
+    const float other = d < half_d ? -float(x[idx + half_d]) : float(x[idx - half_d]);
+    const long ci = (cb * T + t) * D + d;
+    out[idx] = half(xv * float(cs[ci]) + other * float(sn[ci]));
+}
+"""
+_lib = None
+
+def _kernel():
+    global _lib
+    if _lib is None:
+        _lib = torch.mps.compile_shader(SRC)
+    return _lib
+
+def rope_one(x, cos, sin):
+    # x: [B, H, T, D] view whose transpose(1, 2) is a contiguous [B, T, H, D] buffer
+    xb = x.transpose(1, 2)
+    if not xb.is_contiguous() or x.dtype != torch.float16 or x.shape[-1] % 2:
+        raise ValueError("rope_one needs fp16, even head_dim, and a [B,T,H,D]-contiguous buffer")
+    B, T, H, D = xb.shape
+    if cos.dim() != 3 or cos.shape[1:] != (T, D) or cos.shape[0] not in (1, B) or sin.shape != cos.shape:
+        raise ValueError(f"cos/sin must be [B or 1, T, D]; got {tuple(cos.shape)} for x {tuple(xb.shape)}")
+    out = torch.empty_like(xb)
+    total = out.numel()
+    _kernel().rope_f16(out, xb, cos.contiguous(), sin.contiguous(), T, H, D, total, cos.shape[0],
+                       threads=total, group_size=256)
+    return out.transpose(1, 2)
+
+def apply_rotary_pos_emb(q, k, cos, sin, unsqueeze_dim=1):
+    if q.dtype != torch.float16 or q.device.type != "mps" or unsqueeze_dim != 1:
+        raise ValueError("fused rope: fp16 on MPS with unsqueeze_dim=1 only")
+    return rope_one(q, cos, sin), rope_one(k, cos, sin)
+

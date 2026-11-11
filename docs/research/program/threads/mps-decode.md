@@ -31,6 +31,21 @@ Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0, transformers 5.18.0, from `.venv-decode
   - Scale folding (experiment C's other half).
   - The verified-rewrite design's next stage.
 
+## Next directions (2026-11-11)
+
+Rob chose **his local agent setup first**. Everything above is PyTorch on MPS, which is research and upstream value. Day to day, though, he runs local models through `qwen-locals-bench`: Qwen3.5-4B on stock MLX-LM (the Locals service, `BatchGenerator`, four slots) and the Orca 27B GGUF through llama.cpp. Speed he can feel has to land there.
+
+The threads, in order:
+
+1. **MLX's small-row quantized matmul.** The lab's Q009b measured MLX 0.32.4's affine4 matmul over 24 of the 4B's MLP matrices: 1.20, 1.61, 2.92, 6.55, 7.19, 6.20 and 5.66 ms at M = 1, 2, 4, 8, 9, 12 and 16 rows. Cost grows almost per row up to about 9 rows and drops only once a tiled path takes over from 12. That is the same gap the multi-row kernel closed in PyTorch. The 4B server's four slots put 4 rows through every step, and speculation would make it 8 to 16.
+   - **Gate:** first check whether recent MLX already changed this. Then measure the Locals server's decode step at 1, 2 and 4 busy slots, and the isolated matmul at the 4B's shapes, with distinct weights per call so nothing is cache-resident.
+   - **The prize:** a faster 4-slot server, and an upstream MLX contribution.
+2. **Prompt reading (prefill) on the Mac, and where an agent session's time goes.** `qwen-locals-bench` recorded the Orca 27B's first read of a 117,717-token prompt on this Mac at 1,551.83 s (ORCA128.md). Its OPTIMIZATIONS.md already proposes a llama.cpp prefill batch-size sweep (256/128 against 512/256 and 1024/512), not yet run. On the T4 replay, prompt reading was about a quarter of wall time even at 6K to 23K tokens. At the 200K-class contexts Rob uses, this is probably the largest lever of all. Profile real OpenCode sessions through Locals (prefill, decode, queueing, cache hits), and run the sweep, before optimizing decode further.
+3. **Tree speculation.** Verify several candidate continuations in one forward, for example 3 branches of 5 tokens. That makes the now-cheap 9 to 16 rows pay off even when agent edits are short diffs. It works in PyTorch now (`bench/rerun_spec.py` is the harness to extend), and in MLX if thread 1 lands.
+4. **Training and fine-tuning on MPS.** The LoRA trainer's small-batch backward passes probably hit the same small-row problems. Later.
+
+Set aside for now: the remaining exact rewrites. Merged projections gave 2 to 7%, and scale folding should be similar.
+
 ## Rerun protocol (fixed 2026-11-10, before any rerun result)
 
 The harness: `bench/rerun_decode_step.py`, `bench/rerun_spec.py`, `bench/check_spec_rollback.py`, `bench/bench_verify_cost.py` and `bench/check_decode_equivalence.py`, driven by `bench/rerun_all.sh` and summarised by `bench/rerun_analyze.py`. Correctness checks run first. Then come four rounds, each with the arm order rotated, where every process runs every arm and keeps every sample. Ratios are formed inside a process, then summarised across processes as a median and a range. Four processes cannot support a 95% interval, so none is claimed. The arms are:

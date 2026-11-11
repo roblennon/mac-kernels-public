@@ -26,9 +26,9 @@ atic-cache-compile-graph-break.md`) and their repro scripts (`bench/repro_*.py`)
 - Deferred: scale folding and the verified-rewrite design's next stage. These wait behind E2.
 
 **Next**
-1. Rob reviews the PyTorch issue draft and decides on publication. The draft should link its repro and prototype from a public place, so the two decisions go together.
-2. Long-draft speculation (k up to 15) at long context on MPS, measured on replayed real traffic, not the edit benchmark. Verification is now cheap, so this is where the kernel becomes user-visible speed.
-3. Optionally move `.venv-decode` to transformers 5.20 or later, which removes the compiled graph break from stock numbers. It needs a re-baseline of the stock arms, so do it before the next measured experiment, not in the middle of one.
+1. Rob reviews the PyTorch issue draft and decides on publication. The two go together, because the issue should link its repro from a public place.
+2. Resume in Codex with `handoff-2026-11-11-codex.md`. Rob chose the local agent setup first, so the first milestone is the MLX small-row matmul gate: is the gap still there in current MLX, and how much of the 4-slot Locals server's step does it cost?
+3. Then profile where agent-session time goes on the Mac, before choosing between prefill work and tree speculation.
 
 **Orphans**
 - The rest of the scratchpad (sweep JSONs, probes, Sol prompts, 2.6 GB of misplaced GPU traces) is session-local. Everything that backs a finding has been copied to `docs/review/`. The rest can go with the session.

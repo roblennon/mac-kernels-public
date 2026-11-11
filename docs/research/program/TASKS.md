@@ -32,6 +32,7 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - [x] Experiment E (2026-11-11): small-query attention kernel (`bench/smallq_attention.*`, `bench/smallq_hf.py`), reviewed by workflow agents and Sol, fixes applied; findings log "A small-query attention kernel removes the 9-row cliff"
 - [x] E2 (2026-11-11): row-vector kernel path. Isolated: T = 4 to 8 at 1.7x to 2.1x and T = 9 to 16 at 7.7x to 13x over stock. Whole model at T = 9 to 16: 2.7x to 3.2x faster at 4k and 5.4x to 6.9x at 16k. The T = 1 single-path aim was missed, so the threshold stays at 4. Findings log, "Optimizing the small-query attention kernel (E2)".
 - [ ] The small-T custom-op cost (about 0.7 to 1 ms per step), and the two surviving mutants (vector-path slack, the pos upper clamp)
+- [ ] Next, in order (thread section "Next directions"): (1) MLX small-row quantized matmul, gated by a check of recent MLX and a Locals slot profile; (2) where agent-session time goes on the Mac (prefill and decode); (3) tree speculation; (4) training and fine-tuning later. Handed to Codex on 2026-11-11 (`handoff-2026-11-11-codex.md`).
 - [x] Upstream drafts (2026-11-11). PyTorch: ready for Rob. transformers: already fixed in 5.20.0, so not filed.
 - [ ] Scale folding (experiment C's other half) and the verified-rewrite design's next stage
 - [x] Subject gates reviewed by Sol for needless slowness and weakness; 141 changes applied across 23 cards, 20 points rejected with reasons
@@ -57,6 +58,8 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 
 ## Decisions
 
+- 2026-11-11: Rob: the local agent setup comes first (MLX and llama.cpp through qwen-locals-bench), ahead of the PyTorch research record. Work resumes in a Codex thread because Claude usage is nearly exhausted for the week.
+- 2026-11-11: Rob: GPU work needs no stopping during the day, but nothing may max out the machine without coordinating with him. The lab runs the Mac GPU from 22:00 to 05:00 every night.
 - 2026-11-10: Rob: focus on training, fine-tuning, inference, attention, context and gradients, not behaviour. copies-as-evidence is set aside as model-dependent and not about speed or performance. The decode-speed thread leads.
 
 - 2026-11-10: measure the gates first (Rob). A small first batch, not thirty harnesses; other cards read their gate from their own first run.

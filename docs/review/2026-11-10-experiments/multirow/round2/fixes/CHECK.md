@@ -1,13 +1,13 @@
 # Check of the round-2 fixes
 
-2026-11-10. Checks that the fixes described in `README.md` in this folder answer `../REVIEW.md`'s must-fix (1) and should-fix items 2 and 3. I read the diff of the three bench and test files against commit `1c48161`, this folder's README, `select_table.py`, `summarize_fixes.py` and the raw re-time files. I then reran the tuning command, correctness on every config in the final table, pytest, and decode at batch 8 and 16, each through `bench/gpu_runner.py --monitor --seconds 280 --rss-gib 10` with no lock wait. GPU work used PyTorch 2.15.0 (scratch environment); pytest used the repository's `.venv` (torch 2.14.1). My scripts and output are in `check/`. I did not edit the builder's files or the kernel.
+2026-11-10. Checks that the fixes described in `README.md` in this folder answer `../REVIEW.md`'s must-fix (1) and should-fix items 2 and 3. I read the diff of the three bench and test files against commit `9293a94`, this folder's README, `select_table.py`, `summarize_fixes.py` and the raw re-time files. I then reran the tuning command, correctness on every config in the final table, pytest, and decode at batch 8 and 16, each through `bench/gpu_runner.py --monitor --seconds 280 --rss-gib 10` with no lock wait. GPU work used PyTorch 2.15.0 (scratch environment); pytest used the repository's `.venv` (torch 2.14.1). My scripts and output are in `check/`. I did not edit the builder's files or the kernel.
 
 ## Verdict
 
 The fixes hold. Nothing here is fatal and nothing must be fixed before committing.
 
 - The tuning command runs from the code and rebuilds the recorded grid in both dtypes.
-- The frozen round-1 table is identical to commit `a441c78`'s.
+- The frozen round-1 table is identical to commit `b64a958`'s.
 - The new table follows the stated rule in every one of its 210 cells at 2 to 16 rows.
 - All six former `"linear"` cells are back on the kernel, and the re-time data supports each one.
 - Every config in the final table is correct in both dtypes, with and without bias, on edge shapes and on every tuned shape.
@@ -48,20 +48,20 @@ Across the builder's and my processes, 5 of 8 batch-16 samples are at or under 1
 
 `check/check_static.py` → `check/check-static.json`, no GPU:
 
-- `ROUND1_TUNED` equals the `TUNED` literal parsed from `git show a441c78:bench/multirow_linear.py`. `1c48161` is the only commit after `a441c78` that touches that file, so this is the table round 2's grid was built from.
+- `ROUND1_TUNED` equals the `TUNED` literal parsed from `git show b64a958:bench/multirow_linear.py`. `9293a94` is the only commit after `b64a958` that touches that file, so this is the table round 2's grid was built from.
 - `tune_grid_round2` returns 56 fp16 and 40 bf16 configs. They are identical, in order, to the `configs` field of all 14 `../tune-*.json` files and of `tune-repro-float16-q17_kv.json`.
 - `all_variants`, `planted_table` and `layers --compare` skip `"linear"` before `Config.parse`, and `pick_config` maps it to `None`. No other caller parses table entries.
 
 On the GPU, I ran `tune --grid round2 --dtype bfloat16 --shapes q17_down --rows 2,9,16`, a dtype and shape the builder did not rerun (`check/tune-repro-bfloat16-q17_down.json`). It timed all 40 configs plus `F.linear`, its grid matches `../tune-bfloat16-q17_down.json`, and it took 6 s. At 9 and 16 rows its winner was `mmh_r2_u1_s4`, the table's pick for that band.
 
-Differential check: the two new pytest tests run against the `1c48161` code fail with `KeyError: 'r'` (1 failed, 114 passed). They pass on the fixed code.
+Differential check: the two new pytest tests run against the `9293a94` code fail with `KeyError: 'r'` (1 failed, 114 passed). They pass on the fixed code.
 
 ### Should-fix 3: the table comes from one rule
 
-- `TUNED` at 2 to 16 rows equals `selection.json` in all 210 cells. Rows 1, 24 and 32 are unchanged from `1c48161`. There are no `"linear"` entries.
+- `TUNED` at 2 to 16 rows equals `selection.json` in all 210 cells. Rows 1, 24 and 32 are unchanged from `9293a94`. There are no `"linear"` entries.
 - Each (dtype, shape, band) holds one config. Every config is inside its band's candidate set, and every 9 to 16 row cell has R = 2. The table holds 6 configs at 2 to 16 rows and 18 overall. 168 of 210 cells changed.
 - I re-derived the band choice with a reference-free score (each candidate's log time relative to the cell's mean over candidates). It picks the same config in all 42 (dtype, shape, band) groups.
-- The re-time files recorded the final table (all 7 files). Every changed cell at 4 to 16 rows has 2 processes and 7 repeats. Every 2 to 3 row cell has 3 processes and 15 repeats. Each timed the final config, and its compare arm is the `1c48161` config (for former `"linear"` cells, the config round 2 timed there). There are 175 cells in all, with no gaps.
+- The re-time files recorded the final table (all 7 files). Every changed cell at 4 to 16 rows has 2 processes and 7 repeats. Every 2 to 3 row cell has 3 processes and 15 repeats. Each timed the final config, and its compare arm is the `9293a94` config (for former `"linear"` cells, the config round 2 timed there). There are 175 cells in all, with no gaps.
 - Headline cells: fp16 gate/up at 16 rows is 1.48x and 1.53x over `F.linear`, and the previous config over the new is 1.09 and 1.13. fp16 down at 12 rows: previous over new is 1.12 and 1.08. fp16 down at 16 rows: 1.70x. These match the README.
 
 ### Should-fix 2: no cell lost to `F.linear`, one rule for all shapes

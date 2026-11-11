@@ -16,7 +16,7 @@ Nothing here needs a decision. One judgment call is stated under section 3 so it
 ## What changed
 
 - `bench/bench_multirow.py`
-  - `ROUND1_TUNED` is the round-1 table copied from commit `a441c78` as a literal. Before, it was a copy of the live `TUNED` taken at import.
+  - `ROUND1_TUNED` is the round-1 table copied from commit `b64a958` as a literal. Before, it was a copy of the live `TUNED` taken at import.
   - `tune_grid_round2` skips `"linear"` entries. `all_variants` already did, and `pick_config` maps them to `None`, so no table entry reaches `Config.parse` any more.
   - `layers` has two new options. `--cells` times only the listed cells. `--compare` adds an arm that times another config in the same cell, here the config the table held before.
   - `correctness` has a new part, `planted_table`. It applies each family's mutations to every config in the tuned table: fp16 and bf16, with and without bias, at the smallest and largest row count the config is used at.

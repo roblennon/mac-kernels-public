@@ -44,7 +44,7 @@ After the goal, and only once the lab's agent has sent word of a milestone: try 
 
 ### Where the goal stands (2026-11-10)
 
-The goal was met at commit c51d8a1 on the night of 2026-11-09, and the lab's milestone message had already arrived, so the trigger fired. The lab ran the first queued card as its case 002 on 2026-11-10. It decided nothing, because the model could not do the base task; see the card's result section. Rob then paused both sessions for a reorientation. The phase after the goal, handing cards to the lab and reading results, has no budget or stop of its own yet; that is Rob's to set.
+The goal was met at commit 47c509f on the night of 2026-11-09, and the lab's milestone message had already arrived, so the trigger fired. The lab ran the first queued card as its case 002 on 2026-11-10. It decided nothing, because the model could not do the base task; see the card's result section. Rob then paused both sessions for a reorientation. The phase after the goal, handing cards to the lab and reading results, has no budget or stop of its own yet; that is Rob's to set.
 
 ## How the ask is read
 

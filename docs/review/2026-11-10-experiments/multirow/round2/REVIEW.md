@@ -37,7 +37,7 @@ Sources: `review/decode-p1.json`, `review/decode-p2.json`, `review/configs-float
 - `tune --grid round2` crashes. `TUNED` now holds `"linear"` entries, and `tune_grid_round2` passes them to `Config.parse`. I ran the README's own reproduce command through the lock: `KeyError: 'r'` in `Config.parse` (console output; nothing written).
 - Filtering out `"linear"` would make it run, but on a different grid: round 2's picks instead of round 1's. The 56-config fp16 and 40-config bf16 grids recorded in `tune-*.json` would not be rebuilt.
 
-Fix: freeze round 1's table as a literal (or read it from commit `a441c78`), and skip `LINEAR` wherever table entries are parsed into configs.
+Fix: freeze round 1's table as a literal (or read it from commit `b64a958`), and skip `LINEAR` wherever table entries are parsed into configs.
 
 ## Should-fix
 
@@ -82,7 +82,7 @@ Fix: choose from a small set of robust configs (for example R = 2, S = 4 or 8, U
 
 ### 4. Round 2 changes committed code in another thread, and that code's numbers were measured mid-edit
 
-`bench_decode_compile_kernel.py` (commit `dc15bde`) calls `multirow_linear` with the default `pick_config`. `bench_verify_cost.py` and `bench_prompt_lookup.py` (`9ffded7`, `7988336`) import its routing. Committing round 2 therefore changes what those benchmarks run, including the `"linear"` cells at 2 and 3 rows, the verification sizes. Their committed results (10:04, 10:14 and 11:01) were produced while the round-2 builder was editing `bench/multirow_linear.py` and `.metal` in the same working tree (final edits at 10:14 and 10:52). So it is not known which table those runs used.
+`bench_decode_compile_kernel.py` (commit `b30d5ed`) calls `multirow_linear` with the default `pick_config`. `bench_verify_cost.py` and `bench_prompt_lookup.py` (`7e9a42e`, `81e4482`) import its routing. Committing round 2 therefore changes what those benchmarks run, including the `"linear"` cells at 2 and 3 rows, the verification sizes. Their committed results (10:04, 10:14 and 11:01) were produced while the round-2 builder was editing `bench/multirow_linear.py` and `.metal` in the same working tree (final edits at 10:14 and 10:52). So it is not known which table those runs used.
 
 I reran `bench_verify_cost.py` with the round-2 table (`review/verify-*.json`, one process per arm). With the kernel, T = 2, 3, 5, 9 and 13 cost 23.1, 23.6, 25.8, 27.9 and 29.2 ms, against 28.5, 27.5, 27.1, 48.1 and 47.7 ms compiled without it. The committed run had 18.6 and 21.5 ms at T = 2, with and without the kernel. The kernel still helps verification, but my absolute times are 10 to 32% above the committed ones in both arms, so the two runs cannot be compared directly. Note this in the decode thread, and rerun those benchmarks after round 2 is committed.
 

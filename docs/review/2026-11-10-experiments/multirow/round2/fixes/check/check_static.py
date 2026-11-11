@@ -47,13 +47,13 @@ def main():
     import bench.multirow_linear as mrl
     import bench.bench_multirow as bm
 
-    # 1. Frozen round-1 table equals commit a441c78's TUNED.
-    r1 = tuned_from_source(git_show("a441c78", "bench/multirow_linear.py"))
-    res["round1_frozen_equals_a441c78"] = r1 == bm.ROUND1_TUNED
-    # And it is the table in force between a441c78 and 1c48161 (only 1c48161 changed the file).
-    log = subprocess.check_output(["git", "log", "--format=%h", "a441c78..1c48161", "--", "bench/multirow_linear.py"],
+    # 1. Frozen round-1 table equals commit b64a958's TUNED.
+    r1 = tuned_from_source(git_show("b64a958", "bench/multirow_linear.py"))
+    res["round1_frozen_equals_b64a958"] = r1 == bm.ROUND1_TUNED
+    # And it is the table in force between b64a958 and 9293a94 (only 9293a94 changed the file).
+    log = subprocess.check_output(["git", "log", "--format=%h", "b64a958..9293a94", "--", "bench/multirow_linear.py"],
                                   cwd=REPO, text=True).split()
-    res["commits_touching_mrl_after_a441c78_up_to_1c48161"] = log
+    res["commits_touching_mrl_after_b64a958_up_to_9293a94"] = log
 
     # 2. tune_grid_round2 equals the configs list of every round-2 tune file, in order.
     grid = {dt: [c.name() for c in bm.tune_grid_round2(dt)] for dt in ("float16", "bfloat16")}
@@ -68,9 +68,9 @@ def main():
     rep = json.loads((FIXES / "tune-repro-float16-q17_kv.json").read_text())
     res["repro_file_grid_equal"] = rep["configs"] == grid["float16"]
 
-    # 3. Live table: rows 1, 24, 32 unchanged from 1c48161; rows 2-16 equal selection.json; no LINEAR;
+    # 3. Live table: rows 1, 24, 32 unchanged from 9293a94; rows 2-16 equal selection.json; no LINEAR;
     #    candidate set and band constancy as the README states.
-    prev = tuned_from_source(git_show("1c48161", "bench/multirow_linear.py"))
+    prev = tuned_from_source(git_show("9293a94", "bench/multirow_linear.py"))
     sel = json.loads((FIXES / "selection.json").read_text())["choice"]
     cand = {(2, 3): {"dev_r2_u1_s4", "dev_r2_u1_s8", "mmh_r1_u1_s4", "mmh_r1_u1_s8", "mmh_r2_u1_s4", "mmh_r2_u1_s8"},
             (4, 8): {"mmh_r1_u1_s4", "mmh_r1_u1_s8", "mmh_r2_u1_s4", "mmh_r2_u1_s8"},
@@ -169,14 +169,14 @@ def main():
                             problems.append(("reps", dt, shape, M, f, nreps))
     res["retime_cells_needed"] = n_retimed
     res["retime_problems"] = problems
-    # compare-previous.json vs the 1c48161 table (except the formerly linear cells)
+    # compare-previous.json vs the 9293a94 table (except the formerly linear cells)
     cp_diff = []
     for dt, t in prev.items():
         for kn, row in t.items():
             for M in range(2, 17):
                 if row[M] != previous[dt][BY_KN[kn]][str(M)]:
                     cp_diff.append((dt, BY_KN[kn], M, row[M], previous[dt][BY_KN[kn]][str(M)]))
-    res["compare_previous_vs_1c48161"] = cp_diff
+    res["compare_previous_vs_9293a94"] = cp_diff
 
     # 6. Speedups and noise, independently from raw medians of the samples.
     cells = []

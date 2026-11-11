@@ -24,7 +24,7 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 
 ## Open, ours
 
-- [x] Decode thread experiments A to C (`threads/mps-decode.md`): fused norm and rope, compile with a static cache, the multi-row kernel, merged projections, prompt-lookup speculation; cross-family review and corrections (6f6ad21)
+- [x] Decode thread experiments A to C (`threads/mps-decode.md`): fused norm and rope, compile with a static cache, the multi-row kernel, merged projections, prompt-lookup speculation; cross-family review and corrections (e04b27d)
 - [x] Decode rerun under the protocol fixed in `threads/mps-decode.md` (2026-11-10): all checks pass; 4 of 5 predictions met, verify cost missed (1.52x, not 1.3x); findings log entry "Decode rerun under fixed rules"
 - [x] Kaggle T4 server: n-gram drafting ahead of MTP shipped as serve v4 (2026-11-10): 2.8x on the edit benchmark, +16% decode on real OpenCode traffic (kaggle-qwen-serve EVIDENCE.md)
 - [x] Kaggle T4 server: the Orca 27B fits both T4s with `-sm tensor` at 262144 context, 49-58 tok/s on edits and 22-25 on free writing (2026-11-10, kaggle-qwen-serve EVIDENCE.md, tune-27b v1); `serve.py` defaults to it, with an idle shutdown
@@ -49,7 +49,7 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 
 - [x] Three idea rounds, 314 ideas; nominations, merge, sceptical read; idea ledger, directions document, musings
 - [x] 33 design cards, each searched, attacked, revised and search-gated; queue of 30; Sol's cross-family review; cold reads of the top five
-- [x] Checkpoint and commit; goal met at c51d8a1; the lab's milestone arrived
+- [x] Checkpoint and commit; goal met at 47c509f; the lab's milestone arrived
 - [x] Lab case 002 ran copies-as-evidence step 1a (2026-11-10): void, no greedy answer right (one template inaccurate, the other off-format), count probe failed
 - [x] copies-as-evidence redesigned around a capability step; subject gates added to 27 of the 29 other queued cards
 - [x] Reorientation sweep: stale docs, learnings, process, new avenues (`raw/reorient_*.md`)

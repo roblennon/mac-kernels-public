@@ -5,7 +5,7 @@ over weight copies totalling at least 256 MB (2.5 GB for the head), about 3 GB o
   lin, lin2     F.linear twice (A/A)
   k, k2         the round-2 table's choice twice (B/B); where the table routes the cell to F.linear,
                 the round-2 sweep winner is timed instead and the row says so
-  r1            round 1's table choice for the same cell (commit a441c78), if it had one
+  r1            round 1's table choice for the same cell (commit b64a958), if it had one
   k_cached      the round-2 choice on one weight copy, re-used every call (cache-resident when it fits)
 At 16 rows also lin32: F.linear at 32 rows on the same weights (Apple's kernel at its best tile).
 Before the first GPU call, the process records the GPU's utilisation from ioreg (other GPU users).
@@ -38,7 +38,7 @@ R2DIR = Path(__file__).resolve().parents[1]
 
 
 def round1_table():
-    src = subprocess.run(["git", "show", "a441c78:bench/multirow_linear.py"], cwd=ROOT, capture_output=True,
+    src = subprocess.run(["git", "show", "b64a958:bench/multirow_linear.py"], cwd=ROOT, capture_output=True,
                          text=True, check=True).stdout
     ns = {}
     i = src.index("TUNED: dict")

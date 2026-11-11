@@ -19,8 +19,8 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 ## Open, ours
 
 - [x] Decode thread experiments A to C (`threads/mps-decode.md`): fused norm and rope, compile with a static cache, the multi-row kernel, merged projections, prompt-lookup speculation; cross-family review and corrections (6f6ad21)
-- [ ] Decode rerun under the protocol fixed in `threads/mps-decode.md` (`bench/rerun_all.sh`), once the lab pauses its device work
-- [ ] Kaggle T4 server: A/B llama.cpp's n-gram drafting chained ahead of MTP, on agent edits and free writing (assessment in `threads/mps-decode.md`); belongs to `kaggle-qwen-serve`
+- [x] Decode rerun under the protocol fixed in `threads/mps-decode.md` (2026-11-10): all checks pass; 4 of 5 predictions met, verify cost missed (1.52x, not 1.3x); findings log entry "Decode rerun under fixed rules"
+- [ ] Kaggle T4 server: A/B llama.cpp's n-gram drafting chained ahead of MTP, on agent edits and free writing (assessment in `threads/mps-decode.md`); belongs to `kaggle-qwen-serve`; running in its own session, waiting for a free Kaggle GPU slot
 - [ ] Scale folding (experiment C's other half) and the verified-rewrite design's next stage
 - [x] Subject gates reviewed by Sol for needless slowness and weakness; 141 changes applied across 23 cards, 20 points rejected with reasons
 - [ ] Parked cards owe searches: self-training-37, nested-bitplanes (paired-metric-floor's park was confirmed by a second reader).

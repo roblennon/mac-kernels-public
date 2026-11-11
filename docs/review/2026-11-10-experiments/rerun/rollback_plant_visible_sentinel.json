@@ -1,0 +1,312 @@
+{
+ "arm": "compiled",
+ "plant": "visible_sentinel",
+ "torch": "2.15.0",
+ "prompt_tokens": 890,
+ "tolerance": 0.1484375,
+ "plain_err_max": 0.07421875,
+ "rows": 33,
+ "failing_rows": [
+  {
+   "round": 6,
+   "row": 0,
+   "finite": true,
+   "max_abs": 59.1298828125,
+   "argmax_eq": false,
+   "margin": 23.78125
+  },
+  {
+   "round": 7,
+   "row": 0,
+   "finite": true,
+   "max_abs": 40.115234375,
+   "argmax_eq": false,
+   "margin": 3.15625
+  },
+  {
+   "round": 8,
+   "row": 0,
+   "finite": true,
+   "max_abs": 28.046875,
+   "argmax_eq": false,
+   "margin": 1.359375
+  },
+  {
+   "round": 9,
+   "row": 0,
+   "finite": true,
+   "max_abs": 30.234375,
+   "argmax_eq": false,
+   "margin": 2.078125
+  },
+  {
+   "round": 10,
+   "row": 0,
+   "finite": true,
+   "max_abs": 27.46875,
+   "argmax_eq": false,
+   "margin": 0.796875
+  },
+  {
+   "round": 11,
+   "row": 0,
+   "finite": true,
+   "max_abs": 28.10546875,
+   "argmax_eq": false,
+   "margin": 1.796875
+  },
+  {
+   "round": 12,
+   "row": 0,
+   "finite": true,
+   "max_abs": 25.171875,
+   "argmax_eq": false,
+   "margin": 2.34375
+  },
+  {
+   "round": 13,
+   "row": 0,
+   "finite": true,
+   "max_abs": 29.2265625,
+   "argmax_eq": false,
+   "margin": 1.828125
+  },
+  {
+   "round": 14,
+   "row": 0,
+   "finite": true,
+   "max_abs": 28.40234375,
+   "argmax_eq": false,
+   "margin": 0.28125
+  },
+  {
+   "round": 15,
+   "row": 0,
+   "finite": true,
+   "max_abs": 23.3359375,
+   "argmax_eq": false,
+   "margin": 0.078125
+  },
+  {
+   "round": 16,
+   "row": 0,
+   "finite": true,
+   "max_abs": 23.3984375,
+   "argmax_eq": false,
+   "margin": 0.25
+  },
+  {
+   "round": 17,
+   "row": 0,
+   "finite": true,
+   "max_abs": 25.7109375,
+   "argmax_eq": false,
+   "margin": 1.015625
+  },
+  {
+   "round": 18,
+   "row": 0,
+   "finite": true,
+   "max_abs": 21.21875,
+   "argmax_eq": false,
+   "margin": 0.515625
+  },
+  {
+   "round": 19,
+   "row": 0,
+   "finite": true,
+   "max_abs": 19.234375,
+   "argmax_eq": false,
+   "margin": 3.7109375
+  },
+  {
+   "round": 20,
+   "row": 0,
+   "finite": true,
+   "max_abs": 20.8828125,
+   "argmax_eq": false,
+   "margin": 1.375
+  },
+  {
+   "round": 21,
+   "row": 0,
+   "finite": true,
+   "max_abs": 32.1953125,
+   "argmax_eq": false,
+   "margin": 2.46875
+  },
+  {
+   "round": 22,
+   "row": 0,
+   "finite": true,
+   "max_abs": 31.34375,
+   "argmax_eq": false,
+   "margin": 8.40625
+  },
+  {
+   "round": 23,
+   "row": 0,
+   "finite": true,
+   "max_abs": 23.53125,
+   "argmax_eq": false,
+   "margin": 0.125
+  }
+ ],
+ "n_failing": 18,
+ "max_abs": 59.1298828125,
+ "accepted_lengths_seen": [
+  0,
+  1,
+  4
+ ],
+ "rounds": [
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 1,
+   "accepted": 1,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": null,
+   "accepted": 0,
+   "graph_T": 1,
+   "matches_ref": false
+  },
+  {
+   "planned": 4,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 2,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 3,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": null,
+   "accepted": 0,
+   "graph_T": 1,
+   "matches_ref": false
+  },
+  {
+   "planned": null,
+   "accepted": 0,
+   "graph_T": 1,
+   "matches_ref": false
+  },
+  {
+   "planned": 4,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 1,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 2,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 4,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 3,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 4,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 4,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 4,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": false
+  }
+ ],
+ "planned_met": 13,
+ "n_rounds": 24,
+ "coverage_complete": false,
+ "verdict": "fail"
+}

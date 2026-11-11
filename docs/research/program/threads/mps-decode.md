@@ -2,16 +2,23 @@
 
 Opened 2026-11-10 from the lab's Q003 result, at Rob's direction to explore it hard. Measurements so far are in [the findings log](../../../findings.md) under 2026-11-10; raw results in `docs/review/2026-11-10-experiments/`.
 
-## Where it stands (updated 2026-11-10, after the cross-family review)
+## Where it stands (updated 2026-11-10, after the rerun under fixed rules)
 
-Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. Details, and the corrections, in [the findings log](../../../findings.md).
+Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. These are medians of four interleaved rounds; the ranges and tables are in [the findings log](../../../findings.md), entry "Decode rerun under fixed rules".
 
-- **Batch 1:** `torch.compile` with a static cache, 1.67x against eager with the same cache (about 1.5x against default eager).
-- **Batches 4 to 16:** compile plus the multi-row kernel (final table), 1.64x, 2.02x and 2.13x at batches 4, 8 and 16 against eager with a static cache. The kernel alone gives 1.34x to 1.55x at batches 8 to 16. Error against float32 comparable to eager fp16.
-- **Verification:** with the kernel, the forward pass that verifies 4 drafted tokens costs 1.19x a single step (one process; to be replicated).
-- **Prompt-lookup speculation:** large gains on a copy-heavy code edit with output identical to plain decoding, but the measured 3.3x to 3.5x used a burdened baseline and will be rerun. Without the kernel it was already 2.3x to 2.6x; the kernel adds about 1.3x to 1.4x. Free writing gains nothing and adaptive drafting without the kernel lost 14%.
-- **Prior work:** arXiv 2610.31479 already connects small-row kernels to speculative verification on MLX (0.99x to 1.13x in one setup). The open part here is PyTorch on MPS, M1, 9 to 16 rows, and the size of the gain.
-- **Next:** the rerun below, harness written (`bench/rerun_all.sh`), rules fixed before running. Needs the GPU, which the lab holds now.
+- **Correctness.** Speculative rollback matches a freshly rebuilt cache at every acceptance length, and both planted faults are caught. Error against float32 is comparable to eager fp16 on real and random prompts.
+- **Batch 1.** `torch.compile` with a static cache runs 1.61x faster than static-cache eager and 1.55x faster than default eager. With a 512-token context it is 1.72x. The kernel adds nothing at batch 1, as expected.
+- **Batches 8 and 16.** Compile plus the multi-row kernel runs 1.9x to 2.1x faster than either eager baseline, and the kernel alone contributes 1.66x to 1.77x of that.
+- **Verification.** Checking 4 drafted tokens costs 1.52x a single step with the kernel and 2.08x without it. That misses the 1.3x prediction; the earlier 1.19x was one favourable process.
+- **Prompt-lookup speculation**, against an ordinary compiled decoder, requests run to completion:
+  - **Edits.** The output is identical to plain decoding. Code edit: 2.9x in decode time and 2.8x for the whole request. Prose typo fix: 3.1x to 3.3x and 2.9x to 3.0x. Without the kernel it is 2.1x.
+  - **Free writing.** Adaptive drafting with the kernel breaks even (1.02x). Fixed-length drafting loses (0.58x without the kernel, 0.84x with it).
+- **Prior work.** arXiv 2610.31479 already connects small-row kernels to speculative verification on MLX, with 0.99x to 1.13x in one setup. The open part here is PyTorch on MPS, an M1, 9 to 16 rows, and the size of the gain.
+- **Next.**
+  - The T4 A/B is running in its own session (`kaggle-qwen-serve`) and waits for a free Kaggle slot.
+  - Scale folding, the other half of experiment C.
+  - Why T = 2 verifies more slowly than T = 3 with the kernel (1.52x against 1.45x); a configuration choice at two rows is the likely cause.
+  - Whether to write this up as one result: a PyTorch MPS path to about 3x on edit-style generation, exact output, with no draft model.
 
 ## Rerun protocol (fixed 2026-11-10, before any rerun result)
 

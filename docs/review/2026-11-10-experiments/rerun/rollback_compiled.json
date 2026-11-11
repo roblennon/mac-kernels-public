@@ -1,0 +1,169 @@
+{
+ "arm": "compiled",
+ "plant": "none",
+ "torch": "2.15.0",
+ "prompt_tokens": 890,
+ "tolerance": 0.1484375,
+ "plain_err_max": 0.07421875,
+ "rows": 68,
+ "failing_rows": [],
+ "n_failing": 0,
+ "max_abs": 0.12890625,
+ "accepted_lengths_seen": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "rounds": [
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 1,
+   "accepted": 1,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": null,
+   "accepted": 0,
+   "graph_T": 1,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 2,
+   "accepted": 2,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 3,
+   "accepted": 3,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": null,
+   "accepted": 0,
+   "graph_T": 1,
+   "matches_ref": true
+  },
+  {
+   "planned": null,
+   "accepted": 0,
+   "graph_T": 1,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 1,
+   "accepted": 1,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 2,
+   "accepted": 2,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 3,
+   "accepted": 3,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 4,
+   "accepted": 4,
+   "graph_T": 5,
+   "matches_ref": true
+  },
+  {
+   "planned": 0,
+   "accepted": 0,
+   "graph_T": 5,
+   "matches_ref": true
+  }
+ ],
+ "planned_met": 24,
+ "n_rounds": 24,
+ "coverage_complete": true,
+ "verdict": "pass"
+}

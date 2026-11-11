@@ -1369,3 +1369,83 @@ GPT-6.1 Sol reviewed today's decode work read-only ([its review](research/progra
 - **PyTorch PR 198721 was credited with the 2.5 ms batch-1 gain from 2.14.1 to 2.15.0.** Comparing two releases does not isolate one change.
 - **A kernel contract hole:** `supports()` accepted zero-width inputs, which divide by zero in the split calculation. Fixed and tested; no measured shape was affected.
 - **Method:** the decode harness takes the faster of two pass medians, runs arms in a fixed order, and keeps no per-sample data. The large gains are credible; the second digit is not established. The rerun will interleave arms across repeated processes, keep every sample, add A/A arms, include default dynamic-cache eager, and force every acceptance length in the speculative loop against a freshly rebuilt cache.
+
+## 2026-11-10: Decode rerun under fixed rules
+
+The rerun Sol's review asked for, under the protocol and predictions in [the decode thread](research/program/threads/mps-decode.md) written before any result. Qwen3-1.7B fp16, M1 Max, torch 2.15.0, transformers 5.18.0.
+
+**How it was run.**
+
+- Four rounds. Every process runs every arm, in a rotated order, and keeps every sample.
+- Ratios are formed inside each process and reported as the median across the four rounds, with the range.
+- A/A arms pair two separately compiled copies of the same pipeline, so they measure the noise.
+- Raw data and `summary.md` are in [rerun/](review/2026-11-10-experiments/rerun/).
+- In round 2, a local CPU-only llama.cpp dry run from another session overlapped the code-edit and free-writing speculative processes. Their A/A pairs read 1.25 and 1.11, where the other rounds read 0.97 to 1.04. Medians absorb that one round; ranges that include round 2 are marked.
+
+**Correctness, checked before any timing.**
+
+- **Speculative rollback is exact.** This holds in eager, compiled, and compiled with the kernel:
+  - every acceptance length from 0 to 4 was forced, along with switches between one-token and five-token steps;
+  - rejected cache slots were filled with sentinels;
+  - every verified row was compared with a freshly rebuilt cache.
+  - Both planted faults failed. Skipping the counter reset was off by 25 to 45 logits against a tolerance of 0.15.
+- **Equivalence against float32 passes the rule fixed in advance,** on both real-text and random prompts. On real text, compiled with the kernel against eager fp16:
+  - mean error 0.0043 against 0.0051;
+  - 99.9th percentile 0.029 against 0.034;
+  - maximum 0.073 against 0.090;
+  - top-1 agreement 511 of 512 for both.
+
+**Decode step against static-cache eager, and against default dynamic-cache eager, median (range):**
+
+| Setting | Compiled | Compiled + kernel | Kernel over compiled |
+|---|---|---|---|
+| Batch 1, context 32 | 1.61x (1.59–1.80); 1.55x default | 1.64x; 1.55x default | 1.01x (0.91–1.05) |
+| Batch 1, context 512 | 1.72x; 1.72x default | 1.78x; 1.74x default | 1.02x |
+| Batch 4 | 1.22x | 1.65x (1.53–1.77); 1.63x default | 1.42x |
+| Batch 8 | 1.19x | 1.93x (1.91–2.01); 1.92x default | 1.66x (1.59–1.70) |
+| Batch 16, context 32 | 1.16x | 2.04x (1.99–2.30); 2.07x default | 1.77x (1.69–2.02) |
+| Batch 16, context 512 | 1.12x | 1.89x (1.76–1.98); 2.05x default | 1.69x |
+
+- **Batch-1 A/A pairs vary by up to 9% in a single process.** The 9% gap between nominally identical pipelines reported earlier is that noise. The kernel arms at batch 1 sit inside it.
+- **Default dynamic-cache eager runs 3 to 6% faster than static-cache eager at batch 1, and up to 8% slower at batch 16 with a 512-token context.**
+
+**Verify cost misses its prediction.** One forward of T tokens on a 256-token context, as a ratio to T = 1:
+
+| T | 2 | 3 | 5 | 9 | 13 | 17 |
+|---|---|---|---|---|---|---|
+| Compiled + kernel | 1.52 | 1.45 | 1.52 (1.42–1.64) | 1.79 | 1.65 | 3.24 |
+| Compiled | 1.77 | 1.57 | 2.08 | 2.72 | 3.09 | 3.30 |
+
+The prediction was that five tokens would cost at most 1.3x one token. They cost 1.52x. The earlier 1.19x came from a single favourable process. The kernel still roughly halves the cost of verification against compiled alone, up to 13 tokens. At 17 rows it switches off.
+
+**Prompt-lookup speculation against an ordinary compiled decoder** (batch 1, greedy, every request to end-of-sequence; median over four rounds):
+
+| Task | Speculation | Adaptive | Speculation + kernel | Adaptive + kernel |
+|---|---|---|---|---|
+| Code edit (853 tokens), decode | 2.08x | 2.07x | 2.92x (2.81–3.53 with round 2) | 2.97x |
+| Code edit, whole request | | | 2.76x | 2.80x |
+| Prose typo fix (244 tokens), decode | 2.08x | 2.22x | 3.14x | 3.31x (3.26–3.42) |
+| Prose typo fix, whole request | | | 2.86x | 3.01x |
+| Free writing, per token | 0.58x | 0.92x | 0.84x | 1.02x (1.00–1.09) |
+
+- **Every edit-task output is token-for-token identical to plain decoding.** That covers every arm and every round.
+- **Free writing diverges after a near-tie.** It happens at token 34 with adaptive drafting plus the kernel, and at token 296 with fixed drafting plus the kernel. Free writing is therefore compared per token.
+
+**Against the fixed predictions.**
+
+- Batch 1, at least 1.4x static and 1.3x default: met (1.61x and 1.55x).
+- Batches 8 and 16, at least 1.8x, with the kernel adding at least 1.3x: met.
+- Verify at most 1.3x: missed (1.52x).
+- Code edit, at least 2.5x decode and 2x whole request: met (2.92x and 2.76x).
+- Free writing, adaptive with the kernel, at least 0.95x: met (1.02x).
+
+Every claimed gain clears its setting's largest A/A deviation in all four rounds. Two arms do not clear it, so neither is a gain: free-writing parity, and the kernel at batch 1.
+
+**What changes from the earlier entries.**
+
+- The batch-16 result is about 2.0x, not 2.13x.
+- Batch 1 is 1.6x against static-cache eager and 1.55x against default eager, not 1.67x.
+- Verify costs 1.5x, not 1.19x.
+- The code-edit speculation is 2.9x against an honest baseline, not 3.3 to 3.5x. A prose edit does slightly better, at 3.1 to 3.3x.
+- Without the kernel, speculation gives 2.1x on both edits.
+- One reporting change was made after round 0, and is disclosed here. Free writing is compared per token, because diverging answers differ in length.

@@ -1,0 +1,64 @@
+rollback_compiled exit 0
+<out>/rollback_compiled.json pass
+rollback_compiled_kernel exit 0
+<out>/rollback_compiled_kernel.json pass
+rollback_eager exit 0
+<out>/rollback_eager.json pass
+rollback_plant_skip_reset exit 0
+<out>/rollback_plant_skip_reset.json fail
+rollback_plant_visible_sentinel exit 0
+<out>/rollback_plant_visible_sentinel.json fail
+equiv_real_ref exit 0
+equiv_real exit 0
+<out>/equiv_real.json pass
+equiv_random exit 0
+<out>/equiv_random.json pass
+step_b1_p32_r0 exit 0
+step_b4_p32_r0 exit 0
+step_b8_p32_r0 exit 0
+step_b16_p32_r0 exit 0
+step_b1_p512_r0 exit 0
+step_b16_p512_r0 exit 0
+spec_code_edit_r0 exit 0
+spec_doc_edit_r0 exit 0
+spec_free_writing_r0 exit 0
+verify_eager_r0 exit 0
+verify_compiled_r0 exit 0
+verify_compiled_kernel_r0 exit 0
+step_b1_p32_r1 exit 0
+step_b4_p32_r1 exit 0
+step_b8_p32_r1 exit 0
+step_b16_p32_r1 exit 0
+step_b1_p512_r1 exit 0
+step_b16_p512_r1 exit 0
+spec_code_edit_r1 exit 0
+spec_doc_edit_r1 exit 0
+spec_free_writing_r1 exit 0
+verify_eager_r1 exit 0
+verify_compiled_r1 exit 0
+verify_compiled_kernel_r1 exit 0
+step_b1_p32_r2 exit 0
+step_b4_p32_r2 exit 0
+step_b8_p32_r2 exit 0
+step_b16_p32_r2 exit 0
+step_b1_p512_r2 exit 0
+step_b16_p512_r2 exit 0
+spec_code_edit_r2 exit 0
+spec_doc_edit_r2 exit 0
+spec_free_writing_r2 exit 0
+verify_eager_r2 exit 0
+verify_compiled_r2 exit 0
+verify_compiled_kernel_r2 exit 0
+step_b1_p32_r3 exit 0
+step_b4_p32_r3 exit 0
+step_b8_p32_r3 exit 0
+step_b16_p32_r3 exit 0
+step_b1_p512_r3 exit 0
+step_b16_p512_r3 exit 0
+spec_code_edit_r3 exit 0
+spec_doc_edit_r3 exit 0
+spec_free_writing_r3 exit 0
+verify_eager_r3 exit 0
+verify_compiled_r3 exit 0
+verify_compiled_kernel_r3 exit 0
+ALL DONE

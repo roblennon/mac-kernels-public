@@ -51,7 +51,12 @@ def spec(d):
                     PROBLEMS.append(f"{os.path.basename(f)} {a_} repeat {i}: hit the cap, not end-of-sequence")
                 if run.get("same_tokens_as_first") is False:
                     PROBLEMS.append(f"{os.path.basename(f)} {a_} repeat {i}: tokens differ from the first repeat")
-        med = {a: {m: st.median(run[m] for run in v["runs"]) for m in ("decode_s", "whole_s")} for a, v in arms.items()}
+        # per-token decode time too: when an arm's answer diverges after a near-tie its length differs,
+        # and whole-request times then compare different amounts of work (added after round 0, 2026-11-10)
+        med = {a: {"decode_s": st.median(run["decode_s"] for run in v["runs"]),
+                   "whole_s": st.median(run["whole_s"] for run in v["runs"]),
+                   "decode_s_per_token": st.median(run["decode_s"] / run["new_tokens"] for run in v["runs"])}
+               for a, v in arms.items()}
         for a, v in med.items():
             t["decode_s"][a].append(v["decode_s"]); t["whole_s"][a].append(v["whole_s"])
             t["tokens"][a].append(arms[a]["runs"][0]["new_tokens"])
@@ -63,7 +68,7 @@ def spec(d):
                 if first is None and len(base) != len(toks):
                     first = min(len(base), len(toks))
                 t["match"][a].append(first)
-            for m in ("decode_s", "whole_s"):
+            for m in ("decode_s", "whole_s", "decode_s_per_token"):
                 if "plain_a" in med and a != "plain_a":
                     t["ratios"][f"{m} plain_a/{a}"].append(med["plain_a"][m] / med[a][m])
     return {k: {"ratios": {n: summ(v) for n, v in t["ratios"].items()}, "first_divergence_vs_plain": dict(t["match"]),

@@ -21,6 +21,8 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - [x] Decode thread experiments A to C (`threads/mps-decode.md`): fused norm and rope, compile with a static cache, the multi-row kernel, merged projections, prompt-lookup speculation; cross-family review and corrections (6f6ad21)
 - [x] Decode rerun under the protocol fixed in `threads/mps-decode.md` (2026-11-10): all checks pass; 4 of 5 predictions met, verify cost missed (1.52x, not 1.3x); findings log entry "Decode rerun under fixed rules"
 - [x] Kaggle T4 server: n-gram drafting ahead of MTP shipped as serve v4 (2026-11-10): 2.8x on the edit benchmark, +16% decode on real OpenCode traffic (kaggle-qwen-serve EVIDENCE.md)
+- [x] Kaggle T4 server: the Orca 27B fits both T4s with `-sm tensor` at 262144 context, 49-58 tok/s on edits and 22-25 on free writing (2026-11-10, kaggle-qwen-serve EVIDENCE.md, tune-27b v1); `serve.py` defaults to it, with an idle shutdown
+- [ ] Kaggle T4 server, after the 2026-11-14 quota refresh: run `tune-27b-replay` (200K-class depth, tunnel cut, prefill batch, real traffic), then serve the 27B; owned by kaggle-qwen-serve's CHECKPOINTS.md
 - [ ] Scale folding (experiment C's other half) and the verified-rewrite design's next stage
 - [x] Subject gates reviewed by Sol for needless slowness and weakness; 141 changes applied across 23 cards, 20 points rejected with reasons
 - [ ] Parked cards owe searches: self-training-37, nested-bitplanes (paired-metric-floor's park was confirmed by a second reader).

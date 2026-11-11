@@ -135,7 +135,8 @@ The A/B used about 36 minutes of GPU time (12 for the benchmark, 24 for the repl
 - **Prefill** is about 530 tok/s. A cold 19,552-token prompt gave its first token after 45 s.
 - **Correctness.** Edits were exact against plain greedy, and every bar set before the run held.
 - **How it compares with the earlier estimate.** Speculation pays proportionally more here: 2.4x over plain decoding against about 1.7x on the 9B. That matches the expectation. But MTP acceptance on free writing is only 53%, so deeper MTP slows it.
-- **Plan.** The serve switch to the 27B waits for the quota refresh on 2026-11-14: a 20-minute tune run first, then serving. That is `kaggle-qwen-serve`'s call.
+- **Plan (updated 2026-11-11).** `serve.py` now serves the 27B by default, as one copy across both cards with n-gram plus MTP depth 2. It stops itself after 45 idle minutes. The 9B stays one setting away. Nothing runs before the quota refresh on 2026-11-14. Rob uses the endpoint at 200K+ tokens of context, so the next run, `tune-27b-replay`, measures that: cold reading speed by depth and decode speed at about 190K tokens; whether the Cloudflare quick tunnel cuts a cold read that stays silent for more than 100 s (llama-server streams progress only when a request sets `return_progress`); the prefill batch size; and the 44 captured OpenCode requests. Serving follows. Details are in `kaggle-qwen-serve`'s CHECKPOINTS.md and `docs/2026-11-10-27b-assessment.md`.
+- **A link to the small-row work here.** Our 8-token n-gram drafts make 9-token verify steps, one past CUDA's 8-row `MMVQ_MAX_BATCH_SIZE`. A 7-token draft is a cheap A/B on the T4, queued in `kaggle-qwen-serve`. The torch and MLX attention step from 8 to 9 query rows (Q009b, reviewed) is separate evidence for the same boundary on the Mac.
 
 ## Experiments, in order
 

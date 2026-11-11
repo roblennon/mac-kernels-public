@@ -1449,3 +1449,24 @@ Every claimed gain clears its setting's largest A/A deviation in all four rounds
 - The code-edit speculation is 2.9x against an honest baseline, not 3.3 to 3.5x. A prose edit does slightly better, at 3.1 to 3.3x.
 - Without the kernel, speculation gives 2.1x on both edits.
 - One reporting change was made after round 0, and is disclosed here. Free writing is compared per token, because diverging answers differ in length.
+
+## 2026-11-11: The attention cliff above 8 query rows shows in the whole model
+
+The lab's Q009b found that torch MPS attention switches to a much slower path above 8 query rows (`model-research-lab/research/verification/outcomes/Q009b-2026-11-11.md`). This is the gate for decode experiment E. It measures one verify forward of T tokens in whole Qwen3-1.7B fp16 at a 4,096-token context, with seven samples per T and one process per arm (torch 2.15.0, M1 Max). Raw data is in [2026-11-11-gateE/](review/2026-11-11-gateE/).
+
+Median ms per forward:
+
+| T | 1 | 5 | 8 | 9 | 12 | 16 |
+|---|---|---|---|---|---|---|
+| Eager | 56.0 | 68.7 | 76.0 | **124.0** | 125.3 | 130.5 |
+| Compiled | 40.8 | 60.3 | 70.5 | **122.1** | 114.8 | 124.4 |
+| Compiled + kernel | 42.8 | 37.0 | 57.8 | **108.3** | 103.8 | 105.0 |
+
+- **The cliff is present in every arm.** T = 9 costs 1.63x to 1.87x as much as T = 8. Then cost flattens: T = 16 is within 5% of T = 9.
+- **It is robust to the noise.** The samples are noisy at this context (T = 1 ranges from 27 to 47 ms within one arm), but in every arm the slowest T = 8 sample is faster than the fastest T = 9 sample.
+- **Against the gate prediction written before the run:**
+  - T = 9 at least 1.3x T = 8: **met** in every arm.
+  - T = 8 at most 1.15x T = 5: met for eager (1.11x), about met for compiled (1.17x), missed for the kernel arm (1.56x, where T = 5 read low).
+  - The 16,384-token cells **did not run**. The harness re-reads the whole prompt before every timed sample, and each process hit its 400-second limit. A 16k measurement needs a cache snapshot rather than a re-prefill.
+- **What it means for speculation on MPS.** At a 4k context, verifying 8 drafts (T = 9) costs about 2.5x to 4x a single step, against about 1.4x to 2x for 7 drafts (T = 8). So drafts should be capped at 7 on MPS until attention is fixed. A Metal attention kernel for 2 to 16 query rows (experiment E) is justified.
+- **Decoding one token is also much slower at 4k than at 256 context:** 27 to 45 ms against about 15 ms. Attention over the cache already dominates at T = 1 on this path.

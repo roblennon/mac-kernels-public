@@ -16,8 +16,8 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - semantic-latent-memorization: accept the DINOv3 licence.
 - Thread experiment D needs a 7B model download (about 14 GB in fp16).
 - train-scaffolds step 2: days of unattended Mac time.
-- Whether these research files go public. The repository is public once pushed, and the docs name his private projects. Local main is 53+ commits ahead of origin.
-- Before that push, the history must be rewritten. On 2026-11-11 one set-aside card and its mentions moved to the private mac-kernels repo (Rob's direction), but their text is still in the unpushed commits. The private repo's TASKS.md has the procedure. Don't push until it's done.
+- 2026-11-11: pushed to GitHub at Rob's request, after a history rewrite moved one set-aside card to the private repo. Everything here is public from now on. Work the private repo keeps to itself stays there, and so do private project details.
+- Pushes are refused by the repo-check hook until `test_smallq_hf.py::test_enable_disable_and_compiled_static_cache_model_matches_stock` passes. It fails because of the transformers 5.18 compiled graph break, fixed in 5.20. Upgrade, or mark the test as expected to fail on 5.18. Until then, Rob approved `git push --no-verify` for the 2026-11-11 pushes only.
 - The PyTorch issue draft (`docs/upstream/pytorch-mps-sdpa-small-query-cliff.md`): review, then post or not. Posting is public, and it should link the repro and the prototype from a public place, so it depends on the publication decision above. The transformers draft is not for posting, because 5.20.0 fixed the bug.
 - Colab login; the gaming PC's GPU model. Kaggle works from the Studio through its API token, but the 30-hour weekly GPU quota is shared with `kaggle-qwen-serve` and model-research-lab, so check kaggle.com/settings before planning a run.
 - Rotate the Modal token pasted in chat on 2026-11-09; delete the Modal Volume `mac-kernels-weight-error` (about 27 GB) when done with it.

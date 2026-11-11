@@ -42,7 +42,7 @@ Predictions and pass rules are written into the thread before a measurement runs
 - **Never max out the machine.** Rob uses the machine at the same time. Several heavy jobs at once, all CPU cores busy, or enough memory to swap all need his say-so first.
 - **One GPU job at a time.** With subagents, assume that: they can research, write and review in parallel, but GPU runs serialize through the lock.
 
-**Environment.** The PyTorch measurements use `.venv-decode` (torch 2.15.0 and transformers 5.18.0; `bench/requirements-decode.txt` rebuilds it). Hugging Face models load offline with `HF_HOME=/Volumes/RTL-Data/AI-Models/huggingface HF_HUB_OFFLINE=1`. Downloading a model, a new runtime or a newer MLX into a separate test environment is a download, so ask Rob before doing it.
+**Environment.** The PyTorch measurements use `.venv-decode` (torch 2.15.0 and transformers 5.18.0; `bench/requirements-decode.txt` rebuilds it). Hugging Face models load offline with `HF_HOME` pointed at the local model cache and `HF_HUB_OFFLINE=1`. Downloading a model, a new runtime or a newer MLX into a separate test environment is a download, so ask Rob before doing it.
 
 **Git and publication.**
 - **Commit locally.** Use conventional commits, and add the agent-provenance trailer from `~/personal-os/skills/dev-delivery-ops/references/agent-provenance.md` with your own model and family.

@@ -13,7 +13,12 @@ rebuild's wherever the rebuild's top-two margin exceeds 0.5. The tolerance is ca
 fault shared by both paths cannot widen it without limit. The check is valid only if every accepted
 length 0 to 4 occurred and both graph switches (one token to five, five to one) happened; otherwise
 the verdict is "inconclusive". Planted controls must fail:
-skip_reset skips the counter reset; visible_sentinel puts the sentinel in the newest committed slot."""
+skip_reset skips the counter reset; visible_sentinel puts the sentinel in the newest committed slot.
+
+Arms: eager; compiled; compiled_kernel (compiled + the multi-row linear kernel); compiled_kernel_smallq
+(compiled + the multi-row kernel + the small-query attention kernel, bench/smallq_hf.py, at its
+default threshold of 4 rows, so the five-token verify steps run the attention kernel and the
+one-token steps, the prefill and the eager rebuilds run stock SDPA)."""
 import argparse, json, os, sys
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, StaticCache
@@ -27,14 +32,17 @@ K, SENTINEL = 4, 1000.0
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arm", required=True, choices=["eager", "compiled", "compiled_kernel"])
+    ap.add_argument("--arm", required=True, choices=["eager", "compiled", "compiled_kernel", "compiled_kernel_smallq"])
     ap.add_argument("--plant", default="none", choices=["none", "skip_reset", "visible_sentinel"])
     ap.add_argument("--out", required=True); a = ap.parse_args()
     tok = AutoTokenizer.from_pretrained(REPO, revision=REV)
     model = AutoModelForCausalLM.from_pretrained(REPO, revision=REV, dtype=torch.float16).to("mps").eval()
     prompt = task_prompt(tok, "code_edit")[0].tolist(); P = len(prompt)
     n_ref = sum(1 + (x or 0) for x in SCHEDULE) + 8
-    USE["kernel"] = a.arm == "compiled_kernel"
+    USE["kernel"] = a.arm in ("compiled_kernel", "compiled_kernel_smallq")
+    if a.arm == "compiled_kernel_smallq":
+        import smallq_hf
+        smallq_hf.enable(model)
 
     def step(x, cache, pos):
         return model(x, past_key_values=cache, use_cache=True, cache_position=pos).logits

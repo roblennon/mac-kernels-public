@@ -40,6 +40,10 @@ Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. These are medians of four interleaved r
       - Whole Qwen3-1.7B compiled with both kernels, at 4,096 context: one-token decoding at most 20 ms (stock: 27 to 45 ms), and T = 9 at most 1.3x T = 8.
       - Correctness: within fp32-accumulation error of a float64 reference, no worse than stock SDPA's own error. Rollback and equivalence checks still pass.
     - **Stop rule.** If the isolated kernel cannot beat stock SDPA at T = 8 and 4,096 keys by 1.5x, stop before wiring it into the model.
+  - **E, after the build (2026-11-11).**
+    - **The kernel and its wiring are built and reviewed.** The kernel files are `bench/smallq_attention.{metal,py}`; the transformers wiring is `bench/smallq_hf.py` (`enable(model)`). There are 392 tests, and rollback still passes with both planted faults caught.
+    - **One prediction is void.** The "one-token decoding at most 20 ms" prediction rested on a measurement artifact. The step right after a 4,096-token prefill pays about 30 ms once, from memory clocks dropping during long compute (a profile in the findings log). Steady-state one-token decoding at 4k is already about 15 ms.
+    - **The whole-model rerun, rule fixed before it runs.** `bench_verify_cost.py --rewind`, at 4,096 and 16,384 context, three rounds with the T order rotated. Arms: compiled plus multirow, with and without the small-query kernel (`compiled_kernel_smallq`). The kernel counts as a gain at a T where every round's median favours it and the median ratio clears the larger A/A deviation. Predictions: with the kernel, T = 9 costs at most 1.3x T = 8; and T = 9 to 16 is at least 1.8x faster than without it at 4,096 context.
   - **The MLX counterpart (also Q009b).** MLX's 4-bit matrix product runs a per-row path up to about 9 rows and switches to a tiled path only from 12 rows. That is the same small-row gap the multi-row kernel closed in PyTorch, so it is a candidate upstream issue for mlx.
   - Whether to write this up as one result: a PyTorch MPS path to about 3x on edit-style generation, exact output, with no draft model.
 

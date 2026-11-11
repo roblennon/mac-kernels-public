@@ -15,7 +15,7 @@ Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. These are medians of four interleaved r
   - **Free writing.** Adaptive drafting with the kernel breaks even (1.02x). Fixed-length drafting loses (0.58x without the kernel, 0.84x with it).
 - **Prior work.** arXiv 2610.31479 already connects small-row kernels to speculative verification on MLX, with 0.99x to 1.13x in one setup. The open part here is PyTorch on MPS, an M1, 9 to 16 rows, and the size of the gain.
 - **Next.**
-  - The T4 A/B is running in its own session (`kaggle-qwen-serve`) and waits for a free Kaggle slot.
+  - The T4 A/B is done and shipped (section below): 2.8x on the edit benchmark, 16% on real agent traffic.
   - Scale folding, the other half of experiment C.
   - Why T = 2 verifies more slowly than T = 3 with the kernel (1.52x against 1.45x); a configuration choice at two rows is the likely cause.
   - Whether to write this up as one result: a PyTorch MPS path to about 3x on edit-style generation, exact output, with no draft model.
@@ -78,7 +78,21 @@ This is the T4 counterpart of the cache-rollback bug found here. It is also wher
 - **A bigger model won't fit one T4.** A 27B model at 4 bits is about 16 GB, which needs both cards. One copy would then be split across them over PCIe, so the server loses its second copy and runs well below the 9B's speed.
 - **So it only makes sense when answer quality matters more than throughput.** Run it with n-gram plus MTP drafting from the start.
 
-The 9B A/B costs about 15 to 30 minutes of GPU quota. The weekly allowance is unverified: the serve README says 30 hours, and the Kaggle API reported 6 hours on 2026-11-10, but the API's usage figure contradicted the hours actually run that day, so its numbers are not trusted. The Kaggle settings page is the source to check. It does not wait on the Mac rerun, because it measures llama.cpp directly.
+The A/B used about 36 minutes of GPU time (12 for the benchmark, 24 for the replay). Kaggle's settings page showed 27.5 of 30 weekly GPU hours used on 2026-11-10, refreshing 2026-11-14. The API's quota call misreports this.
+
+**Result (2026-11-10).** Prompt lookup transferred and now ships in serve v4 as `--spec-type ngram-simple,draft-mtp`, with 8-token lookup and drafts and `--spec-draft-n-max 2`. The evidence is in `kaggle-qwen-serve`'s EVIDENCE.md (two dated entries) and its raw JSON.
+
+- **On the frozen benchmark,** against MTP depth 2 alone: 2.76x on the code edit, 2.32x on the prose edit, and 1.10x on free writing, which is within noise. Edit outputs matched plain greedy exactly.
+- **On real OpenCode traffic,** with 44 captured agent requests replayed: decode is 16% faster with OpenCode's sampling and 25% faster greedy, and a session is about 10 to 15% faster end to end.
+  - **The gain is in tool-call arguments,** which run 50 to 80% faster. Reasoning gains 5 to 10% and answer text nothing.
+  - **The benchmark overstated real use** by about ten times in the excess (2.8x against 1.16x). Agent edits are short diffs, and reasoning has nothing to copy.
+- **The rollback wrinkle was cheap at n-max 2.** A long edit used about 100 checkpointed drafts and 3 to 5 restores. Raising n-max removes restores but deepens MTP, which cut free writing to 0.57x, so it was rejected.
+- **Two b12228 defaults silently disable short drafts.** ngram-mod's `n-min` of 48 discards anything shorter. ngram-simple drafts only when `size-m` is at least `size-n`, whose default is 12.
+- **On long agent contexts,** greedy output differs between MTP alone and n-gram plus MTP, from the batch-shape numerics in llama.cpp #25618. On short prompts it matched.
+
+**Lesson for this thread.** A copy-heavy benchmark measures the mechanism, not the workload. The Mac's 2.9x to 3.3x on edits is real for whole-file rewrites. For an agent that emits short diffs, expect the T4's tens of percent. A real-traffic replay is the number to quote.
+
+The 27B question was assessed separately but not measured. The plan is one 30-minute tune run with the two cards splitting each layer's computation (`-sm tensor`), once quota refreshes on 2026-11-14.
 
 ## Experiments, in order
 

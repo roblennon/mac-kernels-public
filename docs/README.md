@@ -12,6 +12,7 @@
 - [LoRA training on an INT8 ConvRot base](research/2026-10-02-lora-training-on-quantized-bases.md)
 - [GGUF diffusion models on Apple GPUs](research/2026-10-03-gguf-on-metal.md)
 - [Format checkpoint availability](research/2026-10-04-format-checkpoint-availability.md)
+- [Free compute for open-weight models](research/2026-11-09-free-compute-options.md): notebook GPUs, free inference APIs, grants an independent developer can get.
 - [EXL3 LLM weights on Metal, prototype](research/2026-10-25-exl3-prototype.md): correct, 2.4–4.4× slower than llama.cpp's GGUF kernels, stopped there.
 - [Research statement](research-statement.md): research question, contributions, related work, limitations and proposed aims.
 - [Pre-grant review, November 9](review/2026-11-09-pre-grant-review.md): what holds up, what must be fixed, and where this sits against other work. Raw outputs of the two follow-up experiments are in [review/2026-11-09-experiments](review/2026-11-09-experiments/).

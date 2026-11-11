@@ -17,6 +17,7 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - Thread experiment D needs a 7B model download (about 14 GB in fp16).
 - train-scaffolds step 2: days of unattended Mac time.
 - Whether these research files go public. The repository is public once pushed, and the docs name his private projects. Local main is 53+ commits ahead of origin.
+
 - The two upstream issue drafts (`docs/upstream/pytorch-mps-sdpa-small-query-cliff.md`, `docs/upstream/transformers-static-cache-compile-graph-break.md`): review, then post or not. Posting is public.
 - Colab login; the gaming PC's GPU model. Kaggle works from the Studio through its API token, but the 30-hour weekly GPU quota is shared with `kaggle-qwen-serve` and model-research-lab, so check kaggle.com/settings before planning a run.
 - Rotate the Modal token pasted in chat on 2026-11-09; delete the Modal Volume `mac-kernels-weight-error` (about 27 GB) when done with it.
@@ -66,3 +67,4 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - 2026-11-09 night: web search for subagents is capped at about 200 calls per turn of the lead session, shared. Search-heavy workflows run three agents at a time.
 - 2026-11-09 evening: Rob changed this pass to ideas and preparation only; idea rounds are no longer capped at two.
 - 2026-11-09: no grant application yet. The Mozilla Fellowship letter of intent (2026-12-17) is the planning date.
+- 2026-11-09: Inference.net (up to $10k compute, inference-performance focus) and Google TPU Research Cloud applications were drafted and kept in the private mac-kernels repo (`docs/grants/`); neither is submitted. Free-compute options are in `docs/research/2026-11-09-free-compute-options.md`.

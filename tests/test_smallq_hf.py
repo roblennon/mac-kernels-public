@@ -31,10 +31,14 @@ def op(q, k, v, pos, scale):
 
 @pytest.fixture(autouse=True)
 def _fresh_dynamo():
+    # The routing tests below are written for threshold 4, whatever the module's default.
+    default = dict(smallq_hf.SETTINGS)
+    smallq_hf.SETTINGS.update(threshold=4, decode_offset=False)
     torch._dynamo.reset()
     yield
     torch._dynamo.reset()
-    smallq_hf.SETTINGS["threshold"] = 4
+    smallq_hf.SETTINGS.clear()
+    smallq_hf.SETTINGS.update(default)
 
 
 @pytest.mark.parametrize("T", [1, 4, 9, 16])
@@ -267,3 +271,76 @@ def test_slot_offset_is_a_copy_not_a_view_of_the_cache_counter():
     counter.add_(8)
     # Assert
     assert smallq_hf.is_slot_marker(m) and m.tolist() == [300, 300]
+
+
+def test_decode_offset_takes_single_token_steps_on_a_compileable_cache():
+    # Arrange: at T = 1 transformers turns allow_is_causal_skip off for a compileable cache; with the
+    # decode_offset opt-in the kernel masks by the cache slot, so the mask function hands it the
+    # offset. A padding mask or a custom mask function at T = 1 still goes to sdpa_mask.
+    smallq_hf.SETTINGS.update(threshold=1, decode_offset=True)
+    pos, Lmax = 300, 400
+    q, k, v = qkv(T=1, Lmax=Lmax, seed=21)
+    pad = torch.ones(1, Lmax, dtype=torch.bool, device="mps")
+    pad[0, :5] = False
+    kwargs = dict(dropout=0.0, scaling=128 ** -0.5, sliding_window=None,
+                  position_ids=torch.tensor([[pos]], device="mps"))
+    # Act
+    m = mask_for(1, pos, Lmax)
+    out, _ = smallq_hf.smallq_attention_forward(_Attn(), q, k, v, m, **kwargs)
+    padded = mask_for(1, pos, Lmax, attention_mask=pad)
+    other = smallq_hf.smallq_mask(batch_size=1, q_length=1, kv_length=Lmax, q_offset=torch.tensor(pos, device="mps"),
+                                  kv_offset=0, mask_function=lambda b, h, qi, ki: ki <= qi,
+                                  allow_is_causal_skip=False, device="mps")
+    # Assert
+    assert smallq_hf.is_slot_marker(m) and m.tolist() == [pos]
+    kern = sq.smallq_attention_dev(q, k, v, torch.tensor([pos], device="mps"), 128 ** -0.5).transpose(1, 2)
+    assert torch.equal(out, kern)
+    stock, _ = sdpa_attention_forward(_Attn(), q, k, v, _sdpa_mask(1, pos, Lmax), **kwargs)
+    assert (out.float() - stock.float()).abs().max() < 2e-3
+    assert not smallq_hf.is_slot_marker(padded) and not padded[..., :5].any()
+    assert not smallq_hf.is_slot_marker(other)
+
+
+def test_a_requested_materialized_mask_is_kept_unless_opted_in():
+    # Arrange: allow_is_causal_skip=False with the plain causal mask function is both transformers'
+    # T = 1 step on a compileable cache and a model that needs the mask itself (Falcon, Doge).
+    pos, Lmax = 300, 400
+
+    def explicit(T):
+        return smallq_hf.smallq_mask(batch_size=1, q_length=T, kv_length=Lmax, q_offset=torch.tensor(pos, device="mps"),
+                                     kv_offset=0, allow_is_causal_skip=False, device="mps")
+    # Act / Assert: without the opt-in every T gets sdpa_mask, threshold 1 included.
+    smallq_hf.SETTINGS["threshold"] = 1
+    for T in (1, 4, 16):
+        assert torch.equal(explicit(T), _sdpa_mask(T, pos, Lmax)), T
+    # The opt-in covers T = 1 only.
+    smallq_hf.SETTINGS["decode_offset"] = True
+    assert smallq_hf.is_slot_marker(explicit(1))
+    for T in (4, 16):
+        assert torch.equal(explicit(T), _sdpa_mask(T, pos, Lmax)), T
+
+
+def test_model_that_indexes_its_mask_is_stock_at_threshold_one():
+    # Arrange: Doge passes allow_is_causal_skip=False and indexes the mask it gets (its dynamic mask),
+    # so it must receive a real mask at every T. Prefill 8 tokens, then steps of T = 1 and 4.
+    from transformers import DogeConfig, DogeForCausalLM, DynamicCache
+    torch.manual_seed(0)
+    cfg = DogeConfig(vocab_size=128, hidden_size=64, intermediate_size=128, num_hidden_layers=2,
+                     num_attention_heads=4, num_key_value_heads=2, head_dim=16, keep_window_size=2048)
+    model = DogeForCausalLM(cfg).to("mps").eval()
+    ids = torch.randint(0, 128, (1, 13)).to("mps")
+
+    def run():
+        cache = DynamicCache(config=cfg)
+        with torch.no_grad():
+            return [model(ids[:, a:b], past_key_values=cache, use_cache=True).logits
+                    for a, b in ((0, 8), (8, 9), (9, 13))]
+    model.set_attn_implementation("sdpa")
+    stock = run()
+    # Act
+    prev = smallq_hf.enable(model, threshold=1)
+    ours = run()
+    smallq_hf.disable(model, prev)
+    # Assert
+    for s, o in zip(stock, ours):
+        assert torch.equal(s, o)

@@ -18,9 +18,14 @@ from bench import smallq_attention as sq
 pytestmark = pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs MPS")
 
 MAX_RATIO, MEAN_RATIO = 1.5, 1.25
-# The default plus the other configurations measured while tuning, so whichever is chosen is covered.
-CONFIGS = [sq.DEFAULT] + [sq.Config.parse(n) for n in
-                          ("bk32_ns16_f_q_r4", "bk64_ns32_f_t_r4", "bk32_ns8_h_t_r2", "bk64_ns128_h_q_r1")]
+# The default, experiment E's configuration (BASELINE, still selectable), and the other
+# configurations measured while tuning, so whichever is chosen is covered. The last two take the
+# row-vector path with 32 lanes per key (4-element loads; D = 64 falls back to the matrix path),
+# up to 4 rows per simdgroup and the one-simdgroup parallel reduce, and with 16 lanes per key, rows
+# above 16 on the matrix path, and an 8-simdgroup reduce.
+CONFIGS = [sq.DEFAULT, sq.BASELINE] + [sq.Config.parse(n) for n in
+                                       ("bk32_ns16_f_q_r4", "bk64_ns32_f_t_r4", "bk32_ns8_h_t_r2", "bk64_ns128_h_q_r1",
+                                        "bk32_ns16_f_t_r2_v32g4u1n32l32_rs1", "bk32_ns16_f_t_r2_v16g2u2n64l16_rs8")]
 
 
 def make(B, Hq, Hkv, T, pos, D=128, extra=21, garbage="large", qscale=1.0, seed=0):
@@ -389,3 +394,104 @@ def test_scale_outside_the_kernel_range_is_refused():
             sq.smallq_attention(q, k, v, 0, scale=bad)
         with pytest.raises(ValueError):
             sq.smallq_attention_dev(q, k, v, torch.zeros(1, dtype=torch.int64, device="mps"), scale=bad)
+
+
+# ---- Row-vector path and parallel reduce (E2) -----------------------------------------------------
+
+def test_config_names_round_trip_and_baseline_is_experiment_e():
+    # Arrange / Act / Assert
+    assert sq.BASELINE.name() == "bk32_ns16_f_t_r2" and sq.BASELINE == sq.Config()
+    for c in CONFIGS:
+        assert sq.Config.parse(c.name()) == c
+    with pytest.raises(ValueError):
+        sq.Config.parse("bk32_ns16_f_t_r2_x1")
+
+
+@pytest.mark.parametrize("Lk", [1, 63, 64, 65, 1003, 4096, 4112, 16400])
+@pytest.mark.parametrize("cfg", [c for c in CONFIGS if c.vrows], ids=lambda c: c.name())
+def test_vec_plans_cover_every_key_and_row(cfg, Lk):
+    # Arrange / Act / Assert: chunks are whole steps, cover the keys, and fill whole threadgroups;
+    # row groups cover every row; the grid-y count is the kernel's own formula.
+    for R in range(1, sq.VMAX_ROWS + 1):
+        RV, RGT, RGY, VCH = sq.vec_groups(R, cfg)
+        assert RV * RGT * RGY >= R and RV * RGT * (RGY - 1) < R and RGT <= sq.VMAX_GROUPS
+        assert RGY == -(-R // (RV * RGT)) and RGT * VCH * 32 <= 256
+        chunk, NS = sq.vec_plan(Lk, cfg, VCH)
+        assert chunk % ((32 // cfg.vl) * cfg.vu) == 0 and NS % VCH == 0 and chunk * NS >= Lk
+
+
+def test_default_takes_the_row_vector_path_for_every_qwen_call():
+    # Arrange / Act / Assert: Qwen3-1.7B (G = 2, D = 128) at T = 1 to 16; G = 4 at T = 16 (64 rows)
+    # and D = 64 with 32 lanes per key keep the matrix path.
+    assert all(sq.uses_vec(2, T, 128, sq.DEFAULT) for T in range(1, 17))
+    assert not sq.uses_vec(4, 16, 128, sq.DEFAULT)
+    assert not any(sq.uses_vec(2, T, 128, sq.BASELINE) for T in range(1, 17))
+    assert not sq.uses_vec(2, 1, 64, sq.Config.parse("bk32_ns16_f_t_r2_v32g4u1n32l32_rs1"))
+
+
+VEC_FAULTS = [
+    # the lazy reference max moves but the running sums are not rescaled
+    ("const float a = exp2(m[r] - mx);       // 0 while m is -inf", "const float a = 1.0f;", "rescale"),
+    # slots merged with the other slot's weight left at 1
+    ("const float wo = mo == -INFINITY ? 0.0f : exp2(mo - M);", "const float wo = mo == -INFINITY ? 0.0f : 1.0f;", "merge"),
+    # the score's reduction across the slot's lanes stops one step short
+    ("for (ushort x = 1; x < LPK; x *= 2) d += simd_shuffle_xor(d, x);",
+     "for (ushort x = 1; x < LPK / 2; x *= 2) d += simd_shuffle_xor(d, x);", "dot"),
+    # every row group computes with the first group's query rows
+    ("const int rr = min(r0 + r, R - 1);", "const int rr = min(r, R - 1);", "rows"),
+]
+
+
+@pytest.mark.parametrize("old, new, kind", VEC_FAULTS, ids=[f[2] for f in VEC_FAULTS])
+@pytest.mark.parametrize("T", [1, 8, 16])
+@pytest.mark.parametrize("dev", [False, True], ids=["host", "dev"])
+def test_planted_vec_faults_are_caught(old, new, kind, T, dev):
+    # Arrange: keys in the later part of the cache score far higher, so the reference max moves
+    # inside chunks; sharp queries make the slots' maxima differ. T = 16 spreads the rows over two
+    # threadgroups along grid y.
+    src = sq.SOURCE_PATH.read_text()
+    assert src.count(old) == 1
+    lib = sq._Library(src.replace(old, new))
+    q, k, v = make(1, 16, 8, T, 3000, qscale=3.0, seed=5 + T)
+    k[:, :, 1500:3000 + T] *= 4
+    assert sq.uses_vec(2, T, 128, sq.DEFAULT)
+    # Act
+    ok, d = check(q, k, v, 3000, lib=lib, dev=dev)
+    # Assert
+    assert not ok, d
+    assert check(q, k, v, 3000, dev=dev)[0]
+
+
+@pytest.mark.parametrize("T, pos, qscale, scale", EXTREME[:3], ids=["q100", "q300", "scale50"])
+@pytest.mark.parametrize("dev", [False, True], ids=["host", "dev"])
+def test_planted_baseline_reduce_max_from_first_chunk_is_caught(T, pos, qscale, scale, dev):
+    # Arrange: as test_planted_reduce_max_from_first_chunk_is_caught, for experiment E's reduce.
+    old, new = "for (int s = 0; s < NS; s += 1) M = max(M, ml[s].x);", "M = ml[0].x;"
+    src = sq.SOURCE_PATH.read_text()
+    assert src.count(old) == 1
+    lib = sq._Library(src.replace(old, new))
+    q, k, v = make(1, 16, 8, T, pos, qscale=qscale, seed=pos + T)
+    # Act
+    ok, d = check(q, k, v, pos, scale=scale, cfg=sq.BASELINE, lib=lib, dev=dev)
+    # Assert
+    assert not ok, d
+    assert check(q, k, v, pos, scale=scale, cfg=sq.BASELINE, dev=dev)[0]
+
+
+@pytest.mark.parametrize("old, new", [
+    ("acc += accs[jj][i];", "acc += 0.0f * accs[jj][i];"),     # other threads' chunks dropped from O
+    ("L += ls[jj];", "L += 0.0f * ls[jj];"),                   # ... and from the softmax sum
+])
+@pytest.mark.parametrize("dev", [False, True], ids=["host", "dev"])
+def test_planted_parallel_reduce_faults_are_caught(old, new, dev):
+    # Arrange
+    src = sq.SOURCE_PATH.read_text()
+    assert src.count(old) == 1
+    lib = sq._Library(src.replace(old, new))
+    q, k, v = make(1, 16, 8, 4, 4000, seed=12)
+    assert sq.DEFAULT.rs > 1
+    # Act
+    ok, d = check(q, k, v, 4000, lib=lib, dev=dev)
+    # Assert
+    assert not ok, d
+    assert check(q, k, v, 4000, dev=dev)[0]

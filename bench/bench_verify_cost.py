@@ -12,18 +12,28 @@ ap = argparse.ArgumentParser(); ap.add_argument("--arm", required=True); ap.add_
 ap.add_argument("--T", default="1,2,3,5,9,13,17"); ap.add_argument("--reps", type=int, default=9)
 ap.add_argument("--repeat-first", action="store_true", help="measure the first T again at the end, as an A/A check")
 ap.add_argument("--prompt-len", type=int, default=256)
+ap.add_argument("--smallq-threshold", type=int, default=None, help="smallq arms: the kernel takes T >= this "
+                "(default: smallq_hf's default threshold)")
+ap.add_argument("--smallq-decode-offset", action="store_true", help="smallq arms: one-token steps take the kernel too "
+                "when the threshold is 1 (smallq_hf decode_offset; safe for Qwen3, not for models that need the mask)")
 ap.add_argument("--rewind", action="store_true", help="prefill once and rewind the cache counter before each call, "
                 "instead of re-prefilling: the step right after a long prefill pays a one-off memory-clock penalty "
                 "of about 30 ms on this M1 Max (2026-11-11 profile), so re-prefilling mis-times the steady step"); a = ap.parse_args()
 model = AutoModelForCausalLM.from_pretrained(REPO, revision=REV, dtype=torch.float16).to("mps").eval()
 P = a.prompt_len
 USE["kernel"] = "kernel" in a.arm
-if a.arm.endswith("smallq"):  # compiled + multirow kernel + the small-query attention kernel for T >= 4
-    import smallq_hf; smallq_hf.enable(model)
+smallq_cfg = None
+if a.arm.endswith("smallq"):  # compiled + multirow kernel + the small-query attention kernel for T >= threshold
+    import smallq_hf, smallq_attention
+    smallq_hf.enable(model, decode_offset=a.smallq_decode_offset,
+                     **({} if a.smallq_threshold is None else {"threshold": a.smallq_threshold}))
+    smallq_cfg = {"threshold": smallq_hf.SETTINGS["threshold"], "decode_offset": smallq_hf.SETTINGS["decode_offset"],
+                  "config": smallq_attention.DEFAULT.name()}
 def step(x, cache, pos): return model(x, past_key_values=cache, use_cache=True, cache_position=pos).logits
 fn = step if a.arm == "eager" else torch.compile(step, dynamic=False)
 g = torch.Generator().manual_seed(3)
-res = {"arm": a.arm, "torch": torch.__version__, "prompt": P, "ms": {}, "compile_s": {}, "samples_ms": {}}
+res = {"arm": a.arm, "torch": torch.__version__, "prompt": P, "ms": {}, "compile_s": {}, "samples_ms": {},
+       "smallq": smallq_cfg, "argv": sys.argv}
 with torch.no_grad():
     cache = StaticCache(config=model.config, max_cache_len=P + 32)
     ids = torch.randint(1000, 30000, (1, P), generator=g).to("mps")

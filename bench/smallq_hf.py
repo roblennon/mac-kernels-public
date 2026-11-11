@@ -53,9 +53,15 @@ except ImportError:  # imported with bench/ on sys.path, as the bench scripts do
     import smallq_attention as sq
 
 NAME = "mk_smallq"
-# T >= threshold uses the kernel. 4 by default: in the isolated timing (28 layers, 4,096 keys) the
-# kernel was slower than stock SDPA at T = 1 and 2 (paired ratio 0.52, 0.75) and faster from 4 on.
-SETTINGS = {"threshold": 4}
+# T >= threshold uses the kernel. 4 by default, set by the whole model, not the isolated timing. In
+# isolation (28 layers, 4,096 keys, paired per-round ratios) E2's row-vector path ties stock SDPA
+# at T = 1 (1.05x against a boolean mask, 0.92x against the fp16 additive mask transformers uses)
+# and wins from T = 2 (1.4x). In whole Qwen3-1.7B, compiled, bench_verify_cost.py --rewind, three
+# rounds (2026-11-11), the kernel path was slower at T = 1 in every round (0.91-0.97x at 4,096 and
+# 16,384 tokens) and at T = 2 in two of three rounds at 4,096 (0.92, 0.985), and faster at T >= 4
+# in every round's median but one inside the A/A spread. Experiment E's kernel had lost at T = 1
+# and 2 even in isolation (0.52x, 0.75x). Those T = 1 timings needed decode_offset (smallq_mask).
+SETTINGS = {"threshold": 4, "decode_offset": False}
 
 
 def position_mask(pos, T, L):
@@ -116,10 +122,20 @@ def smallq_mask(*args, **kwargs):
     range it returns the cache write offset (q_offset, the slot the new rows are written to) as an
     int64 [batch] tensor instead of a mask; the attention function masks by it. Taking the offset
     from the cache, not from position_ids, keeps the kernel right when a caller passes positions that
-    differ from the cache slots. Otherwise it is sdpa_mask, unchanged."""
+    differ from the cache slots. Otherwise it is sdpa_mask, unchanged.
+    A caller that sets allow_is_causal_skip=False asks for a materialized mask, and gets one. That
+    includes transformers' own one-token steps on a compileable cache, so T = 1 normally gets
+    sdpa_mask even at threshold 1. SETTINGS["decode_offset"] (off by default, a bench opt-in) hands
+    the offset at T = 1 anyway. It is only safe for models whose attention takes the mask as given
+    (Qwen3 does): from inside the mask function a compileable-cache decode step cannot be told apart
+    from a model that needs the mask itself, such as Falcon (alibi), Doge (its dynamic mask indexes
+    it) or an "indexed_attention" layer, which also pass allow_is_causal_skip=False with the plain
+    causal mask function."""
     if (not args and kwargs.get("attention_mask") is None and in_kernel_range(kwargs.get("q_length", 0))
             and kwargs.get("mask_function", causal_mask_function) is causal_mask_function
-            and not kwargs.get("local_size") and kwargs.get("allow_is_causal_skip", True)):
+            and not kwargs.get("local_size")
+            and (kwargs.get("allow_is_causal_skip", True)
+                 or (SETTINGS["decode_offset"] and kwargs.get("q_length") == 1))):
         off = kwargs.get("q_offset", 0)
         off = off.to(torch.int64) if isinstance(off, torch.Tensor) else torch.tensor(int(off), dtype=torch.int64)
         # A copy, never a view: q_offset can be the cache's own counter, which each layer's cache
@@ -164,13 +180,15 @@ AttentionInterface.register(NAME, smallq_attention_forward)
 AttentionMaskInterface.register(NAME, smallq_mask)
 
 
-def enable(model, threshold=4):
+def enable(model, threshold=4, decode_offset=False):
     """Switch a loaded model to the kernel for T >= threshold. Returns the previous attention
-    implementation, for disable(). A compiled function recompiles after the switch (Dynamo guards
-    on the implementation name and on the threshold). Each switch adds cache entries per T, and
-    Dynamo's recompile limit (8) is reached after a few; compile a fresh function or call
-    torch._dynamo.reset() after switching."""
+    implementation, for disable(). decode_offset lets one-token steps on a compileable cache reach
+    the kernel at threshold 1; see smallq_mask for when that is unsafe. A compiled function
+    recompiles after the switch (Dynamo guards on the implementation name and on the settings).
+    Each switch adds cache entries per T, and Dynamo's recompile limit (8) is reached after a few;
+    compile a fresh function or call torch._dynamo.reset() after switching."""
     SETTINGS["threshold"] = int(threshold)
+    SETTINGS["decode_offset"] = bool(decode_offset)
     prev = model.config._attn_implementation
     model.set_attn_implementation(NAME)
     return prev

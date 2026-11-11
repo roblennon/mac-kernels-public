@@ -44,6 +44,8 @@ def main():
     ap.add_argument("--Ts", default="1,4,8,9,16")
     ap.add_argument("--prefill", type=int, default=4096)
     ap.add_argument("--threshold", type=int, default=4)
+    ap.add_argument("--decode-offset", action="store_true", help="T = 1 takes the kernel too at threshold 1 "
+                    "(smallq_hf decode_offset)")
     ap.add_argument("--reps", type=int, default=7)
     ap.add_argument("--out", required=True); a = ap.parse_args()
     Ts = [int(t) for t in a.Ts.split(",")]
@@ -77,12 +79,13 @@ def main():
             step(drafts[T]); torch.mps.synchronize(); times.append(time.perf_counter() - t)
         return statistics.median(times[2:]) * 1e3
 
-    res = {"torch": torch.__version__, "prefill": P, "Lmax": P + 64, "threshold": a.threshold, "Ts": Ts,
+    res = {"torch": torch.__version__, "prefill": P, "Lmax": P + 64, "threshold": a.threshold,
+           "decode_offset": a.decode_offset, "Ts": Ts,
            "per_T": {}}
     logits = {}
     for impl in ("sdpa", "mk_smallq"):
         if impl == "mk_smallq":
-            smallq_hf.enable(model, threshold=a.threshold)
+            smallq_hf.enable(model, threshold=a.threshold, decode_offset=a.decode_offset)
         torch._dynamo.reset()
         cnt = torch._dynamo.testing.CompileCounterWithBackend("inductor")
         step = torch.compile(fwd, backend=cnt, dynamic=False)

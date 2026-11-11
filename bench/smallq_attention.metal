@@ -395,8 +395,240 @@ kernel void sqa_pass1_dev(device const half* q [[buffer(0)]],
                                         qs, ss, alpha, rescaled);
 }
 
+// Row-vector path (sqa_vec): for few rows, R = G * T up to 8, where the 8-row simdgroup tiles of
+// pass 1 would be mostly padding. No simdgroup matrices, no threadgroup memory, no barriers. Each
+// simdgroup takes one row group (RV of the R rows) of one key chunk. A threadgroup holds RGT = A.RG
+// row groups times nsg / RGT chunks, so the row groups of a chunk read the same keys at about the
+// same time, mostly from the core's cache; with more row groups than RGT, RGY threadgroups along
+// grid y share a (kv head, chunk) and each takes RGT of them. A simdgroup works as
+// 32 / LPK slots of LPK lanes; a slot takes one key at a time and its LPK lanes split the head dim,
+// lane `sub` owning the W-element runs at c * W * LPK + W * sub (W = min(E, 8) with E = D / LPK
+// elements per lane, c < E / W), so each load instruction of a slot reads W * LPK * 2 contiguous
+// bytes of a K or V row. Per step a simdgroup takes U consecutive keys per slot, loaded together.
+// The score for each of the R rows is a dot over the lane's elements and log2(LPK) xor shuffles
+// inside the slot. Q is held in registers, pre-multiplied by scale * log2(e). Each slot keeps its
+// own online softmax per row, with the same lazy reference max as pass 1 (it moves only when a
+// step's max exceeds it by more than SLACK); the slots are merged by shuffles at the end, and the
+// chunk's (O, m, l) go to the same partial buffers, so the same reduce combines the chunks.
+// Template RV = rows per group (compiled per RV); rows past R in the last group are computed as
+// fully masked and not written.
+template <int W> struct VecWord;
+template <> struct VecWord<8> { typedef uint4 type; };
+template <> struct VecWord<4> { typedef uint2 type; };
+
+// One step's K and V words for this lane: U keys per slot from key n0, rows clamped to Lk - 1.
+template <int U, int C, int W, int LPK, int NSLOT, typename word>
+inline void vec_load(thread word (&kw)[U][C], thread word (&vw)[U][C], device const half* kbase,
+                     device const half* vbase, long ksl, long vsl, int n0, int slot, int Lk) {
+    _Pragma("unroll") for (int u = 0; u < U; ++u) {
+        const int n = min(n0 + NSLOT * u + slot, Lk - 1);
+        _Pragma("unroll") for (int c = 0; c < C; ++c) {
+            kw[u][c] = *(device const word*)(kbase + long(n) * ksl + c * W * LPK);
+            vw[u][c] = *(device const word*)(vbase + long(n) * vsl + c * W * LPK);
+        }
+    }
+}
+
+template <int D, int RV, int U, int LPK>
+inline void sqa_vec_body(device const half* q, device const half* k, device const half* v,
+                         device float* part_o, device float* part_ml, const SqaArgs A,
+                         uint3 tgp, uint3 ntg, uint sg, uint nsg, uint lane) {
+    constexpr int E = D / LPK;         // head-dim elements per lane
+    constexpr int W = E < 8 ? E : 8;   // elements per load
+    constexpr int C = E / W;           // loads per lane per K or V row
+    constexpr int NSLOT = 32 / LPK;
+    typedef typename VecWord<W>::type word;
+    static_assert(D % LPK == 0 && E >= 4 && E % W == 0 && 32 % LPK == 0 && RV >= 1 && U >= 1,
+                  "bad configuration");
+    const int slot = int(lane) / LPK, sub = int(lane) % LPK;
+    const int T = A.T, G = A.G, pos = A.pos, NS = A.NS;
+    const int R = G * T;
+    const int RGT = A.RG, RGY = (R + RV * RGT - 1) / (RV * RGT);
+    const int split = int(tgp.x) * (int(nsg) / RGT) + int(sg) / RGT;
+    const int r0 = ((int(tgp.y) % RGY) * RGT + int(sg) % RGT) * RV;
+    const int kvh = int(tgp.y) / RGY, b = int(tgp.z);
+    const long Hq = long(ntg.y / uint(RGY)) * G;
+    const int Lk = pos + T;
+    const int ks = split * A.chunk;
+    const int ke = min(ks + A.chunk, Lk);
+    const float sl2 = A.scale * M_LOG2E_F;
+
+    float qv[RV][E];
+    int lim[RV];
+    _Pragma("unroll") for (int r = 0; r < RV; ++r) {
+        const int rr = min(r0 + r, R - 1);
+        const int g = rr / T, t = rr % T;
+        device const half* qr = q + long(b) * A.qsb + (long(kvh) * G + g) * A.qsh + long(t) * A.qst;
+        _Pragma("unroll") for (int c = 0; c < C; ++c)
+            _Pragma("unroll") for (int e = 0; e < W; ++e)
+                qv[r][W * c + e] = float(qr[c * W * LPK + W * sub + e]) * sl2;
+        lim[r] = r0 + r < R ? min(pos + t + A.shift, Lk - 1) : -1;   // padding rows see no key
+    }
+    device const half* kbase = k + long(b) * A.ksb + long(kvh) * A.ksh + W * sub;
+    device const half* vbase = v + long(b) * A.vsb + long(kvh) * A.vsh + W * sub;
+
+    float m[RV], l[RV], o[RV][E];
+    _Pragma("unroll") for (int r = 0; r < RV; ++r) {
+        m[r] = -INFINITY;
+        l[r] = 0.0f;
+        _Pragma("unroll") for (int e = 0; e < E; ++e) o[r][e] = 0.0f;
+    }
+
+    // (Loading the next step's K and V before this step's arithmetic was measured: no gain at
+    // T = 1, slower at T = 2 to 8.)
+    for (int n0 = ks; n0 < ke; n0 += NSLOT * U) {
+        word kw[U][C], vw[U][C];
+        vec_load<U, C, W, LPK, NSLOT>(kw, vw, kbase, vbase, A.ksl, A.vsl, n0, slot, Lk);
+        float s[U][RV];
+        _Pragma("unroll") for (int u = 0; u < U; ++u) {
+            float kf[E];
+            _Pragma("unroll") for (int c = 0; c < C; ++c)
+                _Pragma("unroll") for (int i = 0; i < W / 2; ++i) {
+                    const half2 h = as_type<half2>(kw[u][c][i]);
+                    kf[W * c + 2 * i] = float(h.x);
+                    kf[W * c + 2 * i + 1] = float(h.y);
+                }
+            const int n = n0 + NSLOT * u + slot;
+            _Pragma("unroll") for (int r = 0; r < RV; ++r) {
+                float d = 0.0f;
+                _Pragma("unroll") for (int e = 0; e < E; ++e) d = fma(kf[e], qv[r][e], d);
+                _Pragma("unroll") for (ushort x = 1; x < LPK; x *= 2) d += simd_shuffle_xor(d, x);
+                s[u][r] = n <= lim[r] ? d : -INFINITY;
+            }
+        }
+        // Lazy reference max per slot and row; a step whose keys are all masked leaves it alone.
+        _Pragma("unroll") for (int r = 0; r < RV; ++r) {
+            float mx = s[0][r];
+            _Pragma("unroll") for (int u = 1; u < U; ++u) mx = max(mx, s[u][r]);
+            if (mx > m[r] + SLACK) {
+                const float a = exp2(m[r] - mx);       // 0 while m is -inf
+                l[r] *= a;
+                _Pragma("unroll") for (int e = 0; e < E; ++e) o[r][e] *= a;
+                m[r] = mx;
+            }
+        }
+        _Pragma("unroll") for (int u = 0; u < U; ++u) {
+            float vf[E];
+            _Pragma("unroll") for (int c = 0; c < C; ++c)
+                _Pragma("unroll") for (int i = 0; i < W / 2; ++i) {
+                    const half2 h = as_type<half2>(vw[u][c][i]);
+                    vf[W * c + 2 * i] = float(h.x);
+                    vf[W * c + 2 * i + 1] = float(h.y);
+                }
+            _Pragma("unroll") for (int r = 0; r < RV; ++r) {
+                const float p = s[u][r] == -INFINITY ? 0.0f : exp2(s[u][r] - m[r]);
+                l[r] += p;
+                _Pragma("unroll") for (int e = 0; e < E; ++e) o[r][e] = fma(p, vf[e], o[r][e]);
+            }
+        }
+    }
+
+    // Merge the slots (lanes LPK apart, then 2 LPK, ...); every slot ends with the merged state.
+    _Pragma("unroll") for (int r = 0; r < RV; ++r) {
+        _Pragma("unroll") for (ushort x = LPK; x < 32; x *= 2) {
+            const float mo = simd_shuffle_xor(m[r], x), lo = simd_shuffle_xor(l[r], x);
+            const float M = max(m[r], mo);
+            const float w = m[r] == -INFINITY ? 0.0f : exp2(m[r] - M);
+            const float wo = mo == -INFINITY ? 0.0f : exp2(mo - M);
+            l[r] = l[r] * w + lo * wo;
+            _Pragma("unroll") for (int e = 0; e < E; ++e) {
+                const float oo = simd_shuffle_xor(o[r][e], x);
+                o[r][e] = o[r][e] * w + oo * wo;
+            }
+            m[r] = M;
+        }
+    }
+    if (slot == 0) {
+        _Pragma("unroll") for (int r = 0; r < RV; ++r) {
+            const int rr = r0 + r;
+            if (rr >= R) continue;
+            const long hq = long(kvh) * G + rr / T;
+            const long idx = ((long(b) * Hq + hq) * T + rr % T) * NS + split;
+            device float* po = part_o + idx * D + W * sub;
+            _Pragma("unroll") for (int c = 0; c < C; ++c)
+                _Pragma("unroll") for (int e = 0; e < W; e += 4)
+                    *(device float4*)(po + c * W * LPK + e) =
+                        float4(o[r][W * c + e], o[r][W * c + e + 1], o[r][W * c + e + 2], o[r][W * c + e + 3]);
+            if (sub == 0) *(device float2*)(part_ml + 2 * idx) = float2(m[r], l[r]);
+        }
+    }
+}
+
+// Row-vector entries, the same buffers as pass 1 (buffer 19, RG, is the row groups per threadgroup).
+template <int D, int RV, int U, int LPK>
+kernel void sqa_vec(device const half* q [[buffer(0)]],
+                    device const half* k [[buffer(1)]],
+                    device const half* v [[buffer(2)]],
+                    device float* part_o [[buffer(3)]],
+                    device float* part_ml [[buffer(4)]],
+                    constant long& qsb [[buffer(5)]],
+                    constant long& qsh [[buffer(6)]],
+                    constant long& qst [[buffer(7)]],
+                    constant long& ksb [[buffer(8)]],
+                    constant long& ksh [[buffer(9)]],
+                    constant long& ksl [[buffer(10)]],
+                    constant long& vsb [[buffer(11)]],
+                    constant long& vsh [[buffer(12)]],
+                    constant long& vsl [[buffer(13)]],
+                    constant long& T_ [[buffer(14)]],
+                    constant long& G_ [[buffer(15)]],
+                    constant long& pos_ [[buffer(16)]],
+                    constant long& chunk_ [[buffer(17)]],
+                    constant long& NS_ [[buffer(18)]],
+                    constant long& RG_ [[buffer(19)]],
+                    constant long& shift_ [[buffer(20)]],
+                    constant float& scale [[buffer(21)]],
+                    uint3 tgp [[threadgroup_position_in_grid]],
+                    uint3 ntg [[threadgroups_per_grid]],
+                    uint sg [[simdgroup_index_in_threadgroup]],
+                    uint nsg [[simdgroups_per_threadgroup]],
+                    uint lane [[thread_index_in_simdgroup]]) {
+    const SqaArgs A = {qsb, qsh, qst, ksb, ksh, ksl, vsb, vsh, vsl, int(T_), int(G_), int(pos_),
+                       int(chunk_), int(NS_), int(RG_), int(shift_), scale};
+    sqa_vec_body<D, RV, U, LPK>(q, k, v, part_o, part_ml, A, tgp, ntg, sg, nsg, lane);
+}
+
+template <int D, int RV, int U, int LPK>
+kernel void sqa_vec_dev(device const half* q [[buffer(0)]],
+                        device const half* k [[buffer(1)]],
+                        device const half* v [[buffer(2)]],
+                        device float* part_o [[buffer(3)]],
+                        device float* part_ml [[buffer(4)]],
+                        constant long& qsb [[buffer(5)]],
+                        constant long& qsh [[buffer(6)]],
+                        constant long& qst [[buffer(7)]],
+                        constant long& ksb [[buffer(8)]],
+                        constant long& ksh [[buffer(9)]],
+                        constant long& ksl [[buffer(10)]],
+                        constant long& vsb [[buffer(11)]],
+                        constant long& vsh [[buffer(12)]],
+                        constant long& vsl [[buffer(13)]],
+                        constant long& T_ [[buffer(14)]],
+                        constant long& G_ [[buffer(15)]],
+                        device const long* posd [[buffer(16)]],
+                        constant long& chunk_ [[buffer(17)]],
+                        constant long& NS_ [[buffer(18)]],
+                        constant long& RG_ [[buffer(19)]],
+                        constant long& shift_ [[buffer(20)]],
+                        constant float& scale [[buffer(21)]],
+                        constant long& pstride [[buffer(22)]],
+                        constant long& Lmax_ [[buffer(23)]],
+                        uint3 tgp [[threadgroup_position_in_grid]],
+                        uint3 ntg [[threadgroups_per_grid]],
+                        uint sg [[simdgroup_index_in_threadgroup]],
+                        uint nsg [[simdgroups_per_threadgroup]],
+                        uint lane [[thread_index_in_simdgroup]]) {
+    const long p = posd[long(tgp.z) * pstride], hi = Lmax_ - T_;
+    const long pc = p < 0 ? 0 : (p > hi ? hi : p);
+    const SqaArgs A = {qsb, qsh, qst, ksb, ksh, ksl, vsb, vsh, vsl, int(T_), int(G_), int(pc),
+                       int(chunk_), int(NS_), int(RG_), int(shift_), scale};
+    sqa_vec_body<D, RV, U, LPK>(q, k, v, part_o, part_ml, A, tgp, ntg, sg, nsg, lane);
+}
+
 // Pass 2: one threadgroup of D / 4 threads per output row (b, hq, t); thread i owns columns
-// 4 i .. 4 i + 3. Chunks whose row saw no visible key (m = -inf) get weight 0.
+// 4 i .. 4 i + 3. Chunks whose row saw no visible key (m = -inf) get weight 0. This is the
+// reduce of experiment E's configuration (Config.rs = 0): one thread walks every chunk in turn,
+// so its cost grows with NS at the latency of one load per chunk.
 template <int D>
 kernel void sqa_reduce(device const float* part_o [[buffer(0)]],
                        device const float* part_ml [[buffer(1)]],
@@ -407,7 +639,7 @@ kernel void sqa_reduce(device const float* part_o [[buffer(0)]],
     const int NS = int(NS_);
     device const float2* ml = (device const float2*)part_ml + long(row) * NS;
     float M = -INFINITY;
-    for (int s = 0; s < NS; ++s) M = max(M, ml[s].x);
+    for (int s = 0; s < NS; s += 1) M = max(M, ml[s].x);
     float L = 0.0f;
     float4 acc = 0.0f;
     device const float4* po = (device const float4*)(part_o + long(row) * NS * D) + i;
@@ -416,6 +648,63 @@ kernel void sqa_reduce(device const float* part_o [[buffer(0)]],
         const float w = (e.x == -INFINITY) ? 0.0f : exp2(e.x - M);
         L += w * e.y;
         acc += w * po[s * (D / 4)];
+    }
+    *((device half4*)(out + long(row) * D) + i) = half4(acc / L);
+}
+
+// Pass 2, parallel over chunks (Config.rs = RS > 0): one threadgroup of RS * D / 4 threads per
+// output row; thread (i, j) = (tid % (D / 4), tid / (D / 4)) owns columns 4 i .. 4 i + 3 of the
+// chunks s = j, j + RS, ..., two loads in flight per step. Every thread takes the reference max M
+// over all chunks (the m values are a few hundred bytes, read from cache); the RS partial sums are
+// then added through threadgroup memory. Same arithmetic as sqa_reduce up to summation order.
+template <int D, int RS>
+kernel void sqa_reduce_par(device const float* part_o [[buffer(0)]],
+                           device const float* part_ml [[buffer(1)]],
+                           device half* out [[buffer(2)]],
+                           constant long& NS_ [[buffer(3)]],
+                           uint row [[threadgroup_position_in_grid]],
+                           uint tid [[thread_index_in_threadgroup]]) {
+    constexpr int Q = D / 4;
+    threadgroup float4 accs[RS > 1 ? RS - 1 : 1][Q];
+    threadgroup float ls[RS > 1 ? RS - 1 : 1];
+    const int NS = int(NS_);
+    const int i = int(tid) % Q, j = int(tid) / Q;
+    device const float2* ml = (device const float2*)part_ml + long(row) * NS;
+    float M = -INFINITY;
+    for (int s = 0; s < NS; ++s) M = max(M, ml[s].x);
+    float L0 = 0.0f, L1 = 0.0f;
+    float4 a0 = 0.0f, a1 = 0.0f;
+    device const float4* po = (device const float4*)(part_o + long(row) * NS * D) + i;
+    int s = j;
+    for (; s + RS < NS; s += 2 * RS) {
+        const float2 e0 = ml[s], e1 = ml[s + RS];
+        const float4 p0 = po[s * Q], p1 = po[(s + RS) * Q];
+        const float w0 = (e0.x == -INFINITY) ? 0.0f : exp2(e0.x - M);
+        const float w1 = (e1.x == -INFINITY) ? 0.0f : exp2(e1.x - M);
+        L0 += w0 * e0.y;
+        L1 += w1 * e1.y;
+        a0 += w0 * p0;
+        a1 += w1 * p1;
+    }
+    if (s < NS) {
+        const float2 e = ml[s];
+        const float w = (e.x == -INFINITY) ? 0.0f : exp2(e.x - M);
+        L0 += w * e.y;
+        a0 += w * po[s * Q];
+    }
+    float4 acc = a0 + a1;
+    float L = L0 + L1;
+    if (RS > 1) {
+        if (j > 0) {
+            accs[j - 1][i] = acc;
+            if (i == 0) ls[j - 1] = L;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (j > 0) return;
+        _Pragma("unroll") for (int jj = 0; jj < RS - 1; ++jj) {
+            acc += accs[jj][i];
+            L += ls[jj];
+        }
     }
     *((device half4*)(out + long(row) * D) + i) = half4(acc / L);
 }

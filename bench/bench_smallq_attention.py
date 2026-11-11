@@ -9,6 +9,9 @@ sample. Arm order rotates every round; warm-up rounds are discarded; every sampl
 Arms:
   sdpa_gqa     F.scaled_dot_product_attention on the whole static cache with a [T, Lmax] boolean
                mask and enable_gqa=True
+  sdpa_fmask   sdpa_gqa with the mask as an fp16 additive [1, 1, T, Lmax] tensor (0 or -inf), the form
+               transformers' sdpa_mask produces under torch.compile; measured about 10% faster than
+               the boolean mask at T = 1 to 4 (grid --fmask-arm only)
   sdpa_repeat  the same with K/V repeated to Hq heads first (transformers' repeat_kv path; the
                copy is inside the timing, as it is in the model)
   sdpa_chunk8  zero-kernel arm: T split into chunks of at most 8 rows, one sdpa_gqa call per chunk
@@ -16,6 +19,8 @@ Arms:
   kernel       smallq_attention(q, k, v, pos)
   kernel_dev   smallq_attention_dev(q, k, v, pos as a device tensor): chunks sized from Lmax, pos read
                on the GPU (grid --dev-arm only; the path the transformers integration uses)
+  kernel_base  smallq_attention with config=BASELINE, experiment E's kernel as built (grid
+               --baseline-arm only), so a new default is compared with it in the same rounds
 
 Statistics. The arms in one round run back to back, so they share whatever the machine is doing
 at that moment, and absolute times drift together within a process and between processes (the
@@ -83,7 +88,7 @@ def repeat_kv(x, n):
     return x[:, :, None].expand(b, h, n, L, d).reshape(b, h * n, L, d)
 
 
-def make_arms(T, L_valid, cfg=None, dev=False):
+def make_arms(T, L_valid, cfg=None, dev=False, base=False, fmask=False):
     pos = L_valid - T
     Lmax = L_valid + EXTRA
     q = torch.randn(B, HQ, T, D, device="mps", dtype=torch.float16)
@@ -109,6 +114,11 @@ def make_arms(T, L_valid, cfg=None, dev=False):
     if dev:
         pos_t = torch.tensor([pos], device="mps")
         arms["kernel_dev"] = lambda k, v: sq.smallq_attention_dev(q, k, v, pos_t, config=cfg)
+    if base:
+        arms["kernel_base"] = lambda k, v: sq.smallq_attention(q, k, v, pos, config=sq.BASELINE)
+    if fmask:
+        fm = torch.zeros(1, 1, T, Lmax, dtype=torch.float16, device="mps").masked_fill(~mask, float("-inf"))
+        arms["sdpa_fmask"] = lambda k, v: F.scaled_dot_product_attention(q, k, v, attn_mask=fm, enable_gqa=True)
     return arms
 
 
@@ -181,12 +191,13 @@ def env():
 def cmd_grid(a):
     cfg = sq.Config.parse(a.config) if a.config else None
     result = {"cmd": "grid", "env": env(), "config": a.config or "pick_config",
+              "default_config": sq.DEFAULT.name(), "baseline_config": sq.BASELINE.name(), "argv": sys.argv,
               "rounds": a.rounds, "warmup": a.warmup, "cells": []}
     t_start = time.time()
     for L in a.lengths:
         kv = caches(L)
         for T in a.T:
-            arms = make_arms(T, L, cfg, dev=a.dev_arm)
+            arms = make_arms(T, L, cfg, dev=a.dev_arm, base=a.baseline_arm, fmask=a.fmask_arm)
             diff = max_diff(arms, kv)
             s = run_cell(arms, kv, a.rounds, a.warmup)
             summ = summarize(s)
@@ -238,6 +249,8 @@ def cmd_combine(a):
         for c in d["cells"]:
             cells.setdefault((c["L_valid"], c["T"]), []).append(c)
     stock = ["sdpa_gqa", "sdpa_repeat", "sdpa_chunk8"]
+    extra = [n for n in ("sdpa_fmask", "kernel_base", "kernel_dev") if all(n in c["arms"] for cs in cells.values() for c in cs)]
+    stock += extra
     arms = stock + ["kernel"]
 
     def rng(xs, fmt="{:.2f}"):
@@ -246,7 +259,9 @@ def cmd_combine(a):
 
     head = (["L_valid", "T", "procs"] + [f"{n} ms" for n in arms]
             + [f"{n}/kernel paired, median [IQR]" for n in stock]
-            + ["gqa/kernel per-process paired medians", "kernel GB/s"])
+            + ["gqa/kernel per-process paired medians"]
+            + [f"{m}/kernel per-process paired medians" for m in ("sdpa_fmask", "kernel_base") if m in stock]
+            + ["kernel GB/s"])
     print("| " + " | ".join(head) + " |")
     print("|" + "---|" * len(head))
     for (L, T), cs in sorted(cells.items()):
@@ -256,8 +271,9 @@ def cmd_combine(a):
             pooled = [x for c in cs for x in paired_ratios({m: c["arms"][m]["samples_ms"] for m in arms})[n]]
             q1, med, q3 = quartiles(pooled)
             row.append(f"{med:.2f} [{q1:.2f}-{q3:.2f}]")
-        per = [quartiles(paired_ratios({m: c["arms"][m]["samples_ms"] for m in arms})["sdpa_gqa"])[1] for c in cs]
-        row.append(", ".join(f"{x:.2f}" for x in per))
+        for n in ["sdpa_gqa"] + [m for m in ("sdpa_fmask", "kernel_base") if m in stock]:
+            per = [quartiles(paired_ratios({m: c["arms"][m]["samples_ms"] for m in arms})[n])[1] for c in cs]
+            row.append(", ".join(f"{x:.2f}" for x in per))
         row.append(rng([c["kernel_bytes"] / (c["arms"]["kernel"]["median_ms"] * 1e-3) / 1e9 for c in cs], "{:.0f}"))
         print("| " + " | ".join(row) + " |")
 
@@ -272,6 +288,8 @@ def main():
     g.add_argument("--warmup", type=int, default=2)
     g.add_argument("--config", default=None, help="kernel Config name; default pick_config")
     g.add_argument("--dev-arm", action="store_true", help="also time the device-position entry")
+    g.add_argument("--baseline-arm", action="store_true", help="also time the BASELINE config (kernel_base)")
+    g.add_argument("--fmask-arm", action="store_true", help="also time stock SDPA with an fp16 additive mask")
     g.add_argument("--out", required=True)
     g.set_defaults(fn=cmd_grid)
     t = sub.add_parser("tune")

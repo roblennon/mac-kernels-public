@@ -78,7 +78,7 @@ This is the T4 counterpart of the cache-rollback bug found here. It is also wher
 - **A bigger model won't fit one T4.** A 27B model at 4 bits is about 16 GB, which needs both cards. One copy would then be split across them over PCIe, so the server loses its second copy and runs well below the 9B's speed.
 - **So it only makes sense when answer quality matters more than throughput.** Run it with n-gram plus MTP drafting from the start.
 
-The 9B A/B costs about 15 minutes of the 30 free GPU hours a week. It does not wait on the Mac rerun, because it measures llama.cpp directly.
+The 9B A/B costs about 15 to 30 minutes of GPU quota. The Kaggle API reports this account's allowance as 6 hours a week, not the 30 the serve README assumes (1.8 hours used on 2026-11-10, resetting 2026-11-14). It does not wait on the Mac rerun, because it measures llama.cpp directly.
 
 ## Experiments, in order
 

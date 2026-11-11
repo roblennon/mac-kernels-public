@@ -95,7 +95,7 @@ There is nothing to carry over.
 **Worth testing now: prompt-lookup drafting.** This is the part that transfers, and llama.cpp already has it:
 
 - `b12228` ships five n-gram drafters.
-- `--spec-type` takes a list that it tries in order, n-gram before MTP. Asking for an n-gram drafter plus `draft-mtp` gives the adaptive policy built here: copy from the context when there is a match, otherwise use MTP.
+- `--spec-type` takes a list, and whatever its order, b12228 tries n-gram drafters before MTP: the priority is fixed in `common/speculative.cpp`. Asking for an n-gram drafter plus `draft-mtp` gives the adaptive policy built here: copy from the context when there is a match, otherwise use MTP.
 - So the upgrade is a server flag and a tune run, with no code from this repository.
 
 It pays on copy-heavy work, and the server feeds OpenCode, whose agent tasks rewrite and edit files. Free writing gains nothing, so the A/B needs both kinds of prompt.
@@ -119,9 +119,11 @@ The A/B used about 36 minutes of GPU time (12 for the benchmark, 24 for the repl
 **Result (2026-11-10).** Prompt lookup transferred and now ships in serve v4 as `--spec-type ngram-simple,draft-mtp`, with 8-token lookup and drafts and `--spec-draft-n-max 2`. The evidence is in `kaggle-qwen-serve`'s EVIDENCE.md (two dated entries) and its raw JSON.
 
 - **On the frozen benchmark,** against MTP depth 2 alone: 2.76x on the code edit, 2.32x on the prose edit, and 1.10x on free writing, which is within noise. Edit outputs matched plain greedy exactly.
+- **ngram-simple beat ngram-mod.** At the same 8-token drafts and n-max 2, ngram-mod gave 2.46x and 1.46x on the two edits. Its 24-token lookup waits longer after each change before it drafts again.
 - **On real OpenCode traffic,** with 44 captured agent requests replayed: decode is 16% faster with OpenCode's sampling and 25% faster greedy, and a session is about 10 to 15% faster end to end.
   - **The gain is in tool-call arguments,** which run 50 to 80% faster. Reasoning gains 5 to 10% and answer text nothing.
-  - **The benchmark overstated real use** by about ten times in the excess (2.8x against 1.16x). Agent edits are short diffs, and reasoning has nothing to copy.
+  - **The benchmark overstated real use** by about ten times in the excess (2.8x against 1.16x). Agent edits are short diffs, and reasoning has nothing to copy. MTP alone already had 91% of its drafts accepted on this traffic, so n-gram drafting gains only where it drafts further ahead than MTP's two tokens.
+  - **The method is reusable.** `kaggle-qwen-serve` keeps a logging proxy that records an agent's requests (`tune-ngram/capture_proxy.py`), a builder that embeds them in a Kaggle notebook (`build_replay.py`), and the replay itself (`replay.py`). The 27B replay reuses the same 44 requests, which stay out of git.
 - **The rollback wrinkle was cheap at n-max 2.** A long edit used about 100 checkpointed drafts and 3 to 5 restores. Raising n-max removes restores but deepens MTP, which cut free writing to 0.57x, so it was rejected.
 - **Two b12228 defaults silently disable short drafts.** ngram-mod's `n-min` of 48 discards anything shorter. ngram-simple drafts only when `size-m` is at least `size-n`, whose default is 12.
 - **On long agent contexts,** greedy output differs between MTP alone and n-gram plus MTP, from the batch-shape numerics in llama.cpp #25618. On short prompts it matched.

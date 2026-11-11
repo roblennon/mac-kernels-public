@@ -13,7 +13,7 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - Thread experiment D needs a 7B model download (about 14 GB in fp16).
 - train-scaffolds step 2: days of unattended Mac time.
 - Whether these research files go public. The repository is public once pushed, and the docs name his private projects.
-- Kaggle or Colab login; the gaming PC's GPU model.
+- Colab login; the gaming PC's GPU model. Kaggle works from the Studio through its API token, but the 30-hour weekly GPU quota is shared with `kaggle-qwen-serve` and model-research-lab, so check kaggle.com/settings before planning a run.
 - Rotate the Modal token pasted in chat on 2026-11-09; delete the Modal Volume `mac-kernels-weight-error` (about 27 GB) when done with it.
 
 ## Open, ours

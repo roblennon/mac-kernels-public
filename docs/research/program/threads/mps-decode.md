@@ -18,6 +18,18 @@ Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. These are medians of four interleaved r
   - The T4 A/B is done and shipped (section below): 2.8x on the edit benchmark, 16% on real agent traffic.
   - Scale folding, the other half of experiment C.
   - Why T = 2 verifies more slowly than T = 3 with the kernel (1.52x against 1.45x); a configuration choice at two rows is the likely cause.
+  - **E. The attention cliff above 8 query rows (from the lab's Q009b, 2026-11-11).** Torch MPS attention (`_scaled_dot_product_attention_math_for_mps`) switches to a much slower path above 8 query rows. Measured over eight layers at Qwen3.5-4B's shape:
+
+    | Context | T = 8 | T = 9 |
+    |---|---|---|
+    | 1,024 | 2.8 ms | 11.4 ms |
+    | 4,096 | 9.1 ms | 44.2 ms |
+    | 16,384 | 72.6 ms | 172.2 ms |
+
+    T = 16 costs the same as T = 9, so it is a change of path, not per-row growth. MLX steps too, more mildly; llama.cpp does not. Source: `model-research-lab/research/verification/outcomes/Q009b-2026-11-11.md`.
+    - **Practical rule now:** on MPS, verify at most 8 tokens (k ≤ 7), and fewer at long context. The rerun's 256-token verify table hides this, because attention is cheap there.
+    - **The experiment:** a Metal attention kernel for 2 to 16 query rows over a long cache, the attention counterpart of the multi-row linear kernel. Prediction: at 4,096 context the T = 9 to 16 attention falls to within 1.5x of T = 8. Speculative verify at OpenCode-like depths (16k to 20k) then stops paying the cliff. Gate first: confirm the step in the whole Qwen3-1.7B model at 4k and 16k, through the existing `bench_verify_cost.py` with a longer prompt.
+  - **The MLX counterpart (also Q009b).** MLX's 4-bit matrix product runs a per-row path up to about 9 rows and switches to a tiled path only from 12 rows. That is the same small-row gap the multi-row kernel closed in PyTorch, so it is a candidate upstream issue for mlx.
   - Whether to write this up as one result: a PyTorch MPS path to about 3x on edit-style generation, exact output, with no draft model.
 
 ## Rerun protocol (fixed 2026-11-10, before any rerun result)

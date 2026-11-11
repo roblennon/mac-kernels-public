@@ -10,9 +10,10 @@ from bench_decode_compile_kernel import USE  # registers the custom op and the l
 REPO, REV = "Qwen/Qwen3-1.7B", "70d244cc86ccca08cf5af4e1e306ecf908b1ad5e"
 ap = argparse.ArgumentParser(); ap.add_argument("--arm", required=True); ap.add_argument("--out", required=True)
 ap.add_argument("--T", default="1,2,3,5,9,13,17"); ap.add_argument("--reps", type=int, default=9)
-ap.add_argument("--repeat-first", action="store_true", help="measure the first T again at the end, as an A/A check"); a = ap.parse_args()
+ap.add_argument("--repeat-first", action="store_true", help="measure the first T again at the end, as an A/A check")
+ap.add_argument("--prompt-len", type=int, default=256); a = ap.parse_args()
 model = AutoModelForCausalLM.from_pretrained(REPO, revision=REV, dtype=torch.float16).to("mps").eval()
-P = 256
+P = a.prompt_len
 USE["kernel"] = a.arm.endswith("kernel")
 def step(x, cache, pos): return model(x, past_key_values=cache, use_cache=True, cache_position=pos).logits
 fn = step if a.arm == "eager" else torch.compile(step, dynamic=False)

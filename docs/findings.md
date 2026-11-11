@@ -1470,3 +1470,43 @@ Median ms per forward:
   - The 16,384-token cells **did not run**. The harness re-reads the whole prompt before every timed sample, and each process hit its 400-second limit. A 16k measurement needs a cache snapshot rather than a re-prefill.
 - **What it means for speculation on MPS.** At a 4k context, verifying 8 drafts (T = 9) costs about 2.5x to 4x a single step, against about 1.4x to 2x for 7 drafts (T = 8). So drafts should be capped at 7 on MPS until attention is fixed. A Metal attention kernel for 2 to 16 query rows (experiment E) is justified.
 - **Decoding one token is also much slower at 4k than at 256 context:** 27 to 45 ms against about 15 ms. Attention over the cache already dominates at T = 1 on this path.
+
+## 2026-11-11: A small-query attention kernel removes the 9-row cliff (experiment E)
+
+Qwen3-1.7B fp16, M1 Max, torch 2.15.0, transformers 5.18.0. The plan and predictions were written in [the decode thread](research/program/threads/mps-decode.md) before any kernel code. Raw data is in [2026-11-11-E/](review/2026-11-11-E/). Workflow agents built the kernel and two adversarial reviewers checked it; I checked their results.
+
+**The cause.** In PyTorch v2.15.0 (`aten/src/ATen/native/mps/operations/Attention.mm`), attention with at most 8 query rows uses a vector kernel. Above 8 rows it uses a prefill kernel built for long prompts, whose 16- or 32-row tiles are mostly empty here.
+
+**The kernel** (`bench/smallq_attention.{metal,py}`, wired in by `bench/smallq_hf.py`).
+- **Design.** It is grouped-query and split over the cache: two passes, and each key/value block is loaded once for every new query row and every head that shares it. Accumulation is in fp32, and masking is NaN-safe.
+- **Device position.** One entry point reads the position from GPU memory, so a compiled model never synchronises with the host.
+- **Wiring.** A custom op plus a transformers attention and mask function (`mk_smallq`). It takes T = 4 to 16; stock SDPA handles everything else, and any padding mask.
+- **Correctness.** 392 tests against a float64 reference, under a rule fixed in advance (max error at most 1.5x stock SDPA's, mean at most 1.25x). Every planted fault is caught.
+- **In the whole model,** at 4,096 context, logits stay within 0.02 of stock compiled at T = 4 to 16 (stock's own eager-to-compiled spread is 0.02 to 0.04), and argmax agrees everywhere.
+- **Rollback** passes with the new arm, and both planted faults fail the check.
+
+**Whole model, verify forward against compiled plus multirow without the kernel.** The run uses `bench_verify_cost.py --rewind`: three processes per arm, T order rotated, ms are medians of 9 samples, and the ratio is stock over kernel per round.
+
+| T | 4,096 stock | 4,096 kernel | ratio (3 rounds) | 16,384 stock | 16,384 kernel | ratio |
+|---|---|---|---|---|---|---|
+| 1 | 14.3 | 14.4 | 0.96–1.00 (stock path) | 18.4 | 18.3 | 0.97–1.02 (stock path) |
+| 4 | 21.9 | 22.6 | 0.95–0.99 | 33.2 | 30.9 | 1.06–1.09 |
+| 5 | 23.5 | 24.4 | 0.95–0.98 | 36.9 | 36.0 | 1.01–1.03 |
+| 8 | 26.8 | 24.7 | 1.07–1.10 | 48.3 | 36.6 | 1.31–1.33 |
+| 9 | 76.7 | 28.2 | **2.65–2.73** | 250.3 | 48.7 | **5.09–5.37** |
+| 12 | 77.1 | 28.1 | **2.72–2.75** | 250.0 | 48.8 | **5.09–5.35** |
+| 16 | 77.0 | 28.4 | **2.70–2.73** | 250.8 | 49.0 | **5.12–5.27** |
+
+- **Noise.** A/A (the first T measured again at the end of each process) stayed within 6% at 4,096 and within 2.3% at 16,384.
+- **Predictions met.** With the kernel, T = 9 costs 1.14x T = 8 at 4,096 (predicted at most 1.3x). T = 9 to 16 is 2.7x faster (predicted at least 1.8x).
+- **Where it does not help.** Below 8 rows at 4,096 the kernel brings no gain: 0.95 to 0.99x, inside the A/A spread. So the threshold should be T >= 8 at short contexts; at 16,384, T >= 4 already gains 7%.
+- **What it means for speculation.** At 4,096 context, verifying 15 drafts now costs about 2x a one-token step (28.4 against 14.4 ms). Before, it cost 5.4x. Drafters that propose long runs, such as n-gram lookup, become usable on MPS at long context.
+- **Isolated attention** (28 separate caches, paired per-round ratios): 5.6x over stock at T = 9 to 16 with 4,096 keys, 7x at 16,384, and 1.65x at T = 8. At T = 1 to 2 it is slower than stock (0.5 to 0.75x). The kernel reaches 40 to 125 GB/s, so it is limited by instruction issue, not bandwidth, and has room to improve.
+
+**Two side findings.**
+- **transformers 5.18 breaks every compiled forward with T > 1 and a StaticCache into 6 graphs and reads the GPU from the host.** The cause is `q_offset == 0` in `_ignore_causal_mask_sdpa`, and it costs about 1.5 to 2 ms per verify. The `mk_smallq` path compiles to 1 graph. A candidate upstream issue.
+- **The step right after a long prefill pays a one-off penalty of about 30 ms.** It reaches any memory-bound work: a bare pass over the weights runs at about 72 GB/s instead of 265. One bandwidth-bound pass of about 10 ms clears it. The pattern fits memory or fabric clocks dropping during long compute-bound phases (an inference; confirming it needs powermetrics). A real request pays it once, after its prefill.
+
+**Correction to the entry "The attention cliff above 8 query rows shows in the whole model".** That run re-prefilled before every sample, so each sample was a first step after a 4,096-token prefill and carried the penalty above.
+- Its one-token figure of "27 to 45 ms at 4k" was mostly that penalty. A steady step at 4,096 is 14.3 ms.
+- Its cliff ratios (1.63x to 1.87x) were diluted by the same penalty. In steady state, stock T = 9 costs 2.87x T = 8 at 4,096 and 5.2x at 16,384.

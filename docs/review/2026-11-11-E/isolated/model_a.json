@@ -1,0 +1,156 @@
+{
+ "torch": "2.15.0",
+ "prefill": 4096,
+ "Lmax": 4160,
+ "threshold": 4,
+ "Ts": [
+  1,
+  4,
+  8
+ ],
+ "per_T": {
+  "1": {
+   "sdpa": {
+    "frames": 1,
+    "compile_s": 3.9,
+    "ms": 14.52,
+    "finite": true
+   },
+   "mk_smallq": {
+    "frames": 1,
+    "compile_s": 2.2,
+    "ms": 14.5,
+    "finite": true
+   },
+   "stock_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "stock_eager_vs_compiled": {
+    "max_abs": 0.015625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_vs_stock": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_mk_compiled": {
+    "max_abs": 0.015625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_stock_eager": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "yardstick": 0.015625,
+   "tolerance": 0.1,
+   "pass": true
+  },
+  "4": {
+   "sdpa": {
+    "frames": 6,
+    "compile_s": 3.2,
+    "ms": 28.21,
+    "finite": true
+   },
+   "mk_smallq": {
+    "frames": 1,
+    "compile_s": 2.5,
+    "ms": 30.99,
+    "finite": true
+   },
+   "stock_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "stock_eager_vs_compiled": {
+    "max_abs": 0.0234375,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_vs_stock": {
+    "max_abs": 0.015625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_mk_compiled": {
+    "max_abs": 0.0234375,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_stock_eager": {
+    "max_abs": 0.0234375,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "yardstick": 0.0234375,
+   "tolerance": 0.1,
+   "pass": true
+  },
+  "8": {
+   "sdpa": {
+    "frames": 6,
+    "compile_s": 2.9,
+    "ms": 42.83,
+    "finite": true
+   },
+   "mk_smallq": {
+    "frames": 1,
+    "compile_s": 2.3,
+    "ms": 37.72,
+    "finite": true
+   },
+   "stock_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "stock_eager_vs_compiled": {
+    "max_abs": 0.0234375,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_vs_stock": {
+    "max_abs": 0.015625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_mk_compiled": {
+    "max_abs": 0.015625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_stock_eager": {
+    "max_abs": 0.015625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "yardstick": 0.0234375,
+   "tolerance": 0.1,
+   "pass": true
+  }
+ },
+ "verdict": "pass",
+ "failing_T": []
+}

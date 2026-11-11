@@ -80,7 +80,7 @@ With 330 hypotheses drawn from the same few public models, a few close numerical
 
 Round two banned quantization as a subject, which was the one area where Rob has working code, measured results and puzzles nobody else holds. Data and instruments only Rob has (his labelled projects, his kept-versus-discarded image log, his voice lab) are the most defensible advantage in the notebook and got the least weight.
 
-
+The notebook is strangely innocent about security: mismatched chat templates, sampler order, a 26-byte update that adds 29 points and subliminal transfer are all treated as curiosities rather than attack surfaces.
 
 The critic's candidate for a year-long question is how much of a generative model's decline over a long horizon comes from the decoding loop rather than the model: temperature, errors that repeat every step, the prompt leaving a finite window, the transcript read as evidence about its own author. It has an exact null and can be tested on toys. The case against: it is where well-funded labs already are, it needs long generations and many seeds, and the likeliest answer is "partly both", which is hard to publish.
 

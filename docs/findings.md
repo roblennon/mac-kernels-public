@@ -1321,7 +1321,7 @@ Round 2 of the multi-row kernel (`docs/review/2026-11-10-experiments/multirow/ro
 
 ## 2026-11-10: Final numbers on the final kernel table (replaces the provisional entries above)
 
-Every benchmark that uses the multi-row kernel, rerun in one labelled batch on the final tuning table (commit 688278e), Qwen3-1.7B fp16, M1 Max, torch 2.15.0, with the machine otherwise quiet (the lab held its GPU and CPU work for the hour). Raw results and the batch script in `docs/review/2026-11-10-experiments/final-kernel-rerun/`. These supersede the compile-plus-kernel, verify-cost and prompt-lookup numbers recorded earlier today, which were measured while the kernel was being edited.
+Every benchmark that uses the multi-row kernel, rerun in one labelled batch on the final tuning table (commit 5e8c9a5), Qwen3-1.7B fp16, M1 Max, torch 2.15.0, with the machine otherwise quiet (the lab held its GPU and CPU work for the hour). Raw results and the batch script in `docs/review/2026-11-10-experiments/final-kernel-rerun/`. These supersede the compile-plus-kernel, verify-cost and prompt-lookup numbers recorded earlier today, which were measured while the kernel was being edited.
 
 **Decode, compile plus the multi-row kernel:**
 

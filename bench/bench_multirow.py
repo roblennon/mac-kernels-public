@@ -350,7 +350,7 @@ def tune_grid_round2(dtype):
     return [mrl.Config.parse(n) for n in sorted(names)]
 
 
-# The round-1 table (commit b64a958, bench/multirow_linear.py), frozen here so `tune --grid round2`
+# The round-1 table (commit c9f5b8c, bench/multirow_linear.py), frozen here so `tune --grid round2`
 # rebuilds the grid round 2 was tuned on: every config round 1 chose for 2 to 16 rows.
 ROUND1_TUNED: dict[str, dict[tuple[int, int], dict[int, str]]] = {
     "bfloat16": {

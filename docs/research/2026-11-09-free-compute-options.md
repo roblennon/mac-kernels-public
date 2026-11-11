@@ -2,7 +2,7 @@
 
 2026-11-09. Four research agents surveyed where open-weight LLMs and diffusion models can run for free beyond Kaggle. The lanes were notebook GPUs, hosted inference APIs, grant and credit programs, and unconventional routes. They favored sources from the last six months. Most figures come from aggregator blogs and provider pages read on the day. Very little was confirmed on a provider's own pricing page, and none of the Reddit or Hacker News threads could be retrieved. Treat every limit below as a lead to recheck before planning a run.
 
-**Correction, 2026-11-10.** This survey repeated the common "about 30 GPU hours a week" figure for Kaggle. The decode thread then measured something nearer 6 hours a week, and later marked the allowance unverified because Kaggle's API reported inconsistent figures (commits `a966404` and `84c3ad7`). Check kaggle.com/settings before planning.
+**Correction, 2026-11-10.** This survey repeated the common "about 30 GPU hours a week" figure for Kaggle. The decode thread then measured something nearer 6 hours a week, and later marked the allowance unverified because Kaggle's API reported inconsistent figures (commits `4fa11ae` and `10ce88c`). Check kaggle.com/settings before planning.
 
 ## The short answer
 

@@ -10,7 +10,7 @@ Rob paused this session and the lab after the first card came back void, and ask
 
 **3. Whether the research files go public.** The repository is public once pushed. The new documents name Rob's private projects and machines. Fifteen commits sit unpushed. The raw agent output that names them most is git-ignored either way.
 
-
+Smaller items waiting on Rob are listed in [the tracker](TASKS.md#waiting-on-rob): the Qwen3-4B download (only if the 1.7B ladder fails), the DINOv3 licence, recorded stimuli, listening sessions, days of Mac time for train-scaffolds step 2, a Kaggle or Colab login, the gaming PC's GPU, and rotating the Modal token.
 
 ## What was done
 

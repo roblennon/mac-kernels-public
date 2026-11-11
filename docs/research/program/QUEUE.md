@@ -110,8 +110,6 @@ Set aside on 2026-11-10 at Rob's direction. Two hold a speed angle worth salvagi
 
 - [Copies in context counted as evidence: does a replayed error hurt fresh answers more than a summary of it?](designs/copies-as-evidence.md)
 
-
-
 - [Do a model's own visible errors raise its next error, and where does the falling agent hazard come from?](designs/agent-hazard-mixture.md)
 
 - [What Whisper reads from its padding (whisper-silence)](designs/whisper-silence.md)

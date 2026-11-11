@@ -28,7 +28,7 @@ Rob asked for creative, novel research directions across every modality the fund
 
 ## Can the first card be run cold?
 
-
+That is the test the goal set, so it was checked directly. A fresh agent with no context tried to plan step 1 of each of the top five cards from the card alone, down to files, revisions, seeds and per-process budgets. On the first try every one failed, each with ten or more open decisions and about a dozen errors. After up to four rounds of reading and fixing, the first card (copies-as-evidence) reads as runnable cold: the last reader found nothing blocking, and the three result-changing points it raised were then fixed. Whisper-silence and finetune-survival-requant ended with nothing blocking. Cross-stack-numerics and one card since moved out of this repository had their last findings fixed but were not read again.
 
 One designed stop to expect: the first card's own estimate puts its step 1a over one 30-minute slice, so its go-or-stop rule may end by asking for more device minutes.
 

@@ -84,7 +84,7 @@ Round two banned quantization as a subject, which was the one area where Rob has
 
 The critic's candidate for a year-long question is how much of a generative model's decline over a long horizon comes from the decoding loop rather than the model: temperature, errors that repeat every step, the prompt leaving a finite window, the transcript read as evidence about its own author. It has an exact null and can be tested on toys. The case against: it is where well-funded labs already are, it needs long generations and many seeds, and the likeliest answer is "partly both", which is hard to publish.
 
-
+The queue answers this in four ways. It puts quantization and Rob's own ground back in (bias versus noise, fine-tune survival under requantization, nested bit-planes, cross-stack numerics, the energy of a token on the Mac). It tried to include builds, and here it only partly succeeded: removable training scaffolds and surprise feedback survived as queued builds, emit-hot-feed-cold sampling survives as the second stage of the continuous-token card, and nested bit-planes was parked after its review found the headline gave no benefit on this hardware. The queue is still mostly measurement, and the critic's point stands as a gap for the next round. It gives the security reading a card (subliminal transfer through images). And every card writes its prediction down as a number before any run, with a planted-effect check, as the frame requires; pinning those predictions with a hash in the lab before the first run would answer the critic's point about chance matches.
 
 ## Shared instruments
 
@@ -107,7 +107,7 @@ The merge reader also found fourteen experiments that would each settle several 
 
 ## The queue at a glance
 
-
+The ordered list and the reasons are in [the queue](program/QUEUE.md). Thirty cards are queued and three are parked. None was dropped outright: the prior-art searches narrowed several (agent-hazard-mixture, content-energy, noise-margin-gain-table, renyi-search-cutoff, rare-exploit-onset, among others) and the cards now cite the overlapping work instead of claiming it.
 
 The top of the queue, in one line each:
 
@@ -125,7 +125,7 @@ Spread across the thirty:
 |---|---|---|
 | speech | [whisper-silence](program/designs/whisper-silence.md) (3), [tts-slip-hazard](program/designs/tts-slip-hazard.md) (8), [voice-clone-circuit](program/designs/voice-clone-circuit.md) (13), [whisper-grades-students](program/designs/whisper-grades-students.md) (19), [tts-clear-speech-guidance](program/designs/tts-clear-speech-guidance.md) (20), [duplex-turn-temperature](program/designs/duplex-turn-temperature.md) (21) | audit, measurement, mechanism |
 | image generation | [img-subliminal](program/designs/img-subliminal.md) (9), [fixed-vs-fresh-error](program/designs/fixed-vs-fresh-error.md) (6), [guidance-optimal-weight](program/designs/guidance-optimal-weight.md) (15), [variety-census](program/designs/variety-census.md) (11), [sampler-backward-error](program/designs/sampler-backward-error.md) (12), [dit-positional-binding](program/designs/dit-positional-binding.md) (23), [denoiser-talks-back](program/designs/denoiser-talks-back.md) (25), [continuous-ar-temperature](program/designs/continuous-ar-temperature.md) (27), [semantic-latent-memorization](program/designs/semantic-latent-memorization.md) (30) | measurement, mechanism |
-
+| text models, inference | [copies-as-evidence](program/designs/copies-as-evidence.md) (1), [noise-margin-gain-table](program/designs/noise-margin-gain-table.md) (5), [finetune-survival-requant](program/designs/finetune-survival-requant.md) (4), [layer-repeat-step-size](program/designs/layer-repeat-step-size.md) (16), [agent-hazard-mixture](program/designs/agent-hazard-mixture.md) (17), [renyi-search-cutoff](program/designs/renyi-search-cutoff.md) (24) | law, measurement, mechanism |
 | text models, training | [rare-exploit-onset](program/designs/rare-exploit-onset.md) (10), [train-scaffolds](program/designs/train-scaffolds.md) (14), [rare-feature-threshold](program/designs/rare-feature-threshold.md) (18), [linear-response-window](program/designs/linear-response-window.md) (26), [surprise-feedback](program/designs/surprise-feedback.md) (28) | law, measurement, mechanism, method |
 | vision-language | [raster-binding](program/designs/raster-binding.md) (22) | measurement |
 | Mac systems and numerics | [cross-stack-numerics](program/designs/cross-stack-numerics.md) (2), [content-energy](program/designs/content-energy.md) (29) | measurement |

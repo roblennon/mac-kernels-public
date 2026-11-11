@@ -1572,15 +1572,6 @@ Cost: 6 to 10 hours on the Mac; about 12 GB of downloads (7B in a few formats, 0
 Nearest work listed: [QuantSpec, arXiv 2502.10424](https://arxiv.org/abs/2502.10424), 2025-02-05 (not read directly); [llama.cpp discussion 27290](https://github.com/ggml-org/llama.cpp/discussions/27290), 2026-08-18 (read); [Ruiz y Mesa, TU Dresden master's thesis](https://cfaed.tu-dresden.de/files/Images/people/chair-cc/theses/2510_Ruiz_y_Mesa_MA.pdf), 2025-10 (not read directly)  
 Author's note on the search: arXiv HTML search for speculative decoding with quantized draft (found QuantSpec); GitHub discussion search in llama.cpp and exllamav3 (issue 403, title only). No citation-graph search was possible (rate limits).
 
-
-
-
-
-
-Cost: 8 to 12 hours on the Mac including building the task set; 8 GB of downloads.  
-
-
-
 **Do all those samplers differ in more than two ways** (image (diffusion sampling); wildness 2)  
 Claim: At 20 steps or more, the outputs of the many sampler and scheduler pairs for one seed differ along about two axes: how far the result is from the fully converged answer, and how much fresh noise was injected. Most of the visible difference people attribute to a sampler is smaller than the difference between two seeds.  
 Prediction: Across 30 sampler-scheduler pairs x 50 prompts x 8 seeds, seed explains at least 85% of the variance in any quality metric and sampler x scheduler under 5%. For same-seed outputs, a two-dimensional embedding explains at least 80% of the variance in pairwise perceptual distance.  

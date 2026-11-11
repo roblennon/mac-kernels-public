@@ -17,7 +17,7 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - Thread experiment D needs a 7B model download (about 14 GB in fp16).
 - train-scaffolds step 2: days of unattended Mac time.
 - Whether these research files go public. The repository is public once pushed, and the docs name his private projects. Local main is 53+ commits ahead of origin.
-
+- Before that push, the history must be rewritten. On 2026-11-11 one set-aside card and its mentions moved to the private mac-kernels repo (Rob's direction), but their text is still in the unpushed commits. The private repo's TASKS.md has the procedure. Don't push until it's done.
 - The two upstream issue drafts (`docs/upstream/pytorch-mps-sdpa-small-query-cliff.md`, `docs/upstream/transformers-static-cache-compile-graph-break.md`): review, then post or not. Posting is public.
 - Colab login; the gaming PC's GPU model. Kaggle works from the Studio through its API token, but the 30-hour weekly GPU quota is shared with `kaggle-qwen-serve` and model-research-lab, so check kaggle.com/settings before planning a run.
 - Rotate the Modal token pasted in chat on 2026-11-09; delete the Modal Volume `mac-kernels-weight-error` (about 27 GB) when done with it.

@@ -26,7 +26,7 @@ ORDER = [
 ]
 # Set aside 2026-11-10 at Rob's direction: behavioural, model-dependent, or not about training, fine-tuning,
 # inference, attention, context or gradients. Kept, not deleted; the triage that sorted them is raw/pivot_triage.md.
-
+SET_ASIDE = ['copies-as-evidence', 'agent-hazard-mixture', 'whisper-silence', 'tts-slip-hazard', 'variety-census', 'whisper-grades-students', 'tts-clear-speech-guidance', 'duplex-turn-temperature', 'raster-binding', 'dit-positional-binding', 'denoiser-talks-back']
 PARKED = ['paired-metric-floor', 'nested-bitplanes', 'self-training-37']
 NOT_CARDS = {'TEMPLATE'}
 

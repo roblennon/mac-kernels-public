@@ -38,7 +38,7 @@ A musician would agree and go further. The notebook treats time as a grid that c
 
 A hardware designer would like the noise-margin framing and the claim that energy depends on the values in the matrices. They would then ask why one M1 Max is treated as representative of anything beyond itself.
 
-
+A security researcher would find the notebook strangely innocent. Mismatched chat templates, the sampler order, a 26-byte update that adds 29 points, and subliminal transfer are all treated as curiosities. A security researcher would treat each of them as an attack surface. The prompt-injection idea was dropped because ARGUS existed, and nothing replaced it.
 
 An economist would ask who pays for each answer and what changes once it is known. The lenses rank ideas by how cheap they are to kill, not by how much they are worth if true. The no-boss lens notes that the speedrun is now crowded with AI-assisted entrants. That is a market signal the rest of the notebook ignores.
 
@@ -124,7 +124,7 @@ A diffusion ODE sampler is a smooth flow whose summed finite-time Lyapunov expon
 
 *Lens: folklore*
 
-
+The lens noticed that several unrelated complaints look like one event: an error that is the same at every step. A rounded weight is wrong in the same way on token 1 and on token 4,000. Fresh noise averages out over a long generation, but a fixed error does not. Pipis and co-authors (read this session) show that reasoning models loop because of errors that are correlated in time. They did not study rounded weights, yet a rounded weight is the most time-correlated error there is. The DRY paper (abstract read) halves loop rates on quantized 70B models but never asks whether the rounding raised the rate. Users say 4-bit models loop and that penalties do not fix it. The proposed experiment separates fixed error from fresh error at equal size. This pulls against an earlier idea that treats rounding as a rise in temperature: higher temperature reduces loops, so if rounding raises them, the temperature picture is incomplete. The same thought extends to speculative decoding, where one user saw acceptance fall from 48% to 33% when a draft head became more precise, and asked whether drafter and target errors should line up. The lens also recalls, without opening any, model cards that recommend a presence penalty for quantized versions; if true, vendors already believe the loop idea and never published the measurement.
 
 ### Recursion may do its work during training, not inference
 
@@ -235,12 +235,6 @@ Looking for free feedback loops, the lens mostly found them already taken: Miros
 *Lens: dynamical-systems*
 
 Common noise can synchronize uncoupled systems with a negative top exponent. A coupled Jacobi decoding paper reportedly cut forward passes 4x and 13x by reusing one Gumbel noise stream, without testing speech, text or temperature sweeps. Whether two streams sharing noise merge for good depends on how fast a token's influence decays. A June 2026 paper reportedly measures a power law with exponent 0.7 to 0.9. A Borel-Cantelli argument then says streams never merge permanently, agreeing in long runs broken by bursts with power-law run lengths. Above 1 they would merge. The half-theory is that a model matching language, which has power-law correlations, must have memory decaying too slowly to forget a perturbation, and that this is the same fact as the critical temperature near 1. A model trained on a Markov source should show exponential decay instead. A further thought: the flip rate under shared noise and greedy decoding's near-tie rate are both measurable from one forward pass, and the lens expects them within a factor of three. If so, temperature zero buys much less repeatability than assumed while costing diversity.
-
-
-
-*Lens: folklore*
-
-
 
 ### One signature for machine output: too little slow variation
 
@@ -543,7 +537,6 @@ An October 2026 paper found two PersonaPlex instances hand over the floor at a m
 - **Temperature zero makes runs repeatable.** (dynamical-systems). Near-ties between top logits may make greedy flip rates comparable to shared-noise sampling, so the gain in repeatability may be small.
 - **Community benchmarks of quantization, samplers and KV-cache settings establish which settings matter.** (folklore). Nearly every number is one seed, one model, context 512, so no one knows which effects exceed the noise.
 - **Rounding a model's weights acts like raising the sampling temperature.** (folklore). Rounding error is fixed in time while temperature noise is fresh; higher temperature reduces loops, but rounding may raise them.
-
 - **Picking the best stage-one model by its loss picks the best model for the next stage.** (future-work). Four unrelated papers find pretraining loss, initialisation quality or diffusion loss fails to predict fine-tuning, refinement or FID.
 - **Recursive small networks help through extra computation at inference.** (future-work). Most of the score arrives at the first recursion step, and repeated supervision mattered more than hierarchy, hinting the benefit comes during training.
 - **A pretrained encoder is needed for good diffusion latents.** (genmodel). JiT says no, and PixelREPA says alignment can fail for JiT.
@@ -698,7 +691,7 @@ An October 2026 paper found two PersonaPlex instances hand over the floor at a m
 - **Nucleation theory for grokking time.** (statistical-physics; memory only). Search snippets report about 8 percent seed-to-seed spread in grokking time, far too narrow for nucleation, which predicts an exponential spread. Rests on snippets, not a read paper.
 - **Speech-input models reason worse because layers are spent pooling frames.** (tiny-model-science; memory only). Counting the layers pooling needs gave a small constant (two or three), so the story fails for 32-layer models, though it may hold for 6-layer ones.
 - **A 're-entry algebra' theory of layer repetition as a headline idea.** (anomalies; a paper was read). Training-Free Looped Transformers (2605.23872), read in full HTML, already treats the repeated block as an ODE step and uses damped sub-steps. Only one missing control survives.
-
+- **Seed collapse in distilled models, context rot, TRM follow-ups and slow motion in distilled video as headlines.** (anomalies; a paper was read). All have 2026 papers, mostly seen as titles or abstracts.
 - **Subliminal learning in LLMs and VLMs.** (anomalies; a paper was read). About 45 follow-up papers exist (titles read); only the image-generator case looked open.
 - **Cross-sequence multiplexing and token-sparse backward passes.** (arch; too small to matter). Killed by the lens's own arithmetic.
 - **Hashed lookup tables for image tokens.** (arch; a paper was read). Pre-empted by 2605.13179 with a negative result: a constant gate matches the learned gate and swapping hash inputs does not change predictions.

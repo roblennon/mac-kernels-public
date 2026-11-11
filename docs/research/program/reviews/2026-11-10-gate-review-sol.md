@@ -60,7 +60,6 @@ A cross-family review of the subject gates added to the 30 queued cards on 2026-
 
 ## 2. Gates that are too weak to catch the case 002 failure for their card
 
-
   Report all-prompt coverage and require adequate usable replies before calculating the abstention contrast.
   Apply the existing truncation remedy before this gate, and validate revised scorer wording on fresh replies.
 

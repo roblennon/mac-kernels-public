@@ -26,7 +26,7 @@ Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. These are medians of four interleaved r
     | 4,096 | 9.1 ms | 44.2 ms |
     | 16,384 | 72.6 ms | 172.2 ms |
 
-    T = 16 costs the same as T = 9, so it is a change of path, not per-row growth. MLX steps too, more mildly; llama.cpp does not. Source: `model-research-lab/research/verification/outcomes/Q009b-2026-11-11.md`.
+    T = 16 costs the same as T = 9, so it is a change of path, not per-row growth. MLX steps too, more mildly. (The lab first reported that llama.cpp on Metal shows no step; a later review withdrew that as not established.) Source: `model-research-lab/research/verification/outcomes/Q009b-2026-11-11.md`.
     - **Practical rule now:** on MPS, verify at most 8 tokens (k ≤ 7), and fewer at long context. The rerun's 256-token verify table hides this, because attention is cheap there.
     - **Gate prediction (written 2026-11-11 before the run):** in whole Qwen3-1.7B with the kernel, T = 9 costs at least 1.3x T = 8 at a 4,096-token context and at least 1.6x at 16,384, while T = 8 costs at most 1.15x T = 5 at 4,096. If T = 9 is within 1.1x of T = 8 at 4,096, the cliff does not show in this model and E stops there.
     - **Gate result (2026-11-11):** passed at 4,096 tokens. T = 9 costs 1.63x to 1.87x T = 8 in every arm, with no overlap between the two sets of samples. The 16,384-token run timed out because the harness re-prefills before each sample. Findings log entry: "The attention cliff above 8 query rows shows in the whole model".

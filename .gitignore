@@ -1,4 +1,5 @@
 .venv/
+.venv-decode/
 __pycache__/
 *.pyc
 vendor/

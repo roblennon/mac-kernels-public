@@ -2,9 +2,13 @@
 
 The running list for the programme framed in `FRAME.md`. One line per item. Decisions and their reasons go at the bottom so the next reader can see why, not only what. Lessons for card writers are in `LESSONS.md`.
 
-## Now: decode and small-batch speed on MPS (2026-11-10)
+## Now: decode and small-batch speed on MPS (updated 2026-11-11)
 
-Rob redirected the programme toward training, fine-tuning, inference, attention, context and gradients, and away from behaviour, and asked to explore the lab's decode-speed result hard. Measured the same day (findings log, 2026-11-10): the tiny-model gain does not carry to Qwen3-1.7B in its simple form, but half of a batch-1 decode step is near-empty GPU kernels, and batch-16 linears take 2.4 times their batch-1 time. Next experiments, with predictions, are in `threads/mps-decode.md`. Behavioural cards are set aside in `QUEUE.md`. Gate batch 1 lost its behavioural item and now follows the thread.
+Rob redirected the programme toward training, fine-tuning, inference, attention, context and gradients, and away from behaviour, and asked for the lab's decode-speed result to be explored hard. Where it stands is in `threads/mps-decode.md`, "Where it stands"; the numbers are in the findings log, entries from 2026-11-10 and 2026-11-11. In short:
+- **Compile plus the multi-row kernel:** about 2x decode at batches 8 to 16.
+- **Prompt-lookup speculation:** 2.9x to 3.3x on whole-file edits, with exact output. On the Kaggle T4 it shipped and gives +16% on real agent traffic.
+- **The small-query attention kernel:** removes PyTorch's attention cliff above 8 query rows; whole-model verify is 2.7x faster at 4k context and 5.1x at 16k.
+- **In progress:** kernel optimization (E2) and two upstream issue drafts. Behavioural cards are set aside in `QUEUE.md`.
 
 ## Waiting on Rob
 
@@ -12,7 +16,8 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - semantic-latent-memorization: accept the DINOv3 licence.
 - Thread experiment D needs a 7B model download (about 14 GB in fp16).
 - train-scaffolds step 2: days of unattended Mac time.
-- Whether these research files go public. The repository is public once pushed, and the docs name his private projects.
+- Whether these research files go public. The repository is public once pushed, and the docs name his private projects. Local main is 53+ commits ahead of origin.
+- The two upstream issue drafts (`docs/upstream/pytorch-mps-sdpa-small-query-cliff.md`, `docs/upstream/transformers-static-cache-compile-graph-break.md`): review, then post or not. Posting is public.
 - Colab login; the gaming PC's GPU model. Kaggle works from the Studio through its API token, but the 30-hour weekly GPU quota is shared with `kaggle-qwen-serve` and model-research-lab, so check kaggle.com/settings before planning a run.
 - Rotate the Modal token pasted in chat on 2026-11-09; delete the Modal Volume `mac-kernels-weight-error` (about 27 GB) when done with it.
 
@@ -23,17 +28,21 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - [x] Kaggle T4 server: n-gram drafting ahead of MTP shipped as serve v4 (2026-11-10): 2.8x on the edit benchmark, +16% decode on real OpenCode traffic (kaggle-qwen-serve EVIDENCE.md)
 - [x] Kaggle T4 server: the Orca 27B fits both T4s with `-sm tensor` at 262144 context, 49-58 tok/s on edits and 22-25 on free writing (2026-11-10, kaggle-qwen-serve EVIDENCE.md, tune-27b v1); `serve.py` defaults to it, with an idle shutdown
 - [ ] Kaggle T4 server, after the 2026-11-14 quota refresh: run `tune-27b-replay` (200K-class depth, tunnel cut, prefill batch, real traffic), then serve the 27B; owned by kaggle-qwen-serve's CHECKPOINTS.md
+- [x] Experiment E (2026-11-11): small-query attention kernel (`bench/smallq_attention.*`, `bench/smallq_hf.py`), reviewed by workflow agents and Sol, fixes applied; findings log "A small-query attention kernel removes the 9-row cliff"
+- [ ] E2: optimize the kernel against the targets in the thread (T = 1 to 2 at stock parity, 4 to 8 at 1.3x or better); running as a workflow on 2026-11-11
+- [ ] Upstream drafts for PyTorch (the cliff) and transformers (the compiled graph break), with repro scripts; drafting on 2026-11-11, then Rob's review
 - [ ] Scale folding (experiment C's other half) and the verified-rewrite design's next stage
 - [x] Subject gates reviewed by Sol for needless slowness and weakness; 141 changes applied across 23 cards, 20 points rejected with reasons
 - [ ] Parked cards owe searches: self-training-37, nested-bitplanes (paired-metric-floor's park was confirmed by a second reader).
 - [ ] Cards named but not written: card B for copies-as-evidence's loop-share question; a divergence-law card; an attention-hint card split from train-scaffolds.
-- [ ] Candidate new card: a one-row `nn.Linear` slow path on MPS (from the lab's Q003), with a search gate first.
+- [x] Candidate new card: a one-row `nn.Linear` slow path on MPS (from the lab's Q003). Superseded by the decode thread: torch 2.15's GEMV route, compile and the multi-row kernel cover it.
 - [ ] Vendor branches not pushed to the public forks; replies owed on comfy-kitchen 249 and pytorch 200782. Local main is ahead of origin and not pushed.
 
-## Lab state, as this session knows it
+## Lab state, as this session knows it (2026-11-11)
 
-- Case 001 (character model, seconds to loss 1.70): Q001, Q003 and a composition ran; three training speed-ups confirmed. Q002 (train-scaffolds step 1a) is drafted against card 9966d2b, not opened; step 1a is unchanged since.
-- Case 002 (copies-as-evidence step 1a): ran 2026-11-10, decided nothing; the redesign is held.
+- **Earlier cases.** Case 001 ran (three training speed-ups confirmed). Case 002 (copies-as-evidence) decided nothing; it is set aside with the behavioural cards. Q002 (train-scaffolds step 1a) is parked inconclusive, median 0.948.
+- **Verification line.** Q009 and Q009b measured verify cost on Qwen3.5-4B and found the attention cliff above 8 rows. Q009b's llama.cpp "no step" claim was withdrawn after review. The lab's next verification question adds `smallq_hf` as an arm, and it will check its earlier timings for the post-prefill penalty.
+- **GPU sharing.** The lab runs unattended research on the Mac GPU every night, 22:00 to 05:00 (agreed with Rob on 2026-11-11). Every GPU run from this repo goes through `bench/gpu_runner.py` with a label, and nothing that saturates the machine starts without asking Rob.
 
 ## Done
 

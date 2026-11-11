@@ -2,59 +2,33 @@
 
 Opened 2026-11-10 from the lab's Q003 result, at Rob's direction to explore it hard. Measurements so far are in [the findings log](../../../findings.md) under 2026-11-10; raw results in `docs/review/2026-11-10-experiments/`.
 
-## Where it stands (updated 2026-11-10, after the rerun under fixed rules)
+## Where it stands (updated 2026-11-11)
 
-Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0. These are medians of four interleaved rounds; the ranges and tables are in [the findings log](../../../findings.md), entry "Decode rerun under fixed rules".
+Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0, transformers 5.18.0, from `.venv-decode` (built from `bench/requirements-decode.txt`). The numbers, with ranges and corrections, are in [the findings log](../../../findings.md), entries from 2026-11-10 and 2026-11-11.
 
-- **Correctness.** Speculative rollback matches a freshly rebuilt cache at every acceptance length, and both planted faults are caught. Error against float32 is comparable to eager fp16 on real and random prompts.
-- **Batch 1.** `torch.compile` with a static cache runs 1.61x faster than static-cache eager and 1.55x faster than default eager. With a 512-token context it is 1.72x. The kernel adds nothing at batch 1, as expected.
-- **Batches 8 and 16.** Compile plus the multi-row kernel runs 1.9x to 2.1x faster than either eager baseline, and the kernel alone contributes 1.66x to 1.77x of that.
-- **Verification.** Checking 4 drafted tokens costs 1.52x a single step with the kernel and 2.08x without it. That misses the 1.3x prediction; the earlier 1.19x was one favourable process.
+- **Correctness.**
+  - Speculative rollback matches a freshly rebuilt cache at every acceptance length, and planted faults are caught (`bench/check_spec_rollback.py`).
+  - Every faster path has error against float32 comparable to eager fp16.
+- **Plain decoding.**
+  - **Batch 1:** `torch.compile` with a static cache is 1.6x static-cache eager and 1.55x default eager.
+  - **Batches 8 to 16:** compile plus the multi-row linear kernel gives about 2x.
+- **Verification (several tokens per forward).**
+  - The multi-row kernel halves the linear cost of 2 to 16 rows.
+  - PyTorch's attention switches to a much slower path above 8 query rows. The small-query attention kernel (experiment E) removes that: verify at T = 9 to 16 is 2.7x faster at 4,096 context and 5.1x at 16,384, and T = 9 costs 1.14x T = 8.
 - **Prompt-lookup speculation**, against an ordinary compiled decoder, requests run to completion:
-  - **Edits.** The output is identical to plain decoding. Code edit: 2.9x in decode time and 2.8x for the whole request. Prose typo fix: 3.1x to 3.3x and 2.9x to 3.0x. Without the kernel it is 2.1x.
-  - **Free writing.** Adaptive drafting with the kernel breaks even (1.02x). Fixed-length drafting loses (0.58x without the kernel, 0.84x with it).
-- **Prior work.** arXiv 2610.31479 already connects small-row kernels to speculative verification on MLX, with 0.99x to 1.13x in one setup. The open part here is PyTorch on MPS, an M1, 9 to 16 rows, and the size of the gain.
-- **Next.**
-  - The T4 A/B is done and shipped (section below): 2.8x on the edit benchmark, 16% on real agent traffic.
-  - Scale folding, the other half of experiment C.
-  - Why T = 2 verifies more slowly than T = 3 with the kernel (1.52x against 1.45x); a configuration choice at two rows is the likely cause.
-  - **E. The attention cliff above 8 query rows (from the lab's Q009b, 2026-11-11).** Torch MPS attention (`_scaled_dot_product_attention_math_for_mps`) switches to a much slower path above 8 query rows. Measured over eight layers at Qwen3.5-4B's shape:
-
-    | Context | T = 8 | T = 9 |
-    |---|---|---|
-    | 1,024 | 2.8 ms | 11.4 ms |
-    | 4,096 | 9.1 ms | 44.2 ms |
-    | 16,384 | 72.6 ms | 172.2 ms |
-
-    T = 16 costs the same as T = 9, so it is a change of path, not per-row growth. MLX steps too, more mildly. (The lab first reported that llama.cpp on Metal shows no step; a later review withdrew that as not established.) Source: `model-research-lab/research/verification/outcomes/Q009b-2026-11-11.md`.
-    - **Practical rule now:** on MPS, verify at most 8 tokens (k ≤ 7), and fewer at long context. The rerun's 256-token verify table hides this, because attention is cheap there.
-    - **Gate prediction (written 2026-11-11 before the run):** in whole Qwen3-1.7B with the kernel, T = 9 costs at least 1.3x T = 8 at a 4,096-token context and at least 1.6x at 16,384, while T = 8 costs at most 1.15x T = 5 at 4,096. If T = 9 is within 1.1x of T = 8 at 4,096, the cliff does not show in this model and E stops there.
-    - **Gate result (2026-11-11):** passed at 4,096 tokens. T = 9 costs 1.63x to 1.87x T = 8 in every arm, with no overlap between the two sets of samples. The 16,384-token run timed out because the harness re-prefills before each sample. Findings log entry: "The attention cliff above 8 query rows shows in the whole model".
-    - **The experiment:** a Metal attention kernel for 2 to 16 query rows over a long cache, the attention counterpart of the multi-row linear kernel. Prediction: at 4,096 context the T = 9 to 16 attention falls to within 1.5x of T = 8. Speculative verify at OpenCode-like depths (16k to 20k) then stops paying the cliff. Gate first: confirm the step in the whole Qwen3-1.7B model at 4k and 16k, through the existing `bench_verify_cost.py` with a longer prompt.
-  - **E, the build (prediction written 2026-11-11, before any kernel code).**
-    - **Cause, from the PyTorch v2.15.0 source** (`aten/src/ATen/native/mps/operations/Attention.mm`). Up to 8 query rows, SDPA uses `sdpa_vector`, with a two-pass split over the cache from 1,024 keys. Above 8 it uses the prefill tile kernel, which processes 16- or 32-row query tiles and is mostly empty for T = 9 to 16. The vector path handles each query row and head separately, so it likely re-reads the cache once per query row and per head. That would explain why one-token decoding at 4k already costs about twice what it costs at 256.
-    - **The kernel.** A grouped-query, split-over-the-cache attention kernel for T = 1 to 16, causal within the new block. Each threadgroup loads a block of keys and values once for every query row and every query head that shares it. Accumulation is in fp32, with fp16 input and output and head dim 128. It plugs in through transformers' attention interface as a custom op, so `torch.compile` works.
-    - **A zero-kernel comparison arm.** Split T into chunks of at most 8 rows and call stock SDPA once per chunk, so every chunk stays on the vector path.
-    - **Predictions.**
-      - Attention alone, over 28 layers' caches (so the caches are not cache-resident): the kernel at 4,096 keys costs within 1.5x of its own T = 1 at every T up to 16, and is at least 3x faster than stock SDPA at T = 9 to 16.
-      - Whole Qwen3-1.7B compiled with both kernels, at 4,096 context: one-token decoding at most 20 ms (stock: 27 to 45 ms), and T = 9 at most 1.3x T = 8.
-      - Correctness: within fp32-accumulation error of a float64 reference, no worse than stock SDPA's own error. Rollback and equivalence checks still pass.
-    - **Stop rule.** If the isolated kernel cannot beat stock SDPA at T = 8 and 4,096 keys by 1.5x, stop before wiring it into the model.
-  - **E, after the build (2026-11-11).**
-    - **The kernel and its wiring are built and reviewed.** The kernel files are `bench/smallq_attention.{metal,py}`; the transformers wiring is `bench/smallq_hf.py` (`enable(model)`). There are 392 tests, and rollback still passes with both planted faults caught.
-    - **One prediction is void.** The "one-token decoding at most 20 ms" prediction rested on a measurement artifact. The step right after a 4,096-token prefill pays about 30 ms once, from memory clocks dropping during long compute (a profile in the findings log). Steady-state one-token decoding at 4k is already about 15 ms.
-    - **The whole-model rerun, rule fixed before it runs.** `bench_verify_cost.py --rewind`, at 4,096 and 16,384 context, three rounds with the T order rotated. Arms: compiled plus multirow, with and without the small-query kernel (`compiled_kernel_smallq`). The kernel counts as a gain at a T where every round's median favours it and the median ratio clears the larger A/A deviation. Predictions: with the kernel, T = 9 costs at most 1.3x T = 8; and T = 9 to 16 is at least 1.8x faster than without it at 4,096 context.
-  - **E, result (2026-11-11).** The cliff is gone. With the kernel, whole-model verify at 4,096 context is 2.7x faster at T = 9 to 16 and T = 9 costs 1.14x T = 8. At 16,384 it is 5.1x faster. Both predictions are met. Below 8 rows at 4k the kernel gives no gain, so use it for T >= 8 (or T >= 4 at 16k and above). Findings log: "A small-query attention kernel removes the 9-row cliff". Next: a cross-family review; then one of three things — carry long-draft speculation (n-gram, k up to 15) to long contexts on MPS, raise the kernel from 40-125 GB/s toward the bandwidth limit, or take it upstream (PyTorch raising the vector path past 8 rows; transformers' compiled graph break).
-  - **E2, optimizing the kernel (targets written 2026-11-11, before the work).** The current kernel loses to stock at T = 1 to 2 and only ties it at T = 4 to 5 at 4,096 keys. It reaches 40 to 125 GB/s.
-    - **Targets** (isolated attention, 28 separate caches, paired per-round ratio over stock with `enable_gqa`, at least three processes at 4,096 keys):
-      - T = 1 and 2 at 1.0x or better, so the threshold can drop to 1 and one path serves every decode;
-      - T = 4 to 8 at 1.3x or better;
-      - T = 9 to 16 no worse than the current kernel (5.6x).
-    - **Whole model.** `bench_verify_cost.py --rewind`, three rounds at 4,096 and 16,384: no T from 1 to 16 slower than stock, and T = 9 to 16 no slower than the current kernel.
-    - **Correctness.** Every existing test passes under the same fixed rule, with no test weakened.
-    - **Stop rule.** A change that misses its target but loses nothing ships as a smaller gain. A change that slows any T, or needs a weaker test, does not ship.
-  - **The MLX counterpart (also Q009b).** MLX's 4-bit matrix product runs a per-row path up to about 9 rows and switches to a tiled path only from 12 rows. That is the same small-row gap the multi-row kernel closed in PyTorch, so it is a candidate upstream issue for mlx.
-  - Whether to write this up as one result: a PyTorch MPS path to about 3x on edit-style generation, exact output, with no draft model.
+  - whole-file edits are 2.9x to 3.3x faster, with output identical to plain decoding;
+  - free writing breaks even with adaptive drafting.
+  - On the Kaggle T4 (llama.cpp), the same idea shipped: 2.8x on the edit benchmark but +16% on real agent traffic. Quote the workload, not the benchmark.
+- **Measurement.**
+  - The step right after a long prefill pays a one-off memory-clock penalty of about 30 ms on this Mac. Time steady steps with `bench_verify_cost.py --rewind`.
+  - A single process is a hint, not a number: verify cost read 1.19x in one process and 1.52x across four.
+- **Prior work.** arXiv 2610.31479 connects small-row kernels to speculative verification on MLX. The open part here is PyTorch on MPS, the attention cliff, and the size of the gains.
+- **In progress (2026-11-11).** E2, optimizing the attention kernel against fixed targets; and drafts of two upstream issues, PyTorch's attention cliff and transformers' compiled graph break. Both are running as one workflow.
+- **Next after that.**
+  - Rob's review of the issue drafts.
+  - Long-draft speculation (k up to 15) at long context on MPS, now that verification is cheap.
+  - Scale folding (experiment C's other half).
+  - The verified-rewrite design's next stage.
 
 ## Rerun protocol (fixed 2026-11-10, before any rerun result)
 

@@ -92,7 +92,14 @@ The A/B used about 36 minutes of GPU time (12 for the benchmark, 24 for the repl
 
 **Lesson for this thread.** A copy-heavy benchmark measures the mechanism, not the workload. The Mac's 2.9x to 3.3x on edits is real for whole-file rewrites. For an agent that emits short diffs, expect the T4's tens of percent. A real-traffic replay is the number to quote.
 
-The 27B question was assessed separately but not measured. The plan is one 30-minute tune run with the two cards splitting each layer's computation (`-sm tensor`), once quota refreshes on 2026-11-14.
+**The bigger model fits and is usable (2026-11-10, `kaggle-qwen-serve` EVIDENCE.md, tune-27b v1).** The test ran the Orca 27B (Qwen3.8-27B, mostly IQ4_XS, with its own MTP layer) on both T4s, with the cards splitting each layer's computation (`-sm tensor`) and the full 262,144-token context. It used 12 minutes of GPU time.
+
+- **Plain decoding** runs at 18 tok/s, against the 9B's 31.
+- **With n-gram drafting plus MTP,** the code edit runs at 49 to 58 tok/s and free writing at 22 to 25 tok/s. Against the 9B, that is about 0.45x on edits and 0.7x on free writing.
+- **Prefill** is about 530 tok/s. A cold 19,552-token prompt gave its first token after 45 s.
+- **Correctness.** Edits were exact against plain greedy, and every bar set before the run held.
+- **How it compares with the earlier estimate.** Speculation pays proportionally more here: 2.4x over plain decoding against about 1.7x on the 9B. That matches the expectation. But MTP acceptance on free writing is only 53%, so deeper MTP slows it.
+- **Plan.** The serve switch to the 27B waits for the quota refresh on 2026-11-14: a 20-minute tune run first, then serving. That is `kaggle-qwen-serve`'s call.
 
 ## Experiments, in order
 

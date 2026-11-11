@@ -33,6 +33,8 @@ Dead or not useful: SageMaker Studio Lab is closed to new users. Paperspace's fr
 
 ## Hosted inference APIs for open-weight models
 
+This lane only covered the well-known providers, and their free tiers come to thousands of requests a day at most. It's not enough for sourcing millions of tokens. That would need a wider search into small hosts, lab previews, stealth models and regional promotions, checked against live catalogs and each provider's own quota and expiry terms.
+
 | Provider | Notable free models (2026-11-09) | Limits |
 | --- | --- | --- |
 | NVIDIA build.nvidia.com | Nemotron 3 Ultra 550B, Gemma 4 31B, gpt-oss-20b | 40 RPM, 10,000 requests/day per model; evaluation use only |

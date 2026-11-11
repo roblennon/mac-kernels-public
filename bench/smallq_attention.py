@@ -44,6 +44,25 @@ import torch
 SOURCE_PATH = Path(__file__).with_name("smallq_attention.metal")
 MAX_T = 16
 HEAD_DIMS = (64, 128)
+# The kernel folds scale * log2(e) into one fp32 factor; past this magnitude that factor can overflow
+# and turn a zero score into NaN (0 * inf). Real models use 1/sqrt(D), far below it.
+MAX_SCALE = 1e4
+
+
+def scale_ok(scale):
+    """A host float within the kernel's range. A tensor is refused: reading it would synchronise."""
+    if scale is None:
+        return True
+    if isinstance(scale, torch.Tensor):
+        return False
+    s = float(scale)
+    return math.isfinite(s) and abs(s) <= MAX_SCALE
+
+
+def _check_scale(scale, D):
+    if not scale_ok(scale):
+        raise ValueError(f"smallq_attention: scale must be a host float with |scale| <= {MAX_SCALE:g}")
+    return 1.0 / math.sqrt(D) if scale is None else float(scale)
 
 
 @dataclass(frozen=True)
@@ -202,7 +221,7 @@ def smallq_attention_dev(q, k, v, pos, scale=None, config=None, lib=None, _mask_
     G = Hq // Hkv
     cfg = config or pick_config(Lmax, T)
     lib = lib or library()
-    scale = 1.0 / math.sqrt(D) if scale is None else float(scale)
+    scale = _check_scale(scale, D)
     RT, RG = _row_tiles(G * T, D, cfg)
     chunk, NS = split_plan(Lmax, cfg)
     pstride = pos.stride(0) if pos.shape[0] > 1 else 0
@@ -231,7 +250,7 @@ def smallq_attention(q, k, v, pos, scale=None, config=None, lib=None, _mask_shif
     G = Hq // Hkv
     cfg = config or pick_config(pos + T, T)
     lib = lib or library()
-    scale = 1.0 / math.sqrt(D) if scale is None else float(scale)
+    scale = _check_scale(scale, D)
     RT, RG = _row_tiles(G * T, D, cfg)
     Lk = pos + T
     chunk, NS = split_plan(Lk, cfg)

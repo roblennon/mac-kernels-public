@@ -372,3 +372,20 @@ def test_dev_refuses_what_it_cannot_run():
         sq.smallq_attention_dev(q, k, v, torch.tensor([1, 2, 3], device="mps"))  # 3 values for B = 2
     with pytest.raises(ValueError):
         sq.smallq_attention_dev(q.float(), k.float(), v.float(), pos)
+
+
+def test_scale_outside_the_kernel_range_is_refused():
+    # Arrange: a finite scale large enough that scale * log2(e) overflows fp32 would give 0 * inf.
+    if not torch.backends.mps.is_available():
+        pytest.skip("needs MPS")
+    q = torch.zeros(1, 1, 1, 64, dtype=torch.float16, device="mps")
+    k = torch.zeros(1, 1, 8, 64, dtype=torch.float16, device="mps")
+    v = torch.ones(1, 1, 8, 64, dtype=torch.float16, device="mps")
+    # Act / Assert
+    assert sq.scale_ok(None) and sq.scale_ok(0.088) and sq.scale_ok(-sq.MAX_SCALE)
+    for bad in (3e38, float("inf"), float("nan"), torch.tensor(0.1, device="mps")):
+        assert not sq.scale_ok(bad)
+        with pytest.raises(ValueError):
+            sq.smallq_attention(q, k, v, 0, scale=bad)
+        with pytest.raises(ValueError):
+            sq.smallq_attention_dev(q, k, v, torch.zeros(1, dtype=torch.int64, device="mps"), scale=bad)

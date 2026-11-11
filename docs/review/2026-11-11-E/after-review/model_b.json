@@ -1,0 +1,108 @@
+{
+ "torch": "2.15.0",
+ "prefill": 4096,
+ "Lmax": 4160,
+ "threshold": 4,
+ "Ts": [
+  9,
+  16
+ ],
+ "per_T": {
+  "9": {
+   "sdpa": {
+    "frames": 6,
+    "compile_s": 5.2,
+    "ms": 94.25,
+    "finite": true
+   },
+   "mk_smallq": {
+    "frames": 1,
+    "compile_s": 13.9,
+    "ms": 45.09,
+    "finite": true
+   },
+   "stock_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "stock_eager_vs_compiled": {
+    "max_abs": 0.01953125,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_vs_stock": {
+    "max_abs": 0.015625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_mk_compiled": {
+    "max_abs": 0.015625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_stock_eager": {
+    "max_abs": 0.015625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "yardstick": 0.01953125,
+   "tolerance": 0.1,
+   "pass": true
+  },
+  "16": {
+   "sdpa": {
+    "frames": 6,
+    "compile_s": 3.8,
+    "ms": 98.14,
+    "finite": true
+   },
+   "mk_smallq": {
+    "frames": 1,
+    "compile_s": 14.7,
+    "ms": 46.64,
+    "finite": true
+   },
+   "stock_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "stock_eager_vs_compiled": {
+    "max_abs": 0.0390625,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_vs_stock": {
+    "max_abs": 0.01953125,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_run_to_run": {
+    "max_abs": 0.0,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_mk_compiled": {
+    "max_abs": 0.03271484375,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "mk_eager_vs_stock_eager": {
+    "max_abs": 0.02685546875,
+    "argmax_agree": 1.0,
+    "argmax_mismatch_confident": 0
+   },
+   "yardstick": 0.0390625,
+   "tolerance": 0.1,
+   "pass": true
+  }
+ },
+ "verdict": "pass",
+ "failing_T": []
+}

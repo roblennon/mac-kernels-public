@@ -15,25 +15,25 @@ Three pieces:
   alignment, T > 16) go to stock SDPA inside the op, with the causal mask built on the device from
   pos, so the op is total.
 - smallq_mask, registered with transformers' mask interface under "mk_smallq". For a plain causal
-  mask with no padding and T in the kernel's range (threshold .. 16) it returns None, because the
-  kernel masks by position itself; otherwise it is sdpa_mask, unchanged. Skipping the mask also
-  skips the check in transformers 5.18's sdpa_mask that compares the StaticCache's device-side
-  length with 0 in Python (_ignore_causal_mask_sdpa), which under torch.compile breaks the graph
-  and reads the GPU from the host on every forward with T > 1, stock SDPA included.
+  mask with no padding and T in the kernel's range (threshold .. 16) it returns, instead of a mask,
+  the cache write offset (transformers' q_offset: the slot the new rows go to) as an int64 [B]
+  tensor; otherwise it is sdpa_mask, unchanged. Skipping sdpa_mask also skips its check in
+  transformers 5.18 that compares the StaticCache's device-side length with 0 in Python
+  (_ignore_causal_mask_sdpa), which under torch.compile breaks the graph and reads the GPU from the
+  host on forwards with T > 1 that reach it, stock SDPA included.
 - smallq_attention_forward, registered with transformers' AttentionInterface under "mk_smallq".
-  With no mask, T in the kernel range and a supported shape it calls the op with
-  pos = position_ids[:, 0]. With a mask (T below the threshold, a padding mask, T > 16) it calls
-  transformers' own sdpa_attention_forward with the same arguments, so T = 1 and 2 keep stock
-  SDPA and its mask, and a mask is never ignored. With no mask in the kernel range but a case the
-  kernel does not take (dtype, head dim, dropout, output_attentions), it builds the causal mask
-  on the device from position_ids and calls sdpa_attention_forward with it. The return value is
-  what sdpa_attention_forward returns: ([B, T, Hq, D] contiguous, None).
+  With that offset tensor and a supported case it calls the op with pos = the offset. With the
+  offset but a case the kernel does not take (dtype, head dim, dropout, output_attentions, scale
+  out of range) it builds the causal mask on the device from the offset and calls transformers'
+  sdpa_attention_forward. With a real mask, or no mask at all, it calls sdpa_attention_forward with
+  the arguments unchanged, so T below the threshold, padding, T > 16 and non-causal calls keep
+  stock behaviour exactly. The return value is what sdpa_attention_forward returns:
+  ([B, T, Hq, D] contiguous, None).
 - enable / disable, which switch a loaded model with model.set_attn_implementation.
 
-What the no-mask path assumes: query row t of batch element b sits at position_ids[b, 0] + t,
-sees every key before it, and those keys are cache slots 0 .. position_ids[b, 0] + t. That is
-what a Qwen3-style decoder does with a StaticCache, a DynamicCache or no cache when position_ids
-are left to the model (it derives them from the cache length, so they match the slots written).
+Positions: the kernel path masks by the cache slot (the offset above), as stock SDPA's mask does,
+so caller-supplied position_ids that differ from the cache slots change only the rotary embedding,
+exactly as with stock attention. Inference only: the op has no backward and refuses training mode.
 Sliding-window layers are not covered: their mask function is not the plain causal one, so they
 get a mask and go to stock SDPA.
 """
@@ -84,7 +84,7 @@ def _register_op():
         """[B, Hq, T, D] attention of q's rows (positions pos .. pos + T - 1) over k/v[:, :, :pos + T]."""
         if q.stride(-1) != 1:
             q = q.contiguous()
-        if sq.supports_shapes(q, k, v) and _pos_ok(pos, q):
+        if sq.supports_shapes(q, k, v) and _pos_ok(pos, q) and sq.scale_ok(scale):
             return sq.smallq_attention_dev(q, k, v, pos, scale)
         return _masked_sdpa(q, k, v, pos.to(q.device, torch.int64), scale)
 
@@ -105,13 +105,26 @@ def in_kernel_range(T):
     return SETTINGS["threshold"] <= T <= sq.MAX_T
 
 
+def is_slot_marker(mask):
+    """smallq_mask's stand-in for a plain causal mask: the cache write offset per batch element,
+    an int64 [B] tensor. A real mask is a 4-D bool or float tensor, so the two cannot be confused."""
+    return isinstance(mask, torch.Tensor) and mask.dtype == torch.int64 and mask.dim() == 1
+
+
 def smallq_mask(*args, **kwargs):
-    """Mask function for "mk_smallq": None for a plain causal mask without padding at T in the
-    kernel range (the attention function then masks by position); sdpa_mask otherwise."""
+    """Mask function for "mk_smallq". For a plain causal mask without padding at T in the kernel
+    range it returns the cache write offset (q_offset, the slot the new rows are written to) as an
+    int64 [batch] tensor instead of a mask; the attention function masks by it. Taking the offset
+    from the cache, not from position_ids, keeps the kernel right when a caller passes positions that
+    differ from the cache slots. Otherwise it is sdpa_mask, unchanged."""
     if (not args and kwargs.get("attention_mask") is None and in_kernel_range(kwargs.get("q_length", 0))
             and kwargs.get("mask_function", causal_mask_function) is causal_mask_function
             and not kwargs.get("local_size") and kwargs.get("allow_is_causal_skip", True)):
-        return None
+        off = kwargs.get("q_offset", 0)
+        off = off.to(torch.int64) if isinstance(off, torch.Tensor) else torch.tensor(int(off), dtype=torch.int64)
+        # A copy, never a view: q_offset can be the cache's own counter, which each layer's cache
+        # update advances in place before its attention runs.
+        return off.to(kwargs.get("device", off.device)).reshape(-1).expand(kwargs["batch_size"]).clone()
     return sdpa_mask(*args, **kwargs)
 
 
@@ -120,10 +133,10 @@ def kernel_applies(module, query, key, value, attention_mask, **kwargs):
     shapes, strides, dtypes, flags, the mask's presence and the threshold, so it is fixed per
     compiled graph."""
     q = query if query.stride(-1) == 1 else query.contiguous()
-    return (attention_mask is None
+    return (is_slot_marker(attention_mask)
             and in_kernel_range(query.shape[2])
-            and kwargs.get("position_ids") is not None
             and not module.training
+            and sq.scale_ok(kwargs.get("scaling"))
             and kwargs.get("dropout", 0.0) == 0.0
             and kwargs.get("sliding_window") is None
             and kwargs.get("position_bias") is None
@@ -135,14 +148,9 @@ def kernel_applies(module, query, key, value, attention_mask, **kwargs):
 def smallq_attention_forward(module, query, key, value, attention_mask, **kwargs):
     """transformers attention function: query [B, Hq, T, D]; key, value [B, Hkv, L, D] (with a
     StaticCache, the whole cache, L = Lmax). Returns ([B, T, Hq, D], None)."""
-    if attention_mask is not None or not in_kernel_range(query.shape[2]):
+    if not is_slot_marker(attention_mask):  # a real mask, or none at all: stock semantics, unchanged
         return sdpa_attention_forward(module, query, key, value, attention_mask, **kwargs)
-    position_ids = kwargs.get("position_ids")
-    if position_ids is None:
-        raise ValueError("mk_smallq: no mask and no position_ids; the causal mask cannot be placed")
-    pos = position_ids[:, 0]
-    if pos.dtype != torch.int64:
-        pos = pos.long()
+    pos = attention_mask  # the cache write offset, from smallq_mask; the mask function was causal
     if not kernel_applies(module, query, key, value, attention_mask, **kwargs):
         mask = position_mask(pos, query.shape[2], key.shape[2])
         return sdpa_attention_forward(module, query, key, value, mask, **kwargs)

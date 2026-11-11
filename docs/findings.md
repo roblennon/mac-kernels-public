@@ -1501,12 +1501,25 @@ Qwen3-1.7B fp16, M1 Max, torch 2.15.0, transformers 5.18.0. The plan and predict
 - **Predictions met.** With the kernel, T = 9 costs 1.14x T = 8 at 4,096 (predicted at most 1.3x). T = 9 to 16 is 2.7x faster (predicted at least 1.8x).
 - **Where it does not help.** Below 8 rows at 4,096 the kernel brings no gain: 0.95 to 0.99x, inside the A/A spread. So the threshold should be T >= 8 at short contexts; at 16,384, T >= 4 already gains 7%.
 - **What it means for speculation.** At 4,096 context, verifying 15 drafts now costs about 2x a one-token step (28.4 against 14.4 ms). Before, it cost 5.4x. Drafters that propose long runs, such as n-gram lookup, become usable on MPS at long context.
-- **Isolated attention** (28 separate caches, paired per-round ratios): 5.6x over stock at T = 9 to 16 with 4,096 keys, 7x at 16,384, and 1.65x at T = 8. At T = 1 to 2 it is slower than stock (0.5 to 0.75x). The kernel reaches 40 to 125 GB/s, so it is limited by instruction issue, not bandwidth, and has room to improve.
+- **Isolated attention** (28 separate caches, paired per-round ratios): 5.6x over stock at T = 9 to 16 with 4,096 keys, 7x at 16,384, and 1.65x at T = 8. At T = 1 to 2 it is slower than stock (0.5 to 0.75x). The kernel reaches 40 to 125 GB/s by a byte count that omits repeated reads across row groups. That is well below the bandwidth limit, so it has room to improve; what limits it is not established.
 
 **Two side findings.**
-- **transformers 5.18 breaks every compiled forward with T > 1 and a StaticCache into 6 graphs and reads the GPU from the host.** The cause is `q_offset == 0` in `_ignore_causal_mask_sdpa`, and it costs about 1.5 to 2 ms per verify. The `mk_smallq` path compiles to 1 graph. A candidate upstream issue.
+- **In transformers 5.18, a compiled forward with T > 1 and a StaticCache that reaches sdpa_mask's causal-skip check breaks into 6 graphs and reads the GPU from the host.** That was every such forward measured here. The cause is `q_offset == 0` in `_ignore_causal_mask_sdpa`, and it costs about 1.5 to 2 ms per verify. The `mk_smallq` path compiles to 1 graph. A candidate upstream issue.
 - **The step right after a long prefill pays a one-off penalty of about 30 ms.** It reaches any memory-bound work: a bare pass over the weights runs at about 72 GB/s instead of 265. One bandwidth-bound pass of about 10 ms clears it. The pattern fits memory or fabric clocks dropping during long compute-bound phases (an inference; confirming it needs powermetrics). A real request pays it once, after its prefill.
 
 **Correction to the entry "The attention cliff above 8 query rows shows in the whole model".** That run re-prefilled before every sample, so each sample was a first step after a 4,096-token prefill and carried the penalty above.
 - Its one-token figure of "27 to 45 ms at 4k" was mostly that penalty. A steady step at 4,096 is 14.3 ms.
 - Its cliff ratios (1.63x to 1.87x) were diluted by the same penalty. In steady state, stock T = 9 costs 2.87x T = 8 at 4,096 and 5.2x at 16,384.
+
+**After the cross-family review (2026-11-11).** GPT-6.1 Sol reviewed experiment E read-only ([its review](research/program/reviews/2026-11-11-smallq-attention-review-sol.md)). It reproduced the timing ratios from the raw data and found the kernel's indexing, barriers and reduce sound. It found three defects, all fixed:
+
+- **The kernel path masked by `position_ids`, not by the cache slot.** A caller passing rotary positions that differ from the cache write offset would have got a wrong answer. The mask function now passes transformers' own cache offset (`q_offset`) to the attention function, as a copied int64 tensor, and the kernel masks by that.
+  - A first version returned a view of the cache's counter, which each layer advances in place before its attention runs. A repeat-run test caught it, and a direct test now guards it.
+- **A call with no mask and `is_causal=False` was turned causal.** Calls without the mask function's offset now go to transformers' `sdpa_attention_forward` unchanged.
+- **A finite but huge `scale` (3e38) could give NaN** through an fp32 overflow in `scale * log2(e)`. Scales above 1e4 in magnitude, non-finite scales and tensor scales are now refused, and the wiring falls back to stock.
+
+All 512 kernel tests pass (Sol's two counterexamples are now tests). The whole-model check against stock passes again at T = 1, 4, 8, 9 and 16 with 4,096 context: max logit gap 0.02, argmax agreeing everywhere. Rollback passes, and both planted faults fail. The timing table above was measured before these fixes. It used the model's default positions, where `position_ids` equal the cache slots, and the kernel itself did not change, so it stands.
+
+**A prediction I had not reported.** The isolated prediction "within 1.5x of its own T = 1 at every T up to 16" failed: T = 16 over T = 1 was 1.47 to 2.48 across six 4,096-key runs, above 1.5 in five. The whole-model predictions held.
+
+**Scope.** Whole-model correctness covers Qwen3-1.7B at T = 1, 4, 8, 9 and 16 with 4,096 context, not every T from 4 to 16 and not 16k. The post-prefill penalty is measured. That memory clocks cause it is a hypothesis.

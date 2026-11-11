@@ -90,7 +90,7 @@ def _sdpa_mask(T, pos, Lmax):
 @pytest.mark.parametrize("T, uses_kernel", [(1, False), (2, False), (3, False), (4, True), (9, True), (16, True)])
 def test_attention_function_routes_by_threshold(T, uses_kernel):
     # Arrange: the call Qwen3Attention makes, with the full static cache as key and value and the
-    # mask smallq_mask gives (None in the kernel range, sdpa_mask's below it).
+    # mask smallq_mask gives (the cache offset in the kernel range, sdpa_mask's below it).
     pos, Lmax = 1000, 1100
     q, k, v = qkv(T=T, Lmax=Lmax, seed=T)
     q = q.transpose(1, 2).contiguous().transpose(1, 2)        # the model's [B, T, H, D] memory layout
@@ -102,7 +102,7 @@ def test_attention_function_routes_by_threshold(T, uses_kernel):
     out, w = smallq_hf.smallq_attention_forward(_Attn(), q, k, v, given, **kwargs)
     # Assert: layout and routing.
     stock, _ = sdpa_attention_forward(_Attn(), q, k, v, mask, **kwargs)
-    assert (given is None) == uses_kernel
+    assert smallq_hf.is_slot_marker(given) == uses_kernel
     assert w is None and out.shape == (1, T, 16, 128) and out.is_contiguous()
     kern = sq.smallq_attention_dev(q, k, v, torch.tensor([pos], device="mps"), 128 ** -0.5).transpose(1, 2)
     assert torch.equal(out, kern if uses_kernel else stock)
@@ -123,13 +123,15 @@ def test_mask_function_skips_only_plain_causal_masks_in_the_kernel_range():
     pad = torch.ones(1, Lmax, dtype=torch.bool, device="mps")
     pad[0, :5] = False
     # Act / Assert
-    assert mask_for(4, pos, Lmax) is None and mask_for(16, pos, Lmax) is None
+    for T in (4, 16):
+        m = mask_for(T, pos, Lmax)
+        assert smallq_hf.is_slot_marker(m) and m.tolist() == [pos]
     for T in (1, 3, 17):
         assert torch.equal(mask_for(T, pos, Lmax), _sdpa_mask(T, pos, Lmax))
     padded = mask_for(8, pos, Lmax, attention_mask=pad)
     assert padded is not None and not padded[..., :5].any() and padded[0, 0, 0, 5:pos + 1].all()
     smallq_hf.SETTINGS["threshold"] = 9
-    assert mask_for(8, pos, Lmax) is not None
+    assert not smallq_hf.is_slot_marker(mask_for(8, pos, Lmax))
 
 
 def test_attention_function_never_ignores_a_mask():
@@ -147,8 +149,8 @@ def test_attention_function_never_ignores_a_mask():
 
 
 def test_attention_function_unsupported_cases_use_a_device_mask():
-    # Arrange: no mask in the kernel range, but a case the kernel does not take; the fallback builds
-    # the causal mask from position_ids and must equal stock SDPA with sdpa_mask's mask.
+    # Arrange: the cache offset in the kernel range, but a case the kernel does not take; the fallback
+    # builds the causal mask from the offset and must equal stock SDPA with sdpa_mask's mask.
     pos, Lmax, T = 50, 128, 8
     q, k, v = qkv(T=T, Lmax=Lmax, seed=3)
     base = dict(dropout=0.0, scaling=128 ** -0.5, position_ids=(pos + torch.arange(T, device="mps"))[None])
@@ -157,10 +159,48 @@ def test_attention_function_unsupported_cases_use_a_device_mask():
     stock96 = sdpa_attention_forward(_Attn(), q96, k96, v96, _sdpa_mask(T, pos, Lmax), **base)[0]
     # Act / Assert
     for kw in (dict(base, output_attentions=True), dict(base, sliding_window=64)):
-        assert torch.equal(smallq_hf.smallq_attention_forward(_Attn(), q, k, v, None, **kw)[0], stock), kw
-    assert torch.equal(smallq_hf.smallq_attention_forward(_Attn(), q96, k96, v96, None, **base)[0], stock96)
-    with pytest.raises(ValueError):
-        smallq_hf.smallq_attention_forward(_Attn(), q, k, v, None, dropout=0.0, scaling=0.1)
+        assert torch.equal(smallq_hf.smallq_attention_forward(_Attn(), q, k, v, _slot(pos), **kw)[0], stock), kw
+    assert torch.equal(smallq_hf.smallq_attention_forward(_Attn(), q96, k96, v96, _slot(pos), **base)[0], stock96)
+    # a scale the kernel would overflow on goes to stock too
+    big = dict(base, scaling=3e38)
+    out = smallq_hf.smallq_attention_forward(_Attn(), q, k, v, _slot(pos), **big)[0]
+    ref = sdpa_attention_forward(_Attn(), q, k, v, _sdpa_mask(T, pos, Lmax), **big)[0]
+    torch.testing.assert_close(out, ref, rtol=0, atol=0, equal_nan=True)  # stock overflows here too
+
+
+def _slot(pos):
+    return torch.tensor([pos], dtype=torch.int64, device="mps")
+
+
+def test_kernel_masks_by_cache_slot_not_position_ids():
+    # Arrange (Sol's counterexample): the cache writes at slot 100 while the caller passes rotary
+    # positions 50..53. Stock SDPA masks by the cache length; the kernel path must too.
+    slot, Lmax, T = 100, 256, 4
+    q, k, v = qkv(T=T, Lmax=Lmax, seed=7)
+    kw = dict(dropout=0.0, scaling=128 ** -0.5, position_ids=(50 + torch.arange(T, device="mps"))[None])
+    # Act
+    out = smallq_hf.smallq_attention_forward(_Attn(), q, k, v, _slot(slot), **kw)[0]
+    # Assert
+    stock = sdpa_attention_forward(_Attn(), q, k, v, _sdpa_mask(T, slot, Lmax), **kw)[0]
+    wrong = sdpa_attention_forward(_Attn(), q, k, v, _sdpa_mask(T, 50, Lmax), **kw)[0]
+    assert (out.float() - stock.float()).abs().max() < 2e-3
+    assert (out.float() - wrong.float()).abs().max() > 1e-2
+
+
+def test_no_mask_keeps_stock_semantics_including_non_causal():
+    # Arrange (Sol's counterexample): with no mask and is_causal=False every row sees every key.
+    T = L = 4
+    q = torch.zeros(1, 1, T, 64, dtype=torch.float16, device="mps")
+    k = torch.zeros(1, 1, L, 64, dtype=torch.float16, device="mps")
+    v = torch.arange(L, dtype=torch.float16, device="mps").view(1, 1, L, 1).expand(1, 1, L, 64).contiguous()
+    for is_causal in (False, True):
+        kw = dict(dropout=0.0, scaling=0.125, is_causal=is_causal)
+        # Act
+        out = smallq_hf.smallq_attention_forward(_Attn(), q, k, v, None, **kw)[0]
+        # Assert
+        assert torch.equal(out, sdpa_attention_forward(_Attn(), q, k, v, None, **kw)[0])
+    out = smallq_hf.smallq_attention_forward(_Attn(), q, k, v, None, dropout=0.0, scaling=0.125, is_causal=False)[0]
+    assert torch.allclose(out[0, :, 0, 0].float(), torch.full((T,), 1.5, device="mps"))
 
 
 def tiny_qwen3():
@@ -216,3 +256,14 @@ def test_enable_disable_and_compiled_static_cache_model_matches_stock():
         assert d < 0.05, (T, d)
         if T < smallq_hf.SETTINGS["threshold"]:
             assert torch.equal(ours[T], stock[T])    # below the threshold it is stock SDPA
+
+
+def test_slot_offset_is_a_copy_not_a_view_of_the_cache_counter():
+    # Arrange: q_offset can be a StaticLayer's cumulative_length, which the layer's cache update
+    # advances in place before its attention runs; a view would shift the mask by T.
+    counter = torch.tensor(300, dtype=torch.int64, device="mps")
+    # Act
+    m = smallq_hf.smallq_mask(batch_size=2, q_length=8, kv_length=400, q_offset=counter, kv_offset=0, device="mps")
+    counter.add_(8)
+    # Assert
+    assert smallq_hf.is_slot_marker(m) and m.tolist() == [300, 300]

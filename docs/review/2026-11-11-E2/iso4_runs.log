@@ -1,0 +1,14 @@
+p1 gave up waiting
+--- relaxed gate 12:36:41
+p1 start load 7.88 busy 0 waited 465s 12:44:31
+p1 rc=0 end load 5.59 busy 0 12:45:32
+p2 start load 5.59 busy 0 waited 0s 12:45:32
+p2 rc=0 end load 8.05 busy 1 12:46:31
+p3 start load 7.16 busy 1 waited 60s 12:47:31
+p3 rc=0 end load 8.62 busy 2 12:48:30
+p4 start load 7.73 busy 1 waited 30s 12:49:00
+p4 rc=0 end load 7.05 busy 1 12:49:58
+p5 start load 7.05 busy 1 waited 0s 12:49:58
+p5 rc=0 end load 5.33 busy 2 12:50:56
+p6 start load 5.37 busy 1 waited 30s 12:51:26
+p6 rc=0 end load 7.77 busy 1 12:52:24

@@ -1,0 +1,13 @@
+10:28:08 r0 4096 compiled_kernel exit=0 "exit": 0
+10:31:09 r0 4096 compiled_kernel_smallq exit=0 "exit": 0
+10:35:02 r0 16384 compiled_kernel exit=0 "exit": 0
+10:38:18 r0 16384 compiled_kernel_smallq exit=0 "exit": 0
+10:43:39 r1 4096 compiled_kernel_smallq exit=0 "exit": 0
+10:45:24 r1 4096 compiled_kernel exit=0 "exit": 0
+10:47:18 r1 16384 compiled_kernel_smallq exit=0 "exit": 0
+10:48:40 r1 16384 compiled_kernel exit=0 "exit": 0
+10:49:46 r2 4096 compiled_kernel exit=0 "exit": 0
+10:50:27 r2 4096 compiled_kernel_smallq exit=0 "exit": 0
+10:51:34 r2 16384 compiled_kernel exit=0 "exit": 0
+10:52:52 r2 16384 compiled_kernel_smallq exit=0 "exit": 0
+ALLDONE

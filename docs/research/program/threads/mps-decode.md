@@ -14,7 +14,7 @@ Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0, transformers 5.18.0, from `.venv-decode
   - **Batches 8 to 16:** compile plus the multi-row linear kernel gives about 2x.
 - **Verification (several tokens per forward).**
   - The multi-row kernel halves the linear cost of 2 to 16 rows.
-  - PyTorch's attention switches to a much slower path above 8 query rows. The small-query attention kernel (experiment E) removes that: verify at T = 9 to 16 is 2.7x faster at 4,096 context and 5.1x at 16,384, and T = 9 costs 1.14x T = 8.
+  - PyTorch's attention switches to a much slower path above 8 query rows. The small-query attention kernel removes that. After optimization (E2), whole-model verify is 2.7x to 3.2x faster at T = 9 to 16 with 4,096 context, and 5.4x to 6.9x at 16,384. T = 4 to 8 gains 1.05x to 1.5x. T = 1 to 3 stay on stock SDPA, because the kernel path is 4 to 9% slower there in the whole model.
 - **Prompt-lookup speculation**, against an ordinary compiled decoder, requests run to completion:
   - whole-file edits are 2.9x to 3.3x faster, with output identical to plain decoding;
   - free writing breaks even with adaptive drafting.
@@ -23,9 +23,10 @@ Qwen3-1.7B fp16, M1 Max, PyTorch 2.15.0, transformers 5.18.0, from `.venv-decode
   - The step right after a long prefill pays a one-off memory-clock penalty of about 30 ms on this Mac. Time steady steps with `bench_verify_cost.py --rewind`.
   - A single process is a hint, not a number: verify cost read 1.19x in one process and 1.52x across four.
 - **Prior work.** arXiv 2610.31479 connects small-row kernels to speculative verification on MLX. The open part here is PyTorch on MPS, the attention cliff, and the size of the gains.
-- **In progress (2026-11-11).** E2, optimizing the attention kernel against fixed targets; and drafts of two upstream issues, PyTorch's attention cliff and transformers' compiled graph break. Both are running as one workflow.
+- **Upstream (2026-11-11).** The PyTorch issue draft is ready for Rob's review (`docs/upstream/pytorch-mps-sdpa-small-query-cliff.md`); it builds on the unlanded PyTorch #201747. The transformers graph break is already fixed in 5.20.0, so there is nothing to file. Moving `.venv-decode` to transformers 5.20 or later would remove that cost from stock numbers; the change would need a re-baseline.
 - **Next after that.**
-  - Rob's review of the issue drafts.
+  - Rob's review of the PyTorch issue draft.
+  - The kernel's remaining small-T gap: a fixed cost of about 0.7 to 1 ms per step on the custom-op path (cause not established; a single-dispatch kernel is the next lever).
   - Long-draft speculation (k up to 15) at long context on MPS, now that verification is cheap.
   - Scale folding (experiment C's other half).
   - The verified-rewrite design's next stage.

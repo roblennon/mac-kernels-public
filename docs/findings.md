@@ -1504,7 +1504,7 @@ Qwen3-1.7B fp16, M1 Max, torch 2.15.0, transformers 5.18.0. The plan and predict
 - **Isolated attention** (28 separate caches, paired per-round ratios): 5.6x over stock at T = 9 to 16 with 4,096 keys, 7x at 16,384, and 1.65x at T = 8. At T = 1 to 2 it is slower than stock (0.5 to 0.75x). The kernel reaches 40 to 125 GB/s by a byte count that omits repeated reads across row groups. That is well below the bandwidth limit, so it has room to improve; what limits it is not established.
 
 **Two side findings.**
-- **In transformers 5.18, a compiled forward with T > 1 and a StaticCache that reaches sdpa_mask's causal-skip check breaks into 6 graphs and reads the GPU from the host.** That was every such forward measured here. The cause is `q_offset == 0` in `_ignore_causal_mask_sdpa`, and it costs about 1.5 to 2 ms per verify. The `mk_smallq` path compiles to 1 graph. A candidate upstream issue.
+- **In transformers 5.18, a compiled forward with T > 1 and a StaticCache that reaches sdpa_mask's causal-skip check breaks into 6 graphs and reads the GPU from the host.** That was every such forward measured here. The cause is `q_offset == 0` in `_ignore_causal_mask_sdpa`, and it costs about 1.5 to 2 ms per verify. The `mk_smallq` path compiles to 1 graph. (Checked on 2026-11-11: already fixed upstream by transformers #49354, first released in 5.20.0. It affects only 5.18 and 5.19.)
 - **The step right after a long prefill pays a one-off penalty of about 30 ms.** It reaches any memory-bound work: a bare pass over the weights runs at about 72 GB/s instead of 265. One bandwidth-bound pass of about 10 ms clears it. The pattern fits memory or fabric clocks dropping during long compute-bound phases (an inference; confirming it needs powermetrics). A real request pays it once, after its prefill.
 
 **Correction to the entry "The attention cliff above 8 query rows shows in the whole model".** That run re-prefilled before every sample, so each sample was a first step after a 4,096-token prefill and carried the penalty above.
@@ -1523,3 +1523,45 @@ All 512 kernel tests pass (Sol's two counterexamples are now tests). The whole-m
 **A prediction I had not reported.** The isolated prediction "within 1.5x of its own T = 1 at every T up to 16" failed: T = 16 over T = 1 was 1.47 to 2.48 across six 4,096-key runs, above 1.5 in five. The whole-model predictions held.
 
 **Scope.** Whole-model correctness covers Qwen3-1.7B at T = 1, 4, 8, 9 and 16 with 4,096 context, not every T from 4 to 16 and not 16k. The post-prefill penalty is measured. That memory clocks cause it is a hypothesis.
+
+## 2026-11-11: Optimizing the small-query attention kernel (E2)
+
+The targets were written in [the decode thread](research/program/threads/mps-decode.md) ("E2") before the work. Workflow agents optimized the kernel, two reviewers attacked it, and a fix pass applied their findings. I reran the full suite on the final code: 773 kernel tests pass (`.venv-decode`). Raw data is in [2026-11-11-E2/](review/2026-11-11-E2/).
+
+**What changed.** The default is now a row-vector path (`sqa_vec`): no simdgroup matrices, no threadgroup memory and no barriers. Each simdgroup takes its own key chunk, with 8 lanes per key and an fp32 dot product. Rows are spread one per simdgroup over up to 8 simdgroups that read the same keys. The matrix path from experiment E stays selectable as a config, which is how the paired comparison below runs in the same process. A probe first measured what the hardware allows: a pure load over 28 separate caches reads 250 to 330 GB/s. The new kernel reaches 160 to 290 GB/s at T = 1 and 2 with 4,096 to 16,384 keys.
+
+**Isolated attention**, 28 separate caches. Six processes were gated on a quiet machine, because another project's CPU-bound jobs had saturated 8 to 9 of the 10 cores earlier and made the first measurements noisy. Paired per-round ratio, median:
+
+| keys | T | over stock SDPA (`enable_gqa`, bool mask) | over stock with transformers' fp16 mask | over experiment E's kernel |
+|---|---|---|---|---|
+| 4,096 | 1 | 1.08 | 0.96 | 2.09 |
+| 4,096 | 2 | 1.50 | 1.39 | 2.10 |
+| 4,096 | 4 / 5 / 8 | 1.80 / 2.01 / 2.11 | 1.70 / 1.86 / 2.04 | 1.39 / 1.72 / 1.28 |
+| 4,096 | 9 / 12 / 16 | 10.8 / 9.4 / 7.7 | 10.7 / 9.3 / 7.6 | 1.62 / 1.42 / 1.17 |
+| 16,384 | 1 / 2 | 1.02 / 1.39 | 0.98 / 1.34 | 1.92 / 1.92 |
+| 16,384 | 4 / 8 | 1.83 / 2.24 | 1.80 / 2.21 | 1.41 / 1.28 |
+| 16,384 | 9 / 16 | 13.2 / 9.1 | 13.2 / 9.1 | 1.68 / 1.16 |
+
+**Whole model**: Qwen3-1.7B, compiled plus multi-row, verify forward measured with `--rewind`, three rounds, medians in ms. Stock is compiled plus multi-row with stock SDPA. Here the kernel arm uses the kernel at every T, including 1 to 3, to test the threshold.
+
+| T | 4,096 stock | kernel | ratio range | 16,384 stock | kernel | ratio range |
+|---|---|---|---|---|---|---|
+| 1 | 14.9 | 16.3 | 0.91–0.96 | 19.2 | 19.8 | 0.95–0.98 |
+| 2 | 20.6 | 21.9 | 0.92–1.03 | 27.7 | 25.6 | 0.99–1.09 |
+| 4 | 24.2 | 21.5 | 1.05–1.14 | 34.0 | 28.0 | 1.19–1.26 |
+| 8 | 28.1 | 24.4 | 1.10–1.22 | 49.1 | 33.4 | 1.45–1.47 |
+| 9 | 81.4 | 25.6 | **3.15–3.20** | 253.8 | 37.0 | **6.81–6.94** |
+| 16 | 80.0 | 28.6 | **2.68–2.82** | 262.2 | 46.4 | **5.40–5.65** |
+
+A/A pairs stayed within 6%. Against experiment E's kernel, measured separately, the new kernel is up to 1.16x faster at 4,096 and up to 1.34x at 16,384. A same-process recheck found ties at T = 8 (4,096) and at T = 16.
+
+**Against the targets.**
+- **T = 1 and 2 at stock parity:** met in isolation against the boolean mask. The near-tie at T = 1 against transformers' fp16 mask (0.96x) is a miss.
+- **The purpose behind that target, one path for every decode step:** missed. In the whole model, T = 1 through the kernel is 4 to 9% slower in every round, probably because of a fixed cost of about 0.7 to 1 ms per step on the custom-op path (cause not established). So the threshold stays at 4, and T = 1 to 3 run stock. A T = 1 opt-in exists for benchmarks only. It is unsafe for models that index their mask (Falcon, Doge), and its docstring says so.
+- **T = 4 to 8 at 1.3x or better:** met in isolation (1.7x to 2.1x). In the whole model the gain is 1.05x to 1.22x at 4,096 and 1.2x to 1.5x at 16,384. Linears and everything else dilute it.
+- **T = 9 to 16 no worse than E:** met, and improved by 1.2x to 1.7x in isolation.
+- **Correctness:** met. Every test passes under the fixed rule, none weakened, and new planted faults are caught. Rollback still passes, and both planted faults still fail it.
+
+**Review notes kept.** Two mutants still survive the suite: raising the vector path's lazy-max slack from 8 to 120, and removing the device entry's upper clamp on pos. Under very sharp logits outside the suite's extreme cases, both the new path and E's path exceed the fixed error rule against float64; this is not a regression. Both are recorded as gaps rather than fixed.
+
+**Upstream.** The PyTorch issue draft (`docs/upstream/pytorch-mps-sdpa-small-query-cliff.md`) is ready for Rob's review. It leads its suggested fix with PyTorch #201747, a split-K change for the SDPA prefill kernels that closed without landing on 2026-10-24, and asks why. Its standalone repro (`bench/repro_mps_sdpa_small_query.py`) shows T = 9 over T = 8 at 3.2x (1,024 keys), 6.0x (4,096) and 7.5x (16,384) with fp16 and `enable_gqa`. The routing is unchanged on PyTorch main as of 2026-11-11. The transformers draft is marked do-not-post, because 5.20.0 already fixes it.

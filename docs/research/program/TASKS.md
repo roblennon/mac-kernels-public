@@ -8,7 +8,7 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - **Compile plus the multi-row kernel:** about 2x decode at batches 8 to 16.
 - **Prompt-lookup speculation:** 2.9x to 3.3x on whole-file edits, with exact output. On the Kaggle T4 it shipped and gives +16% on real agent traffic.
 - **The small-query attention kernel:** removes PyTorch's attention cliff above 8 query rows; whole-model verify is 2.7x faster at 4k context and 5.1x at 16k.
-- **In progress:** kernel optimization (E2) and two upstream issue drafts. Behavioural cards are set aside in `QUEUE.md`.
+- **Optimized (E2):** the kernel was optimized and the PyTorch issue drafted; it waits for Rob's review. Behavioural cards are set aside in `QUEUE.md`.
 
 ## Waiting on Rob
 
@@ -18,7 +18,7 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - train-scaffolds step 2: days of unattended Mac time.
 - Whether these research files go public. The repository is public once pushed, and the docs name his private projects. Local main is 53+ commits ahead of origin.
 - Before that push, the history must be rewritten. On 2026-11-11 one set-aside card and its mentions moved to the private mac-kernels repo (Rob's direction), but their text is still in the unpushed commits. The private repo's TASKS.md has the procedure. Don't push until it's done.
-- The two upstream issue drafts (`docs/upstream/pytorch-mps-sdpa-small-query-cliff.md`, `docs/upstream/transformers-static-cache-compile-graph-break.md`): review, then post or not. Posting is public.
+- The PyTorch issue draft (`docs/upstream/pytorch-mps-sdpa-small-query-cliff.md`): review, then post or not. Posting is public, and it should link the repro and the prototype from a public place, so it depends on the publication decision above. The transformers draft is not for posting, because 5.20.0 fixed the bug.
 - Colab login; the gaming PC's GPU model. Kaggle works from the Studio through its API token, but the 30-hour weekly GPU quota is shared with `kaggle-qwen-serve` and model-research-lab, so check kaggle.com/settings before planning a run.
 - Rotate the Modal token pasted in chat on 2026-11-09; delete the Modal Volume `mac-kernels-weight-error` (about 27 GB) when done with it.
 
@@ -30,8 +30,9 @@ Rob redirected the programme toward training, fine-tuning, inference, attention,
 - [x] Kaggle T4 server: the Orca 27B fits both T4s with `-sm tensor` at 262144 context, 49-58 tok/s on edits and 22-25 on free writing (2026-11-10, kaggle-qwen-serve EVIDENCE.md, tune-27b v1); `serve.py` defaults to it, with an idle shutdown
 - [ ] Kaggle T4 server, after the 2026-11-14 quota refresh: run `tune-27b-replay` (200K-class depth, tunnel cut, prefill batch, real traffic), then serve the 27B; owned by kaggle-qwen-serve's CHECKPOINTS.md
 - [x] Experiment E (2026-11-11): small-query attention kernel (`bench/smallq_attention.*`, `bench/smallq_hf.py`), reviewed by workflow agents and Sol, fixes applied; findings log "A small-query attention kernel removes the 9-row cliff"
-- [ ] E2: optimize the kernel against the targets in the thread (T = 1 to 2 at stock parity, 4 to 8 at 1.3x or better); running as a workflow on 2026-11-11
-- [ ] Upstream drafts for PyTorch (the cliff) and transformers (the compiled graph break), with repro scripts; drafting on 2026-11-11, then Rob's review
+- [x] E2 (2026-11-11): row-vector kernel path. Isolated: T = 4 to 8 at 1.7x to 2.1x and T = 9 to 16 at 7.7x to 13x over stock. Whole model at T = 9 to 16: 2.7x to 3.2x faster at 4k and 5.4x to 6.9x at 16k. The T = 1 single-path aim was missed, so the threshold stays at 4. Findings log, "Optimizing the small-query attention kernel (E2)".
+- [ ] The small-T custom-op cost (about 0.7 to 1 ms per step), and the two surviving mutants (vector-path slack, the pos upper clamp)
+- [x] Upstream drafts (2026-11-11). PyTorch: ready for Rob. transformers: already fixed in 5.20.0, so not filed.
 - [ ] Scale folding (experiment C's other half) and the verified-rewrite design's next stage
 - [x] Subject gates reviewed by Sol for needless slowness and weakness; 141 changes applied across 23 cards, 20 points rejected with reasons
 - [ ] Parked cards owe searches: self-training-37, nested-bitplanes (paired-metric-floor's park was confirmed by a second reader).
